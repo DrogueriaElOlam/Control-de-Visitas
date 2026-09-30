@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>CONTROL DE VISITAS DIARIA - Karina Pineda</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 25px; color: #1e293b; background: #fff; margin: 0; }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      border-bottom: 3px solid #1e40af;
+      padding-bottom: 15px;
+      position: relative;
+    }
+    .top-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-bottom: 15px;
+      padding: 12px;
+      background: #f1f5f9;
+      border-radius: 10px;
+    }
+    .action-btn {
+      background: #1e40af;
+      color: white;
+      border: none;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .action-btn:hover { background: #1d4ed8; }
+    .logo {
+      max-width: 150px;
+      height: auto;
+      margin: 0 auto 10px;
+      display: block;
+    }
+    h1 { color: #1e40af; text-align: center; margin: 5px 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+    h2 { color: #1e40af; text-align: center; margin-top: 0; font-size: 16px; font-weight: 600; text-transform: uppercase; }
+    .info { 
+      margin: 20px 0; 
+      background: #f8fafc; 
+      border: 1px solid #e2e8f0; 
+      padding: 16px 22px; 
+      border-radius: 12px; 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); 
+      gap: 14px;
+    }
+    .info p { margin: 0; font-size: 13px; color: #334155; }
+    .info strong { font-weight: 700; color: #0f172a; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 8.5px; }
+    th { background: #1e40af; color: white; padding: 7px 4px; text-align: left; font-size: 8.5px; font-weight: bold; text-transform: uppercase; }
+    td { border: 1px solid #cbd5e1; padding: 6px 4px; font-size: 8.5px; }
+    tr:nth-child(even) { background: #f8fafc; }
+    .totals { background: #dbeafe !important; font-weight: bold; font-size: 11px; }
+    .summary { background: #eff6ff; border: 1px solid #bfdbfe; padding: 18px; border-radius: 12px; margin: 20px 0; }
+    .summary h3 { margin: 0 0 12px 0; color: #1e40af; font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .summary-item { text-align: center; padding: 10px 8px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .summary-item .label { font-size: 10px; color: #64748b; display: block; margin-bottom: 4px; font-weight: 600; text-transform: uppercase; }
+    .summary-item .value { font-size: 14px; font-weight: 800; color: #1e40af; }
+    .charts-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin: 20px 0;
+      page-break-inside: avoid;
+    }
+    .chart-box {
+      background: white;
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      text-align: center;
+    }
+    .chart-box h3 {
+      color: #1e40af;
+      margin: 0 0 10px 0;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    canvas {
+      max-height: 200px !important;
+      width: 100% !important;
+    }
+    .goal-chart {
+      background: white;
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      margin: 20px auto;
+      max-width: 600px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+      page-break-inside: avoid;
+    }
+    .goal-chart h3 {
+      color: #1e40af;
+      margin: 0 0 12px 0;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .currency { font-weight: bold; }
+    .coord-link {
+      color: #2563eb;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 7.5px;
+    }
+    .footer {
+      margin-top: 30px;
+      padding-top: 15px;
+      border-top: 1px solid #e2e8f0;
+      text-align: center;
+      font-size: 10px;
+      color: #94a3b8;
+    }
+    @media print {
+      body { padding: 5px; }
+      .no-print { display: none !important; }
+      .goal-chart, .charts-container { page-break-inside: avoid; }
+      table { page-break-inside: auto; }
+      tr { page-break-inside: avoid; page-break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-actions no-print">
+    <button class="action-btn" onclick="window.print()">🖨️ Imprimir / Guardar en PDF</button>
+  </div>
+
+  <div class="header">
+    <img src="/logo.png" alt="Droguería El Olam" class="logo" />
+    <h1>DROGUERÍA EL OLAM</h1>
+    <h2>CONTROL DE VISITAS DIARIA</h2>
+  </div>
+  
+  <div class="info">
+    <p><strong>Vendedor:</strong> Karina Pineda</p>
+    <p><strong>Ruta / Gira:</strong> Chiquimula II #63</p>
+    <p><strong>Fecha:</strong> 2026-09-24</p>
+    <p><strong>Meta del Equipo:</strong> <span class="currency">Q50,000.00</span></p>
+    <p><strong>Compromiso de Venta:</strong> <span class="currency">Q17,000.00</span></p>
+    <p><strong>Efectividad en Ruta:</strong> <span class="currency" style="color:#059669;">100.0%</span></p>
+  </div>
+
+  <h3 style="color:#1e40af; margin-bottom:8px; font-size:14px; font-weight:800;">DETALLE DE VISITAS (10 Registros)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Cliente</th>
+        <th>Sector</th>
+        <th>Tipo Visita</th>
+        <th>Tipo Cliente</th>
+        <th>Horario</th>
+        <th>Venta</th>
+        <th>Tipo Venta</th>
+        <th>Monto Venta</th>
+        <th>Cobro</th>
+        <th>Tipo Cobro</th>
+        <th>Monto Cobro</th>
+        <th>Observ.</th>
+        <th>Coordenadas</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>5259</td>
+        <td><strong>Farmacia Yaneth</strong></td>
+        <td>Jalapa #62</td>
+        <td>Telemarket.</td>
+        <td>Propio</td>
+        <td>AM</td>
+        <td>No</td>
+        <td>No Compró</td>
+        <td class="currency">Q0.00</td>
+        <td>Sí</td>
+        <td>Transferencia</td>
+        <td class="currency">Q1,000.00</td>
+        <td>Canceló con deposito</td>
+        <td><a href="https://www.google.com/maps?q=14.800632,-89.540262" target="_blank" class="coord-link">14.800632, -89.540262</a></td>
+      </tr>
+      <tr>
+        <td>2134</td>
+        <td><strong>Mariela Lilibeth Agustín</strong></td>
+        <td>Chiquimula I #61</td>
+        <td>Presencial</td>
+        <td>Propio</td>
+        <td>AM</td>
+        <td>No</td>
+        <td>No Compró</td>
+        <td class="currency">Q0.00</td>
+        <td>Sí</td>
+        <td>Transferencia</td>
+        <td class="currency">Q1,670.75</td>
+        <td>Canceló con deposito</td>
+        <td><a href="https://www.google.com/maps?q=14.800635,-89.540268" target="_blank" class="coord-link">14.800635, -89.540268</a></td>
+      </tr>
+      <tr>
+        <td>331</td>
+        <td><strong>Marisol González</strong></td>
+        <td>Jalapa #62</td>
+        <td>Presencial</td>
+        <td>Propio</td>
+        <td>AM</td>
+        <td>No</td>
+        <td>No Compró</td>
+        <td class="currency">Q0.00</td>
+        <td>Sí</td>
+        <td>Transferencia</td>
+        <td class="currency">Q1,133.55</td>
+        <td>Canceló con deposito</td>
+        <td><a href="https://www.google.com/maps?q=14.800598,-89.540258" target="_blank" class="coord-link">14.800598, -89.540258</a></td>
+      </tr>
+      <tr>
+        <td>2817</td>
+        <td><strong>Blue médica</strong></td>
+        <td>#64 y #65</td>
+        <td>Presencial</td>
+        <td>Propio</td>
+        <td>AM</td>
+        <td>Sí</td>
+        <td>Presencial</td>
+        <td class="currency">Q845.45</td>
+        <td>No</td>
+        <td>No Pagó</td>
+        <td class="currency">Q0.00</td>
+        <td>Realizó pedido</td>
+        <td><a href="https://www.google.com/maps?q=14.800647,-89.540272" target="_blank" class="coord-link">14.800647, -89.540272</a></td>
+      </tr>
+      <tr>
+        <td>5273</td>
+        <td><strong>Ingrid Moscoso</strong></td>
+        <td>Jalapa #62</td>
+        <td>Presencial</td>
+        <td>Propio</td>
+        <td>AM</td>
+        <td>Sí</td>
+        <td>Presencial</td>
+        <td class="currency">Q7,600.00</td>
+        <td>No</td>
+        <td>No Pagó</td>
+        <td class="currency">Q0.00</td>
+        <td>Realizó pedido</td>
+        <td><a href="https://www.google.com/maps?q=14.800629,-89.540269" target="_blank" class="coord-link">14.800629, -89.540269</a></td>
+      </tr>
+      <tr>
+        <td>1323</td>
+        <td><strong>Centro médico el nazareno</strong></td>
+        <td>Chiquimula II #63</td>
+        <td>Presencial</td>
+        <td>Propio</td>
+        <td>AM</td>
+        <td>Sí</td>
+        <td>Presencial</td>
+        <td class="currency">Q1,413.75</td>
+        <td>No</td>
+        <td>No Pagó</td>
+        <td class="currency">Q0.00</td>
+        <td>Realizó</td>
+        <td><a href="https://www.google.com/maps?q=14.800631,-89.540266" target="_blank" class="coord-link">14.800631, -89.540266</a></td>
+      </tr>
+      <tr>
+        <td>338</td>
+        <td><strong>Farmacia Eben-Ezer</strong></td>
+        <td>Chiquimula II #63</td>
+        <td>Presencial</td>
+        <td>Propio</td>
+        <td>PM</td>
+        <td>No</td>
+        <td>No Compró</td>
+        <td class="currency">Q0.00</td>
+        <td>Sí</td>
+        <td>Cheque</td>
+        <td class="currency">Q3,935.14</td>
+        <td>Canceló con cheque prefechado</td>
+        <td><a href="https://www.google.com/maps?q=14.800641,-89.540269" target="_blank" class="coord-link">14.800641, -89.540269</a></td>
+      </tr>
+      <tr>
+        <td>331</td>
+        <td><strong>Marisol González</strong></td>
+        <td>Jalapa #62</td>
+        <td>Telemarket.</td>
+        <td>Propio</td>
+        <td>PM</td>
+        <td>Sí</td>
+        <td>Telemarket.</td>
+        <td class="currency">Q1,447.76</td>
+        <td>No</td>
+        <td>No Pagó</td>
+        <td class="currency">Q0.00</td>
+        <td>Realizó pedido</td>
+        <td><span style="color:#94a3b8">Sin coordenadas</span></td>
+      </tr>
+      <tr>
+        <td>2971</td>
+        <td><strong>Droguería Alegría</strong></td>
+        <td>#64 y #65</td>
+        <td>Telemarket.</td>
+        <td>Propio</td>
+        <td>PM</td>
+        <td>Sí</td>
+        <td>Telemarket.</td>
+        <td class="currency">Q2,567.56</td>
+        <td>No</td>
+        <td>No Pagó</td>
+        <td class="currency">Q0.00</td>
+        <td>Realizó pedido</td>
+        <td><a href="https://www.google.com/maps?q=14.800636,-89.540268" target="_blank" class="coord-link">14.800636, -89.540268</a></td>
+      </tr>
+      <tr>
+        <td>4124</td>
+        <td><strong>Permanencia Médica</strong></td>
+        <td>#64 y #65</td>
+        <td>Telemarket.</td>
+        <td>Propio</td>
+        <td>PM</td>
+        <td>Sí</td>
+        <td>Telemarket.</td>
+        <td class="currency">Q12,300.00</td>
+        <td>No</td>
+        <td>No Pagó</td>
+        <td class="currency">Q0.00</td>
+        <td>Realizó pedido</td>
+        <td><a href="https://www.google.com/maps?q=14.800627,-89.540261" target="_blank" class="coord-link">14.800627, -89.540261</a></td>
+      </tr>
+      <tr class="totals">
+        <td colspan="8" style="text-align: right; padding-right:8px;">TOTAL VENTAS:</td>
+        <td class="currency">Q26,174.52</td>
+        <td colspan="2" style="text-align: right; padding-right:8px;">TOTAL COBROS:</td>
+        <td class="currency">Q7,739.44</td>
+        <td colspan="2"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="summary">
+    <h3>RESUMEN GENERAL Y MÉTRICAS DE EVALUACIÓN</h3>
+    <div class="summary-grid">
+      <div class="summary-item">
+        <span class="label">Clientes Visitados</span>
+        <span class="value">6</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Clientes Nuevos</span>
+        <span class="value">0</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Pedidos Personalmente</span>
+        <span class="value">3</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Pedidos por Teléfono</span>
+        <span class="value">3</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Cobros en Efectivo</span>
+        <span class="value currency">Q0.00</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Boletas / Depósitos</span>
+        <span class="value currency">Q0.00</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Cobros Transferencia</span>
+        <span class="value currency">Q3,804.30</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Cobros con Cheque</span>
+        <span class="value currency">Q3,935.14</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Llamadas (Telemarketing)</span>
+        <span class="value">4</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Total Visitas</span>
+        <span class="value">10</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Visitas Efectivas</span>
+        <span class="value">10 (100.0%)</span>
+      </div>
+      <div class="summary-item">
+        <span class="label">Total Recaudado</span>
+        <span class="value currency" style="color:#059669;">Q7,739.44</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="goal-chart">
+    <h3>CUMPLIMIENTO DE COMPROMISO DE VENTA</h3>
+    <canvas id="goalChart" height="90"></canvas>
+    <div style="text-align: center; margin-top: 12px; font-size: 12px;">
+      <strong>Compromiso:</strong> <span class="currency">Q17,000.00</span> | 
+      <strong>Alcanzado:</strong> <span class="currency">Q26,174.52</span> | 
+      <strong style="color: #059669; font-size:13px;">
+        ✓ Meta Cumplida (154.0%)
+      </strong>
+    </div>
+  </div>
+
+  <div class="charts-container">
+    <div class="chart-box">
+      <h3>COBROS POR SECTOR</h3>
+      <canvas id="collectionsChart"></canvas>
+    </div>
+    <div class="chart-box">
+      <h3>VENTAS POR SECTOR</h3>
+      <canvas id="salesChart"></canvas>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Documento Oficial Generado por el Sistema de Control de Rendimiento • Droguería El Olam • Fecha de Emisión: 2026-09-25</p>
+  </div>
+
+  <script>
+    const goalCtx = document.getElementById('goalChart').getContext('2d');
+    new Chart(goalCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Compromiso de Venta', 'Monto Alcanzado'],
+        datasets: [{
+          data: [17000, 26174.52],
+          backgroundColor: ['#3b82f6', '#10b981'],
+          borderColor: ['#1e40af', '#059669'],
+          borderWidth: 2,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return 'Q' + context.parsed.x.toLocaleString('es-GT', { minimumFractionDigits: 2 });
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return 'Q' + value.toLocaleString('es-GT');
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const collectionsCtx = document.getElementById('collectionsChart').getContext('2d');
+    new Chart(collectionsCtx, {
+      type: 'pie',
+      data: {
+        labels: ["Jalapa #62", "Chiquimula II #63", "Chiquimula I #61", "#64 y #65"],
+        datasets: [{
+          data: [2133.55, 3935.14, 1670.75, 0],
+          backgroundColor: ["#1e40af", "#10b981", "#f59e0b", "#ef4444"],
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverOffset: 12
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 9 }, padding: 8 } },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const val = context.parsed;
+                const percentage = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                return context.label + ': Q' + val.toLocaleString('es-GT', { minimumFractionDigits: 2 }) + ' (' + percentage + '%)';
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const salesCtx = document.getElementById('salesChart').getContext('2d');
+    new Chart(salesCtx, {
+      type: 'pie',
+      data: {
+        labels: ["Jalapa #62", "Chiquimula II #63", "Chiquimula I #61", "#64 y #65"],
+        datasets: [{
+          data: [9047.76, 1413.75, 0, 15713.01],
+          backgroundColor: ["#1e40af", "#10b981", "#f59e0b", "#ef4444"],
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverOffset: 12
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 9 }, padding: 8 } },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const val = context.parsed;
+                const percentage = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                return context.label + ': Q' + val.toLocaleString('es-GT', { minimumFractionDigits: 2 }) + ' (' + percentage + '%)';
+              }
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
