@@ -23,7 +23,8 @@ import {
   Plus,
   Navigation,
   Save,
-  Clock
+  Clock,
+  FileCode
 } from 'lucide-react';
 import { addVisitRecord, ALL_ROUTES } from '../lib/db';
 import { LOGO_DATA_URI, LOGO_URL } from '../lib/logo';
@@ -866,6 +867,38 @@ export default function VendorReportModal({
 </html>`;
   };
 
+  // Helper to generate exact file name: Reporte_Visitas_[NombreVendedor]_[Fecha].html
+  const getHtmlFileName = () => {
+    const rawVendor = selectedVendorName || currentUser?.name || 'Vendedor';
+    const cleanVendor = rawVendor
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // remove accents for safe filename
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '');
+    
+    return `Reporte_Visitas_${cleanVendor}_${todayStr}.html`;
+  };
+
+  // Auto-download standalone HTML file
+  const handleDownloadHTML = () => {
+    try {
+      const html = buildReportHTML();
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = getHtmlFileName();
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      console.error('Error al autodescargar reporte HTML:', e);
+      alert('Error al autodescargar el reporte en HTML');
+    }
+  };
+
   // Open the printable HTML report in a new browser window
   const handlePrintHTML = () => {
     const html = buildReportHTML();
@@ -1029,15 +1062,27 @@ export default function VendorReportModal({
               </div>
             </div>
 
-            {/* Quick Button to Enter a New Visit Right on this Report */}
-            <button
-              type="button"
-              onClick={() => setShowQuickForm(!showQuickForm)}
-              className="flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all whitespace-nowrap self-start sm:self-center"
-            >
-              <Plus size={14} />
-              <span>{showQuickForm ? 'Ocultar Formulario' : '+ Ingresar Visita al Reporte'}</span>
-            </button>
+            {/* Quick Action Buttons */}
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+              <button
+                type="button"
+                onClick={handleDownloadHTML}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm transition-all whitespace-nowrap"
+                title={`Descargar archivo HTML: ${getHtmlFileName()}`}
+              >
+                <FileCode size={14} />
+                <span>Descargar HTML</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowQuickForm(!showQuickForm)}
+                className="flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all whitespace-nowrap"
+              >
+                <Plus size={14} />
+                <span>{showQuickForm ? 'Ocultar Formulario' : '+ Ingresar Visita'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Inline Quick Visit Form (Allows vendor to fill report rows on the fly) */}
@@ -1619,13 +1664,24 @@ export default function VendorReportModal({
             <span>🔒 Datos 100% persistidos en Supabase • Reporte listo para imprimir o enviar en PDF</span>
           </div>
 
-          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
             <button
               type="button"
               onClick={onClose}
               className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs sm:text-sm font-bold transition-all"
             >
               Cerrar
+            </button>
+
+            {/* BOTÓN NUEVO: Descargar HTML con Nombre y Fecha */}
+            <button
+              type="button"
+              onClick={handleDownloadHTML}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-orange-500/20 transition-all"
+              title={`Descargar archivo: ${getHtmlFileName()}`}
+            >
+              <FileCode size={16} />
+              <span>Descargar HTML</span>
             </button>
 
             <button
