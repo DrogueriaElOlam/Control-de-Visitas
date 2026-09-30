@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { 
   FileText, 
   Calendar, 
@@ -855,32 +857,28 @@ export default function VendorReportModal({
             }
           }
         }
-      }
-    });
-
-    // Auto-trigger print dialog after small rendering timeout
-    setTimeout(() => {
-      window.print();
-    }, 900);
   </script>
 </body>
 </html>`;
   };
 
-  // Helper to generate exact file name: Reporte_Visitas_[NombreVendedor]_[Fecha].html
-  const getHtmlFileName = () => {
+  // Helper to generate clean vendor name
+  const getCleanVendorName = () => {
     const rawVendor = selectedVendorName || currentUser?.name || 'Vendedor';
-    const cleanVendor = rawVendor
+    return rawVendor
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '') // remove accents for safe filename
       .trim()
       .replace(/\s+/g, '_')
       .replace(/[^a-zA-Z0-9_-]/g, '');
-    
-    return `Reporte_Visitas_${cleanVendor}_${todayStr}.html`;
   };
 
-  // Auto-download standalone HTML file
+  const cleanVendor = getCleanVendorName();
+
+  // Helper to generate exact file name: Reporte_Visitas_[NombreVendedor]_[Fecha].html
+  const getHtmlFileName = () => `Reporte_Visitas_${cleanVendor}_${todayStr}.html`;
+
+  // Auto-download standalone HTML file directly
   const handleDownloadHTML = () => {
     try {
       const html = buildReportHTML();
@@ -899,7 +897,101 @@ export default function VendorReportModal({
     }
   };
 
-  // Open the printable HTML report in a new browser window
+  // Auto-download standalone PDF file directly
+  const handleDownloadPDF = () => {
+    if (filteredVisits.length === 0) {
+      alert('No hay visitas registradas para el período y vendedor seleccionados.');
+      return;
+    }
+
+    try {
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+      // Header Banner (Droguería El Olam Deep Blue)
+      doc.setFillColor(30, 58, 138);
+      doc.rect(0, 0, 297, 24, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('DROGUERÍA EL OLAM', 14, 11);
+
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Control Diario de Visitas & Rendimiento en Ruta', 14, 17);
+
+      doc.setFontSize(8.5);
+      doc.text(`Fecha de Emisión: ${todayStr}`, 235, 11);
+      doc.text(`Vendedor: ${selectedVendorName}`, 235, 17);
+
+      // Summary Strip
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(
+        `Ruta: ${routeInput}   |   Período: ${dateRangeText}   |   Ventas: Q${metrics.totalSales.toFixed(2)}   |   Cobros: Q${metrics.totalCollections.toFixed(2)}   |   Efectivas: ${metrics.effectiveVisits}/${metrics.totalVisits} (${metrics.effectivenessPercent}%)`,
+        14,
+        30
+      );
+
+      // Table data
+      const tableData = filteredVisits.map((v, i) => {
+        const sVal = Number(v.saleAmount) || 0;
+        const cVal = Number(v.collectionAmount) || 0;
+        return [
+          i + 1,
+          v.visitDate || '',
+          v.clientCode || '0000',
+          v.clientName || 'Cliente',
+          v.sector || v.route || '',
+          (v.visitType || 'presencial').toUpperCase(),
+          (v.clientType || 'propio').toUpperCase(),
+          (v.dayPeriod || 'AM').toUpperCase(),
+          sVal > 0 ? `Q${sVal.toFixed(2)}` : '—',
+          cVal > 0 ? `Q${cVal.toFixed(2)}` : '—',
+          v.observations || '—'
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 34,
+        head: [['#', 'Fecha', 'Cód.', 'Cliente', 'Sector / Gira', 'Modalidad', 'Tipo', 'Horario', 'Venta', 'Cobro', 'Observaciones']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [30, 58, 138],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 7.5
+        },
+        styles: {
+          fontSize: 7,
+          cellPadding: 2
+        },
+        columnStyles: {
+          0: { cellWidth: 8 },
+          1: { cellWidth: 20 },
+          2: { cellWidth: 15 },
+          3: { cellWidth: 55 },
+          4: { cellWidth: 30 },
+          5: { cellWidth: 20 },
+          6: { cellWidth: 16 },
+          7: { cellWidth: 15 },
+          8: { cellWidth: 24, halign: 'right' },
+          9: { cellWidth: 24, halign: 'right' },
+          10: { cellWidth: 55 }
+        }
+      });
+
+      const pdfFileName = `Reporte_Visitas_${cleanVendor}_${todayStr}.pdf`;
+      doc.save(pdfFileName);
+    } catch (e) {
+      console.error('Error al generar PDF:', e);
+      alert('Error al generar el archivo PDF');
+    }
+  };
+
+  // Open printable HTML in browser
   const handlePrintHTML = () => {
     const html = buildReportHTML();
     const printWin = window.open('', '_blank');
@@ -994,8 +1086,8 @@ export default function VendorReportModal({
       wsDetail['!cols'] = Object.keys(detailRows[0] || {}).map(k => ({ wch: Math.max(k.length + 3, 14) }));
       XLSX.utils.book_append_sheet(wb, wsDetail, 'Detalle_Visitas');
 
-      const safeVendor = selectedVendorName.replace(/\s+/g, '_');
-      const fileName = `Reporte_${periodType.toUpperCase()}_${safeVendor}_${todayStr}.xlsx`;
+      // Clean filename without "CUSTOM"
+      const fileName = `Reporte_Visitas_${cleanVendor}_${todayStr}.xlsx`;
       XLSX.writeFile(wb, fileName);
     } catch (e) {
       console.error(e);
@@ -1064,6 +1156,16 @@ export default function VendorReportModal({
 
             {/* Quick Action Buttons */}
             <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+              <button
+                type="button"
+                onClick={handleDownloadPDF}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition-all whitespace-nowrap"
+                title={`Descargar archivo PDF: Reporte_Visitas_${cleanVendor}_${todayStr}.pdf`}
+              >
+                <FileText size={14} />
+                <span>Descargar PDF</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleDownloadHTML}
@@ -1673,33 +1775,48 @@ export default function VendorReportModal({
               Cerrar
             </button>
 
-            {/* BOTÓN NUEVO: Descargar HTML con Nombre y Fecha */}
+            {/* BOTÓN 1: Descargar PDF Directo */}
+            <button
+              type="button"
+              onClick={handleDownloadPDF}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-red-500/25 transition-all"
+              title={`Descargar archivo PDF: Reporte_Visitas_${cleanVendor}_${todayStr}.pdf`}
+            >
+              <FileText size={16} />
+              <span>Descargar PDF</span>
+            </button>
+
+            {/* BOTÓN 2: Descargar HTML con Nombre y Fecha */}
             <button
               type="button"
               onClick={handleDownloadHTML}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-orange-500/20 transition-all"
-              title={`Descargar archivo: ${getHtmlFileName()}`}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-orange-500/25 transition-all"
+              title={`Descargar archivo HTML: ${getHtmlFileName()}`}
             >
               <FileCode size={16} />
               <span>Descargar HTML</span>
             </button>
 
+            {/* BOTÓN 3: Descargar Excel (.xlsx) */}
             <button
               type="button"
               onClick={handleExportExcel}
               className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-emerald-500/20 transition-all"
+              title={`Descargar archivo Excel: Reporte_Visitas_${cleanVendor}_${todayStr}.xlsx`}
             >
               <Download size={16} />
-              <span>Exportar Excel (.xlsx)</span>
+              <span>Descargar Excel</span>
             </button>
 
+            {/* BOTÓN 4: Imprimir en Navegador */}
             <button
               type="button"
               onClick={handlePrintHTML}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-500/25 transition-all"
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-xs sm:text-sm font-bold transition-all"
+              title="Abrir vista de impresión / diálogo"
             >
               <Printer size={16} />
-              <span>Imprimir / Guardar en PDF</span>
+              <span>Imprimir</span>
             </button>
           </div>
         </div>
