@@ -5,7 +5,7 @@
 - Las opciones que se le presentan al usuario para seleccionar deben estar redactadas en español.
 - Todos los textos de la interfaz, botones y reportes deben estar en español.
 
-## 2. Flujo de Trabajo y Despliegue Autónomo
-- **Autorización total:** El agente cuenta con autorización completa para ejecutar comandos, compilar, hacer commit y publicar/desplegar en GitHub y Vercel directamente sin pedir confirmaciones adicionales.
-- Proceder de forma ágil y proactiva, manteniendo el sistema validado y desplegado.
+## 2. Flujo de Trabajo en Desarrollo y Publicación
+- **Desarrollo en Localhost:** Trabajar e implementar todas las funciones directamente en `localhost:3000` con total autonomía (ejecutar comandos, modificar archivos, compilar y probar sin pedir permisos molestos).
+- **Publicación a la Red (GitHub y Vercel):** Se procederá a subir a GitHub y desplegar en Vercel únicamente cuando el usuario lo solicite expresamente (ej: "publícalo").
 

@@ -601,7 +601,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                 >
                   {Array.from(new Set([...assignedVendorRoutes, sector, route].filter(Boolean))).map(r => (
                     <option key={r} value={r}>
-                      📍 {r}
+                      {r === 'Oficina' ? '🏢 Oficina' : `📍 ${r}`}
                     </option>
                   ))}
                 </select>
