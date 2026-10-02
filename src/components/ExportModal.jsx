@@ -10,8 +10,10 @@ import {
   Calendar, 
   User, 
   Building2,
-  Filter
+  Filter,
+  UserPlus
 } from 'lucide-react';
+import { exportNewClientsToExcel } from '../lib/newClientsExport';
 
 export default function ExportModal({ visits = [], vendors = [] }) {
   const [vendorFilter, setVendorFilter] = useState('all');
@@ -304,7 +306,7 @@ export default function ExportModal({ visits = [], vendors = [] }) {
       </div>
 
       {/* Export Action Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Excel Card */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
@@ -312,19 +314,48 @@ export default function ExportModal({ visits = [], vendors = [] }) {
             <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300 flex items-center justify-center mb-4">
               <FileSpreadsheet size={28} />
             </div>
-            <h4 className="text-lg font-black text-slate-900 dark:text-white">Formato Microsoft Excel (.xlsx)</h4>
+            <h4 className="text-lg font-black text-slate-900 dark:text-white">Formato Excel General (.xlsx)</h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Ideal para análisis de datos, tablas dinámicas, cálculo de comisiones y archivo contable detallado.
+              Ideal para análisis de datos, tablas dinámicas, cálculo de comisiones y archivo contable detallado de visitas.
             </p>
           </div>
 
           <button
             onClick={handleExportExcel}
             disabled={downloading}
-            className="mt-6 w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
+            className="mt-6 w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Download size={18} />
             <span>Descargar Archivo Excel</span>
+          </button>
+        </div>
+
+        {/* Clientes Nuevos Especial Card */}
+        <div className="bg-gradient-to-b from-teal-50/50 to-emerald-50/50 dark:from-slate-800 dark:to-slate-800 p-6 rounded-3xl border-2 border-teal-500/40 dark:border-teal-600/50 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden">
+          <div className="absolute top-3 right-3 bg-teal-500 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider">
+            Especial
+          </div>
+          <div>
+            <div className="w-12 h-12 rounded-2xl bg-teal-100 dark:bg-teal-950 text-teal-600 dark:text-teal-300 flex items-center justify-center mb-4">
+              <UserPlus size={28} />
+            </div>
+            <h4 className="text-lg font-black text-slate-900 dark:text-white">Reporte Clientes Nuevos (.xlsx)</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Filtra exclusivamente los registros ingresados como <strong>Cliente Nuevo</strong> en una tabla con diseño, ruta, modalidad y teléfonos.
+            </p>
+          </div>
+
+          <button
+            onClick={() => exportNewClientsToExcel(getExportData(), {
+              vendorName: vendorFilter !== 'all' ? vendorFilter : 'General',
+              generatedBy: 'Administración El Olam',
+              dateRange: dateFilter === 'custom' && startDate && endDate ? `${startDate} al ${endDate}` : null
+            })}
+            disabled={downloading}
+            className="mt-6 w-full py-3 px-4 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-sm shadow-lg shadow-teal-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <FileSpreadsheet size={18} />
+            <span>Descargar Clientes Nuevos</span>
           </button>
         </div>
 
@@ -343,7 +374,7 @@ export default function ExportModal({ visits = [], vendors = [] }) {
           <button
             onClick={handleExportPDF}
             disabled={downloading}
-            className="mt-6 w-full py-3 px-4 rounded-xl bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center gap-2"
+            className="mt-6 w-full py-3 px-4 rounded-xl bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm shadow-lg shadow-blue-900/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Download size={18} />
             <span>Descargar Reporte PDF</span>

@@ -463,6 +463,115 @@ export async function updateVendorCredentials(vendorId, { password, route, daily
   return updated;
 }
 
+// VISITS DEDUPLICATION & AUDIT HELPERS
+export function deduplicateVisitsList(list) {
+  if (!Array.isArray(list) || list.length === 0) return [];
+  const result = [];
+
+  for (const item of list) {
+    if (!item) continue;
+
+    const existingIndex = result.findIndex(r => {
+      // 1. Coincidencia idéntica de ID
+      if (r.id != null && item.id != null && String(r.id) === String(item.id)) return true;
+
+      // 2. Coincidencia de cloud_id
+      if (item.cloud_id != null) {
+        if (String(r.id) === String(item.cloud_id) || String(r.cloud_id) === String(item.cloud_id)) return true;
+      }
+      if (r.cloud_id != null && String(r.cloud_id) === String(item.id)) return true;
+
+      // 3. Coincidencia semántica: Mismo vendedor + Mismo cliente + Misma fecha de visita
+      const rVendor = (r.vendorName || '').trim().toLowerCase();
+      const iVendor = (item.vendorName || '').trim().toLowerCase();
+      const rClient = (r.clientName || '').trim().toLowerCase();
+      const iClient = (item.clientName || '').trim().toLowerCase();
+      const sameVendor = rVendor === iVendor;
+      const sameClient = rClient === iClient;
+      const sameDate = (r.visitDate || '').trim() === (item.visitDate || '').trim();
+
+      if (sameVendor && sameClient && sameDate) {
+        // Verificar si montos o sectores coinciden
+        const sameSale = Math.abs((Number(r.saleAmount) || 0) - (Number(item.saleAmount) || 0)) < 0.01;
+        const sameColl = Math.abs((Number(r.collectionAmount) || 0) - (Number(item.collectionAmount) || 0)) < 0.01;
+        
+        // O si las marcas de tiempo difieren en menos de 10 minutos
+        const timeR = new Date(r.recordedAt || r.timestamp || r.created_at || 0).getTime();
+        const timeI = new Date(item.recordedAt || item.timestamp || item.created_at || 0).getTime();
+        const closeInTime = (timeR && timeI) ? Math.abs(timeR - timeI) < 10 * 60 * 1000 : true;
+
+        if ((sameSale && sameColl) || closeInTime) {
+          return true;
+        }
+      }
+
+      return false;
+    });
+
+    if (existingIndex >= 0) {
+      // Si ya existe, conservar la versión más enriquecida (con cloud_id, sync, o ubicación)
+      const existing = result[existingIndex];
+      result[existingIndex] = {
+        ...existing,
+        ...item,
+        id: existing.cloud_id ? existing.id : (item.cloud_id ? item.id : existing.id),
+        cloud_id: existing.cloud_id || item.cloud_id || null,
+        synced: existing.synced || item.synced || !!(existing.cloud_id || item.cloud_id),
+        location: existing.location || item.location || null,
+        recordedDate: existing.recordedDate || item.recordedDate || (existing.created_at ? existing.created_at.split('T')[0] : null),
+        recordedAt: existing.recordedAt || item.recordedAt || existing.created_at || item.created_at || null
+      };
+    } else {
+      result.push(item);
+    }
+  }
+
+  return result.sort((a, b) => new Date(b.timestamp || b.created_at || b.visitDate) - new Date(a.timestamp || a.created_at || a.visitDate));
+}
+
+// Helper para detectar si un reporte fue grabado fuera de la fecha de visita
+export function getVisitLateStatus(visit) {
+  if (!visit) return { isLate: false, daysDiff: 0, recordedDate: null, visitDate: null };
+  const visitDate = (visit.visitDate || '').trim();
+  if (!visitDate || visitDate.length < 10) return { isLate: false, daysDiff: 0, recordedDate: null, visitDate };
+
+  let recordedStr = null;
+  if (visit.recordedDate) {
+    recordedStr = String(visit.recordedDate).split('T')[0];
+  } else if (visit.created_at) {
+    recordedStr = String(visit.created_at).split('T')[0];
+  } else if (visit.recordedAt) {
+    recordedStr = String(visit.recordedAt).split('T')[0];
+  } else if (visit.timestamp && typeof visit.timestamp === 'string') {
+    recordedStr = visit.timestamp.split('T')[0];
+  }
+
+  if (!recordedStr || recordedStr.length < 10) {
+    return { isLate: false, daysDiff: 0, recordedDate: null, visitDate };
+  }
+
+  // Si la fecha en que se grabó en sistema es posterior a la fecha de la visita
+  if (recordedStr > visitDate) {
+    const dVisit = new Date(visitDate + 'T00:00:00');
+    const dRec = new Date(recordedStr + 'T00:00:00');
+    const diffMs = dRec.getTime() - dVisit.getTime();
+    const daysDiff = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+    return {
+      isLate: true,
+      daysDiff,
+      recordedDate: recordedStr,
+      visitDate
+    };
+  }
+
+  return {
+    isLate: false,
+    daysDiff: 0,
+    recordedDate: recordedStr,
+    visitDate
+  };
+}
+
 // VISITS MANAGEMENT
 export async function getVisitsList(vendorFilter = null) {
   let localVisits = [];
@@ -484,6 +593,9 @@ export async function getVisitsList(vendorFilter = null) {
     } catch (e) {}
   }
 
+  // Limpiar duplicados locales de antemano
+  localVisits = deduplicateVisitsList(localVisits);
+
   // Try fetching from Supabase
   try {
     let query = supabase.from('visits').select('*').order('created_at', { ascending: false });
@@ -495,6 +607,7 @@ export async function getVisitsList(vendorFilter = null) {
       // Normalize Supabase rows to match app format
       const normalizedCloud = data.map((d) => ({
         id: d.id,
+        cloud_id: d.id,
         clientName: d.client_name,
         clientCode: d.client_code,
         phone: d.phone || '',
@@ -516,20 +629,15 @@ export async function getVisitsList(vendorFilter = null) {
         vendorName: d.vendor_name,
         route: d.route,
         visitDate: d.visit_date,
-        timestamp: d.timestamp || d.created_at
+        timestamp: d.timestamp || d.created_at,
+        created_at: d.created_at,
+        recordedDate: d.created_at ? d.created_at.split('T')[0] : (d.timestamp ? d.timestamp.split('T')[0] : d.visit_date),
+        recordedAt: d.created_at || d.timestamp || null,
+        synced: true
       }));
 
-      // Merge unique by id or timestamp + vendorName + clientName
-      const mergedMap = new Map();
-      normalizedCloud.forEach((v) => mergedMap.set(`${v.vendorName}_${v.visitDate}_${v.clientName}_${v.timestamp}`, v));
-      localVisits.forEach((v) => {
-        const key = `${v.vendorName}_${v.visitDate}_${v.clientName}_${v.timestamp}`;
-        if (!mergedMap.has(key)) mergedMap.set(key, v);
-      });
-
-      const fullList = Array.from(mergedMap.values()).sort(
-        (a, b) => new Date(b.timestamp || b.visitDate) - new Date(a.timestamp || a.visitDate)
-      );
+      // Deduplicación estricta y segura combinando nube y local
+      const fullList = deduplicateVisitsList([...normalizedCloud, ...localVisits]);
       localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(fullList));
       return vendorFilter ? fullList.filter((v) => v.vendorName === vendorFilter) : fullList;
     }
@@ -537,6 +645,7 @@ export async function getVisitsList(vendorFilter = null) {
     console.warn('Supabase fetch visits fallback to local:', err);
   }
 
+  // Si falló Supabase o no hay internet, devolver local deduplicado
   if (vendorFilter) {
     return localVisits.filter((v) => v.vendorName === vendorFilter);
   }
@@ -624,6 +733,9 @@ export async function syncPendingVisits() {
 
 // Add visit (Dual layer: Supabase + LocalStorage with guaranteed persistence)
 export async function addVisitRecord(visit) {
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+
   // 1. Save locally first for instant response & absolute safety
   let visits = [];
   try {
@@ -634,12 +746,15 @@ export async function addVisitRecord(visit) {
   const enhancedVisit = {
     ...visit,
     id: visit.id || Date.now(),
-    timestamp: visit.timestamp || new Date().toISOString(),
-    visitDate: visit.visitDate || new Date().toISOString().split('T')[0],
+    timestamp: visit.timestamp || now.toISOString(),
+    visitDate: visit.visitDate || todayStr,
+    recordedDate: visit.recordedDate || todayStr,
+    recordedAt: visit.recordedAt || now.toISOString(),
     synced: false
   };
 
-  visits.unshift(enhancedVisit);
+  // Deduplicar localmente para evitar duplicados en memoria
+  visits = deduplicateVisitsList([enhancedVisit, ...visits]);
   localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(visits));
 
   // 2. Prepare safe payload for Supabase (respects NOT NULL constraints)
@@ -674,23 +789,27 @@ export async function addVisitRecord(visit) {
     const { data, error } = await supabase.from('visits').insert([payload]).select();
     if (error) {
       console.warn('Supabase visit insert error, queuing for retry sync:', error);
-      // Queue in pending sync so it's retried
       const pending = getPendingSyncVisits();
       pending.push(enhancedVisit);
       savePendingSyncVisits(pending);
     } else if (data && data[0]?.id) {
       enhancedVisit.cloud_id = data[0].id;
       enhancedVisit.synced = true;
-      // Update local copy with synced status
+      if (data[0].created_at) {
+        enhancedVisit.created_at = data[0].created_at;
+      }
+      // Update local copy with synced status and deduplicate
       try {
         const raw = localStorage.getItem(STORAGE_KEYS.VISITS);
         if (raw) {
           const list = JSON.parse(raw);
-          if (list[0]?.id === enhancedVisit.id) {
-            list[0].cloud_id = data[0].id;
-            list[0].synced = true;
-            localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(list));
-          }
+          const updated = list.map(item => {
+            if (item.id === enhancedVisit.id || (item.clientName === enhancedVisit.clientName && item.visitDate === enhancedVisit.visitDate && item.vendorName === enhancedVisit.vendorName)) {
+              return { ...item, cloud_id: data[0].id, synced: true, created_at: data[0].created_at || item.created_at };
+            }
+            return item;
+          });
+          localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(deduplicateVisitsList(updated)));
         }
       } catch {}
     }
@@ -722,6 +841,80 @@ export async function deleteVisitRecord(visitId) {
   }
 
   return updated;
+}
+
+// Update only Sales, Collections and Observations of an existing visit (Allowed for Vendors & Admins)
+export async function updateVisitSalesAndCollections(visitId, updates) {
+  let visits = [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.VISITS);
+    if (raw) visits = JSON.parse(raw);
+  } catch {}
+
+  const idx = visits.findIndex(v => v.id === visitId || v.cloud_id === visitId || String(v.id) === String(visitId));
+  if (idx === -1) return null;
+
+  const current = visits[idx];
+  
+  const hasSale = updates.hasSale !== undefined ? !!updates.hasSale : !!current.hasSale;
+  const saleAmount = hasSale ? (Number(updates.saleAmount) || 0) : 0;
+  const saleType = hasSale ? (updates.saleType || current.saleType || 'presencial') : null;
+
+  const hasCollection = updates.hasCollection !== undefined ? !!updates.hasCollection : !!current.hasCollection;
+  const collectionCash = hasCollection ? (Number(updates.collectionCash ?? updates.collectionAmounts?.efectivo) || 0) : 0;
+  const collectionTransfer = hasCollection ? (Number(updates.collectionTransfer ?? updates.collectionAmounts?.transferencia) || 0) : 0;
+  const collectionCheck = hasCollection ? (Number(updates.collectionCheck ?? updates.collectionAmounts?.cheque) || 0) : 0;
+  const collectionBoleta = hasCollection ? (Number(updates.collectionBoleta ?? updates.collectionAmounts?.boleta) || 0) : 0;
+  const collectionAmount = hasCollection ? (collectionCash + collectionTransfer + collectionCheck + collectionBoleta) : 0;
+
+  const observations = updates.observations !== undefined ? updates.observations : current.observations;
+
+  const updatedVisit = {
+    ...current,
+    hasSale,
+    saleAmount,
+    saleType,
+    hasCollection,
+    collectionCash,
+    collectionTransfer,
+    collectionCheck,
+    collectionBoleta,
+    collectionAmount,
+    collectionAmounts: {
+      efectivo: collectionCash,
+      transferencia: collectionTransfer,
+      cheque: collectionCheck,
+      boleta: collectionBoleta
+    },
+    observations,
+    modified_at: new Date().toISOString()
+  };
+
+  visits[idx] = updatedVisit;
+  localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(visits));
+
+  // Sync update to Supabase if cloud_id exists or targetId exists
+  const targetId = current.cloud_id || (typeof current.id === 'string' && current.id.length > 20 ? current.id : null);
+  if (targetId) {
+    try {
+      await supabase.from('visits').update({
+        has_sale: hasSale,
+        sale_amount: saleAmount,
+        sale_type: saleType,
+        has_collection: hasCollection,
+        collection_cash: collectionCash,
+        collection_transfer: collectionTransfer,
+        collection_check: collectionCheck,
+        collection_boleta: collectionBoleta,
+        collection_amount: collectionAmount,
+        observations: observations
+      }).eq('id', targetId);
+    } catch (e) {
+      console.warn('Error updating visit in Supabase:', e);
+    }
+  }
+
+  return updatedVisit;
 }
 
 // AUTH MANAGEMENT

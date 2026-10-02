@@ -13,7 +13,9 @@ import {
   ShieldAlert,
   Target,
   FileText,
-  Banknote
+  Banknote,
+  CheckCircle2,
+  Database
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -219,6 +221,7 @@ export default function Navbar({
                 <span>Registrar Visita</span>
               </button>
 
+              {/* Apartado de Visitas a la par de Registro para información de primera mano */}
               <button
                 onClick={() => setActiveTab('my_visits')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
@@ -226,9 +229,24 @@ export default function Navbar({
                     ? 'bg-white text-blue-900 shadow-md font-bold'
                     : 'text-blue-100 hover:bg-white/10'
                 }`}
+                title="Ver tus visitas registradas hoy de primera mano"
               >
-                <ListFilter size={15} />
-                <span>Mis Visitas de Hoy</span>
+                <CheckCircle2 size={15} />
+                <span>Visitas</span>
+              </button>
+
+              {/* Apartado de Información General con acceso a Base de Datos e Historial */}
+              <button
+                onClick={() => setActiveTab('info_general')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  activeTab === 'info_general'
+                    ? 'bg-white text-blue-900 shadow-md font-bold'
+                    : 'text-blue-100 hover:bg-white/10'
+                }`}
+                title="Acceder a la base de datos de visitas: Visitas de Hoy e Historial completo"
+              >
+                <Database size={15} />
+                <span>Información General</span>
               </button>
 
               <button
@@ -360,6 +378,7 @@ export default function Navbar({
               <span className="text-[10px] mt-0.5">Registrar</span>
             </button>
 
+            {/* Apartado Visitas a la par de Registrar para celulares */}
             <button
               onClick={() => setActiveTab('my_visits')}
               className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
@@ -367,9 +386,24 @@ export default function Navbar({
                   ? 'text-blue-600 dark:text-blue-400 font-bold scale-105'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
               }`}
+              title="Ver visitas de hoy de primera mano"
             >
-              <ListFilter size={20} className={activeTab === 'my_visits' ? 'stroke-[2.5]' : ''} />
-              <span className="text-[10px] mt-0.5">Mis Visitas</span>
+              <CheckCircle2 size={20} className={activeTab === 'my_visits' ? 'stroke-[2.5] text-blue-600 dark:text-blue-400' : ''} />
+              <span className="text-[10px] mt-0.5 font-bold">Visitas</span>
+            </button>
+
+            {/* Apartado Información General para celulares */}
+            <button
+              onClick={() => setActiveTab('info_general')}
+              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+                activeTab === 'info_general'
+                  ? 'text-blue-600 dark:text-blue-400 font-bold scale-105'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
+              }`}
+              title="Información General (Base de datos e Historial)"
+            >
+              <Database size={20} className={activeTab === 'info_general' ? 'stroke-[2.5] text-blue-600 dark:text-blue-400' : ''} />
+              <span className="text-[10px] mt-0.5 font-bold">Info General</span>
             </button>
 
             <button

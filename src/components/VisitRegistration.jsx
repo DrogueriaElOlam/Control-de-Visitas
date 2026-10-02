@@ -15,19 +15,21 @@ import {
   Layers,
   Sparkles,
   AlertCircle,
-  LogOut,
-  ArrowLeft
+  Calendar,
+  AlertTriangle
 } from 'lucide-react';
 import { ALL_ROUTES, addVisitRecord, getRoutesForVendor } from '../lib/db';
 import { fetchClientCodes, fetchPharmacyDirectory, saveClientRecord } from '../lib/catalog';
 import { addCashRecordFromVisit } from '../lib/cashCollections';
 
-export default function VisitRegistration({ currentUser, onVisitAdded, allVisits = [], onLogout }) {
+export default function VisitRegistration({ currentUser, onVisitAdded, allVisits = [], onLogout, onNavigate }) {
   const isAdmin = currentUser?.role === 'admin';
   const [clientType, setClientType] = useState('propio');
   const [clientCode, setClientCode] = useState('');
   const [clientName, setClientName] = useState('');
   const [phone, setPhone] = useState('');
+  const [secondaryPhone, setSecondaryPhone] = useState('');
+  const [showSecondaryPhone, setShowSecondaryPhone] = useState(false);
   // Vendor's assigned routes (Antonio Celada gets all routes, other vendors get only their assigned routes)
   const assignedVendorRoutes = React.useMemo(() => {
     return getRoutesForVendor(currentUser?.name);
@@ -281,10 +283,15 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
     setSubmitting(true);
 
+    const p1 = phone.trim();
+    const p2 = secondaryPhone.trim();
+    const combinedPhone = p2 ? (p1 ? `${p1} / ${p2}` : p2) : p1;
+
     const visitPayload = {
       clientName: clientName.trim(),
       clientCode: clientCode.trim() || (clientType === 'nuevo' ? '0000' : '0001'),
-      phone: phone.trim(),
+      phone: combinedPhone,
+      secondaryPhone: p2,
       visitType,
       clientType,
       sector: sector || route || 'Coban #13',
@@ -302,7 +309,9 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       location,
       vendorName: currentUser?.name || 'Vendedor El Olam',
       route: route || currentUser?.route || 'Coban #13',
-      visitDate
+      visitDate: visitDate || new Date().toISOString().split('T')[0],
+      recordedDate: new Date().toISOString().split('T')[0],
+      recordedAt: new Date().toISOString()
     };
 
     try {
@@ -316,6 +325,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
         route: visitPayload.route,
         visitDate: visitPayload.visitDate,
         phone: visitPayload.phone,
+        secondaryPhone: visitPayload.secondaryPhone,
         vendorName: visitPayload.vendorName
       });
 
@@ -345,12 +355,15 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       setClientName('');
       setClientCode('');
       setPhone('');
+      setSecondaryPhone('');
+      setShowSecondaryPhone(false);
       setHasSale(false);
       setSaleAmount('');
       setCartItems([]);
       setHasCollection(false);
       setCollectionAmounts({ efectivo: '', transferencia: '', cheque: '', boleta: '' });
       setObservations('');
+      setVisitDate(new Date().toISOString().split('T')[0]);
       captureGPSLocation();
     } catch (err) {
       alert('Error al registrar la visita');
@@ -364,14 +377,24 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       
       {/* Success Notification Banner */}
       {successNotif && (
-        <div className="bg-emerald-600 text-white p-4 rounded-2xl shadow-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-          <CheckCircle2 size={24} className="animate-bounce" />
-          <div>
-            <h4 className="font-extrabold text-sm">¡Visita Registrada con Éxito!</h4>
-            <p className="text-xs text-emerald-100">
-              Datos guardados localmente y sincronizados con la base de datos de Droguería El Olam.
-            </p>
+        <div className="bg-emerald-600 text-white p-4 sm:p-5 rounded-2xl shadow-xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 size={24} className="animate-bounce shrink-0" />
+            <div>
+              <h4 className="font-extrabold text-sm sm:text-base">¡Visita Registrada con Éxito!</h4>
+              <p className="text-xs text-emerald-100">
+                Datos guardados localmente y sincronizados con la base de datos de Droguería El Olam.
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setSuccessNotif(false)}
+            className="text-white/80 hover:text-white text-xs font-bold px-2 py-1 rounded-lg hover:bg-emerald-700/60 cursor-pointer"
+            title="Cerrar aviso"
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -393,19 +416,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              {onLogout && (
-                <button
-                  type="button"
-                  onClick={onLogout}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/15 hover:bg-red-600 active:scale-95 text-white text-xs sm:text-sm font-bold transition-all shadow-md border border-white/25 hover:border-red-400 cursor-pointer"
-                  title="Regresar a la pantalla de login (Cerrar Sesión)"
-                >
-                  <LogOut size={16} />
-                  <span>Regresar / Salir</span>
-                </button>
-              )}
-
+            <div className="flex flex-wrap items-center gap-2">
               {/* GPS Status pill - Only visible for Admin */}
               {isAdmin && (
                 <button
@@ -437,8 +448,37 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               <User size={15} /> 1. Datos del Cliente & Ruta
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               
+              {/* Visit Date Selector / Calendar */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                    <Calendar size={13} className="text-blue-600 dark:text-blue-400" />
+                    <span>Fecha de Visita *</span>
+                  </label>
+                  {visitDate !== new Date().toISOString().split('T')[0] && (
+                    <button
+                      type="button"
+                      onClick={() => setVisitDate(new Date().toISOString().split('T')[0])}
+                      className="text-[10px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      Poner Hoy
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={visitDate}
+                    onChange={(e) => setVisitDate(e.target.value)}
+                    max={new Date().toISOString().split('T')[0]}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                    required
+                  />
+                </div>
+              </div>
+
               {/* Client Type */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -461,7 +501,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
                   <span>Código de Cliente</span>
-                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">Autollena sector & ruta</span>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">Autollenado</span>
                 </label>
                 <div className="relative">
                   <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -515,6 +555,16 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               </div>
             </div>
 
+            {/* Aviso sutil si la fecha elegida es anterior a hoy */}
+            {visitDate && visitDate < new Date().toISOString().split('T')[0] && (
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-xl flex items-center gap-2.5 text-xs text-amber-800 dark:text-amber-300 animate-in fade-in">
+                <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>
+                  <strong>Reporte extemporáneo:</strong> Estás registrando esta visita con fecha pasada (<strong>{visitDate}</strong>). Quedará guardada en tu historial para ese día y sincronizada con supervisión.
+                </span>
+              </div>
+            )}
+
             {/* Client Name & Phone */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2">
@@ -545,9 +595,22 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Teléfono / Celular
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Teléfono / Celular
+                  </label>
+                  {!showSecondaryPhone && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSecondaryPhone(true)}
+                      className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline flex items-center gap-1 transition-all cursor-pointer"
+                      title="Agregar un segundo número telefónico o celular para este cliente"
+                    >
+                      <Plus size={12} className="stroke-[2.5]" />
+                      <span>+ Agregar otro Teléfono</span>
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -558,6 +621,38 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                     className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
                   />
                 </div>
+
+                {/* Campo adicional para segundo teléfono */}
+                {showSecondaryPhone && (
+                  <div className="mt-2.5 p-2.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 rounded-xl animate-in fade-in slide-in-from-top-1 transition-all">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                        <Phone size={11} /> Segundo Teléfono / Contacto:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSecondaryPhone(false);
+                          setSecondaryPhone('');
+                        }}
+                        className="text-[11px] text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-bold px-1.5 py-0.5 rounded hover:bg-red-50 dark:hover:bg-red-950/50 cursor-pointer"
+                        title="Quitar segundo teléfono"
+                      >
+                        ✕ Quitar
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500" />
+                      <input
+                        type="tel"
+                        placeholder="Ej: 5555-9876 (Opcional)"
+                        value={secondaryPhone}
+                        onChange={(e) => setSecondaryPhone(e.target.value)}
+                        className="w-full pl-9 pr-3.5 py-2 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-800 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -818,12 +913,12 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               </p>
             )}
 
-            {/* Submit Button & Salir / Regresar al Login */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            {/* Submit Button */}
+            <div className="pt-2">
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 py-4 px-6 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-base shadow-xl shadow-blue-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.99] text-white font-black text-base shadow-xl shadow-blue-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {submitting ? (
                   <span>Guardando visita...</span>
@@ -834,18 +929,6 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                   </>
                 )}
               </button>
-
-              {onLogout && (
-                <button
-                  type="button"
-                  onClick={onLogout}
-                  className="py-3.5 px-5 rounded-2xl bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 dark:bg-slate-900 dark:hover:bg-red-950/40 dark:text-slate-300 dark:hover:text-red-300 font-bold text-sm border border-slate-300 dark:border-slate-700 hover:border-red-300 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-95"
-                  title="Salir a la pantalla principal de login"
-                >
-                  <LogOut size={18} />
-                  <span>Salir al Login</span>
-                </button>
-              )}
             </div>
           </div>
 

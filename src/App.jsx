@@ -12,13 +12,15 @@ import DailyGoalWidget from './components/DailyGoalWidget';
 import VendorReportModal from './components/VendorReportModal';
 import CashCollectionsModal from './components/CashCollectionsModal';
 import AdminClientDirectoryModal from './components/AdminClientDirectoryModal';
+import VisualFeedbackSelector from './components/VisualFeedbackSelector';
 
 import { 
   getSavedSession, 
   clearSession, 
   getVendorsList, 
   getVisitsList,
-  syncPendingVisits
+  syncPendingVisits,
+  deduplicateVisitsList
 } from './lib/db';
 import { syncCashFromVisits } from './lib/cashCollections';
 
@@ -79,7 +81,7 @@ export default function App() {
         getVisitsList()
       ]);
       setVendors(vList);
-      setVisits(viList);
+      setVisits(deduplicateVisitsList(viList));
     } catch (e) {
       console.error('Error loading data:', e);
     } finally {
@@ -102,10 +104,9 @@ export default function App() {
 
   // When a visit is added
   const handleVisitAdded = (newVisit) => {
-    setVisits(prev => [newVisit, ...prev]);
-    if (newVisit) {
-      syncCashFromVisits([newVisit], newVisit.vendorName || currentUser?.name);
-    }
+    if (!newVisit) return;
+    setVisits(prev => deduplicateVisitsList([newVisit, ...prev]));
+    syncCashFromVisits([newVisit], newVisit.vendorName || currentUser?.name);
   };
 
   // When vendors are updated
@@ -206,9 +207,11 @@ export default function App() {
                 onVisitAdded={handleVisitAdded}
                 allVisits={visits}
                 onLogout={handleLogout}
+                onNavigate={(tab) => setActiveTab(tab)}
               />
             )}
 
+            {/* Apartado Visitas a la par de Registro: Información de primera mano de hoy */}
             {activeTab === 'my_visits' && (
               <VisitsListAndFilters
                 visits={visits}
@@ -216,6 +219,23 @@ export default function App() {
                 onVisitsChange={loadInitialData}
                 onOpenMapLocation={handleOpenMapLocation}
                 onOpenReportModal={() => setShowReportModal(true)}
+                onNavigate={(tab) => setActiveTab(tab)}
+                pageTitle="Visitas del Día (Información de Primera Mano)"
+                isFirstHandView={true}
+              />
+            )}
+
+            {/* Apartado Información General: Base de Datos e Historial Completo */}
+            {activeTab === 'info_general' && (
+              <VisitsListAndFilters
+                visits={visits}
+                currentUser={currentUser}
+                onVisitsChange={loadInitialData}
+                onOpenMapLocation={handleOpenMapLocation}
+                onOpenReportModal={() => setShowReportModal(true)}
+                onNavigate={(tab) => setActiveTab(tab)}
+                pageTitle="Información General de Visitas"
+                isFirstHandView={false}
               />
             )}
 
@@ -269,6 +289,10 @@ export default function App() {
         <p>© 2026 Droguería El Olam • Sistema de Control y Rendimiento de Visitas Diarias</p>
       </footer>
 
+      {/* Selector / Marcador Visual para Modificar o Eliminar Elementos en localhost */}
+      <VisualFeedbackSelector />
+
     </div>
   );
 }
+

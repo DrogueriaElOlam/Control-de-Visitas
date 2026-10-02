@@ -956,7 +956,7 @@ export default function VendorReportModal({
   </div>
 
   <div style="margin-top:22px; margin-bottom:8px; font-weight:800; font-size:12px; color:#1e40af; text-transform:uppercase; border-bottom:2px solid #bfdbfe; padding-bottom:4px;">
-    GRÁFICAS REDONDAS: VENTAS POR SECTOR (PRESENCIAL Y TELEMARKETING)
+    VENTAS POR SECTOR (PRESENCIAL Y TELEMARKETING)
   </div>
   <div class="charts-container">
     <div class="chart-box">
@@ -974,7 +974,7 @@ export default function VendorReportModal({
   </div>
 
   <div style="margin-top:22px; margin-bottom:8px; font-weight:800; font-size:12px; color:#059669; text-transform:uppercase; border-bottom:2px solid #bbf7d0; padding-bottom:4px;">
-    GRÁFICAS REDONDAS: COBROS POR SECTOR (PRESENCIAL Y TELEMARKETING)
+    COBROS POR SECTOR (PRESENCIAL Y TELEMARKETING)
   </div>
   <div class="charts-container">
     <div class="chart-box">
@@ -2372,7 +2372,7 @@ export default function VendorReportModal({
               </div>
             )}
 
-            {/* TAB 2: GRÁFICAS REDONDAS DE VENTAS POR SECTOR (PRESENCIAL Y TELEMARKETING) */}
+            {/* TAB 2: VENTAS POR SECTOR (PRESENCIAL Y TELEMARKETING) */}
             {chartActiveTab === 'sales_sector' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
@@ -2511,7 +2511,7 @@ export default function VendorReportModal({
               </div>
             )}
 
-            {/* TAB 3: GRÁFICAS REDONDAS DE COBROS POR SECTOR (PRESENCIAL Y TELEMARKETING) */}
+            {/* TAB 3: COBROS POR SECTOR (PRESENCIAL Y TELEMARKETING) */}
             {chartActiveTab === 'collections_sector' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
