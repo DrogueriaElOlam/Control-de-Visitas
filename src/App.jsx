@@ -23,6 +23,7 @@ import {
   deduplicateVisitsList
 } from './lib/db';
 import { syncCashFromVisits } from './lib/cashCollections';
+import { subscribeToOnlinePresence } from './lib/presence';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -36,6 +37,7 @@ export default function App() {
   const [vendors, setVendors] = useState([]);
   const [visits, setVisits] = useState([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
+  const [onlineVendors, setOnlineVendors] = useState({});
 
   // Initialize session and theme
   useEffect(() => {
@@ -59,6 +61,15 @@ export default function App() {
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
   }, []);
+
+  // Suscribirse a la presencia de vendedores en tiempo real
+  useEffect(() => {
+    if (!currentUser) return;
+    const cleanup = subscribeToOnlinePresence(currentUser, (presenceMap) => {
+      setOnlineVendors(presenceMap || {});
+    });
+    return cleanup;
+  }, [currentUser]);
 
   // Theme switch effect
   useEffect(() => {
@@ -140,6 +151,7 @@ export default function App() {
         onOpenReportModal={() => setShowReportModal(true)}
         onOpenCashModal={() => setShowCashModal(true)}
         onOpenDirectoryModal={() => setShowDirectoryModal(true)}
+        onlineVendors={onlineVendors}
       />
 
       {/* Main Content Area */}
@@ -155,12 +167,14 @@ export default function App() {
                 onNavigate={(tab) => setActiveTab(tab)}
                 onLogout={handleLogout}
                 onOpenDirectoryModal={() => setShowDirectoryModal(true)}
+                onlineVendors={onlineVendors}
               />
             )}
 
             {activeTab === 'vendors' && (
               <AdminVendorManagement
                 onVendorUpdated={handleVendorUpdated}
+                onlineVendors={onlineVendors}
               />
             )}
 

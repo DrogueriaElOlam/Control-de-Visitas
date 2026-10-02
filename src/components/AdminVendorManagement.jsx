@@ -32,7 +32,10 @@ import {
   ALL_ROUTES 
 } from '../lib/db';
 
-export default function AdminVendorManagement({ onVendorUpdated }) {
+export default function AdminVendorManagement({ 
+  onVendorUpdated,
+  onlineVendors = {}
+}) {
   const [vendors, setVendors] = useState([]);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // all, active, inactive
@@ -236,11 +239,23 @@ export default function AdminVendorManagement({ onVendorUpdated }) {
     setAdminPassData({ currentPass: '', newPass: '', confirmPass: '' });
   };
 
+  // Helper para verificar presencia en tiempo real
+  const isVendorOnline = (vendor) => {
+    if (!onlineVendors) return false;
+    return !!(
+      onlineVendors[vendor.name] || 
+      onlineVendors[vendor.id] || 
+      onlineVendors[String(vendor.id)] || 
+      onlineVendors[`User_${vendor.id}`]
+    );
+  };
+
   // Filtered list
   const filteredVendors = vendors.filter(v => {
     const matchesSearch = v.name.toLowerCase().includes(search.toLowerCase()) || 
                           (v.route && v.route.toLowerCase().includes(search.toLowerCase())) ||
                           (v.username && v.username.toLowerCase().includes(search.toLowerCase()));
+    if (filterStatus === 'online') return matchesSearch && isVendorOnline(v);
     if (filterStatus === 'active') return matchesSearch && v.active !== false;
     if (filterStatus === 'inactive') return matchesSearch && v.active === false;
     return matchesSearch;
@@ -248,6 +263,7 @@ export default function AdminVendorManagement({ onVendorUpdated }) {
 
   const activeCount = vendors.filter(v => v.active !== false).length;
   const inactiveCount = vendors.filter(v => v.active === false).length;
+  const onlineCount = vendors.filter(v => v.active !== false && isVendorOnline(v)).length;
 
   return (
     <div className="space-y-6">
@@ -343,7 +359,7 @@ export default function AdminVendorManagement({ onVendorUpdated }) {
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => setFilterStatus('all')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -355,10 +371,21 @@ export default function AdminVendorManagement({ onVendorUpdated }) {
             Todos ({vendors.length})
           </button>
           <button
+            onClick={() => setFilterStatus('online')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              filterStatus === 'online' 
+                ? 'bg-emerald-600 text-white shadow' 
+                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>En línea ({onlineCount})</span>
+          </button>
+          <button
             onClick={() => setFilterStatus('active')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
               filterStatus === 'active' 
-                ? 'bg-emerald-600 text-white shadow' 
+                ? 'bg-blue-600 text-white shadow' 
                 : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
             }`}
           >
@@ -421,8 +448,22 @@ export default function AdminVendorManagement({ onVendorUpdated }) {
                             {vendor.name.charAt(0)}
                           </div>
                           <div>
-                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <div className="font-bold text-slate-900 dark:text-white flex flex-wrap items-center gap-2">
                               <span>{vendor.name}</span>
+                              {isVendorOnline(vendor) ? (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700 shadow-sm animate-pulse" title="Vendedor activo y conectado en este momento">
+                                  <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                  </span>
+                                  <span>EN LÍNEA</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-400" title="Desconectado">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                                  <span>Desconectado</span>
+                                </span>
+                              )}
                               {isTerminated && (
                                 <span className="text-[10px] bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded font-bold">
                                   Baja Laboral

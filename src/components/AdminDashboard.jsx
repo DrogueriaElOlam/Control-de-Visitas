@@ -21,7 +21,8 @@ export default function AdminDashboard({
   visits = [], 
   onNavigate,
   onLogout,
-  onOpenDirectoryModal
+  onOpenDirectoryModal,
+  onlineVendors = {}
 }) {
   const todayStr = new Date().toISOString().split('T')[0];
   const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -60,6 +61,19 @@ export default function AdminDashboard({
       };
     }).sort((a, b) => b.todayCount - a.todayCount);
   }, [activeVendors, todayVisits]);
+
+  // Helper para verificar presencia en tiempo real
+  const isVendorOnline = (v) => {
+    if (!onlineVendors) return false;
+    return !!(
+      onlineVendors[v.name] || 
+      onlineVendors[v.id] || 
+      onlineVendors[String(v.id)] || 
+      onlineVendors[`User_${v.id}`]
+    );
+  };
+
+  const onlineVendorsCount = activeVendors.filter(v => isVendorOnline(v)).length;
 
   return (
     <div className="space-y-6">
@@ -195,14 +209,20 @@ export default function AdminDashboard({
 
       {/* Vendors Activity Today Table */}
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+        <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <Users className="text-blue-600" />
-              Estado de los Vendedores en Ruta (Hoy)
-            </h3>
+            <div className="flex items-center gap-2.5">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <Users className="text-blue-600" />
+                Estado de los Vendedores en Ruta (Hoy)
+              </h3>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>{onlineVendorsCount} de {activeVendors.length} en línea</span>
+              </span>
+            </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Progreso en tiempo real hacia la meta diaria de visitas.
+              Progreso en tiempo real hacia la meta diaria y supervisión de conexión.
             </p>
           </div>
 
@@ -221,7 +241,20 @@ export default function AdminDashboard({
             <div key={v.id} className="p-4 space-y-2 hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-bold text-slate-900 dark:text-white text-sm">{v.name}</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-slate-900 dark:text-white text-sm">{v.name}</h4>
+                    {isVendorOnline(v) ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700 shadow-sm animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span>EN LÍNEA</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                        <span>Desconectado</span>
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                     <MapPin size={11} className="text-blue-500" />
                     <span>{v.route}</span>
@@ -274,7 +307,23 @@ export default function AdminDashboard({
               {vendorTodayActivity.map(v => (
                 <tr key={v.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/40 transition-colors">
                   <td className="py-4 px-6 font-bold text-slate-900 dark:text-white">
-                    {v.name}
+                    <div className="flex items-center gap-2.5">
+                      <span>{v.name}</span>
+                      {isVendorOnline(v) ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700 shadow-sm animate-pulse" title="Vendedor activo y conectado en este momento">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          <span>EN LÍNEA</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-400" title="Desconectado">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                          <span>Desconectado</span>
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-4 px-4 text-xs font-medium text-slate-600 dark:text-slate-300">
                     <span className="flex items-center gap-1">

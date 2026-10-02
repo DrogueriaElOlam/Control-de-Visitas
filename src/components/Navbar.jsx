@@ -28,9 +28,11 @@ export default function Navbar({
   syncStatus,
   onOpenReportModal,
   onOpenCashModal,
-  onOpenDirectoryModal
+  onOpenDirectoryModal,
+  onlineVendors = {}
 }) {
   const isAdmin = currentUser?.role === 'admin';
+  const onlineVendorsCount = Object.values(onlineVendors || {}).filter(u => u?.role === 'vendor' || (u?.name && u?.name !== 'Administrador')).length;
 
   return (
     <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800 text-white shadow-xl backdrop-blur-md border-b border-blue-700/50">
@@ -85,6 +87,21 @@ export default function Navbar({
                 {isAdmin ? 'Panel de Administración' : `Ruta: ${currentUser?.route || 'General'}`}
               </span>
             </div>
+
+            {/* Indicador de Vendedores en Línea (Solo Administrador) */}
+            {isAdmin && (
+              <div 
+                onClick={() => setActiveTab('dashboard')} 
+                className="cursor-pointer hidden sm:flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 rounded-full text-xs font-bold text-emerald-300 shadow-sm transition-all"
+                title="Cantidad de vendedores conectados actualmente"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                </span>
+                <span>{onlineVendorsCount} {onlineVendorsCount === 1 ? 'vendedor en línea' : 'vendedores en línea'}</span>
+              </div>
+            )}
 
             {/* Sync Status indicator */}
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-white/10 rounded-full text-xs text-blue-100" title="Sincronización en la nube activa">
