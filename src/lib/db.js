@@ -2,10 +2,10 @@
 import { supabase } from './supabase.js';
 
 const STORAGE_KEYS = {
-  VENDORS: 'olam_vendors_db_v2',
+  VENDORS: 'olam_vendors_db_v3',
   VISITS: 'olam_visits_db_v2',
   AUTH: 'olam_current_auth_v2',
-  VENDOR_CREDS: 'olam_vendor_credentials_v2',
+  VENDOR_CREDS: 'olam_vendor_credentials_v3',
   ADMIN_PASS: 'olam_admin_password_v2',
   CONFIG_UUID: 'a0000000-0000-0000-0000-000000000001',
   PENDING_SYNC: 'olam_pending_sync_visits_v2',
@@ -14,18 +14,18 @@ const STORAGE_KEYS = {
 
 // Initial default Droguería El Olam vendors
 const DEFAULT_VENDORS = [
-  { id: 1, name: 'Ana Lucia Marroquín', route: 'Coban #13', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 2, name: 'Danny Pérez', route: 'Salama #14', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 3, name: 'Elio Cáceres', route: 'Municipios Oriente #15', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 4, name: 'Enrique Villagrán', route: 'Quetzaltenango #11', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 5, name: 'Gabriel Ponce', route: 'Totonicapan #12', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 6, name: 'Guisel López', route: 'Retalhuleu #22', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 7, name: 'José Gómez', route: 'Suchi II #23', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 8, name: 'José Tuyul', route: 'Coatepeque #24', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 9, name: 'Mynor Chavarría', route: 'Suchi III #25', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 10, name: 'Rosa González', route: 'Suchi I #21', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 11, name: 'Walter Cordero', route: 'Sacatepequez #31', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 13, name: 'Karina Pineda', route: 'Chiquimula II #63', active: true, hire_date: '2025-12-05', daily_goal: 15 }
+  { id: 1, name: 'Antonio Celada', route: 'Quetzaltenango #11', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 2, name: 'Ana Lucia Marroquin', route: 'Coban #13', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 3, name: 'Jessica Noriega', route: 'Salama #14', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 4, name: 'Wally Natareno', route: 'Retalhuleu #22', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 5, name: 'Erick Curley', route: 'Suchi II #23', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 6, name: 'Estuardo Cordova', route: 'Coatepeque #24', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 7, name: 'Karina Pineda', route: 'Chiquimula II #63', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 8, name: 'Dany Peres', route: 'Totonicapan #12', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 9, name: 'Klissman Hernandez', route: 'Suchi III #25', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 10, name: 'Elio Caceros', route: 'Municipios Oriente #15', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 11, name: 'Josue Aguilar', route: 'Sacatepequez #31', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 12, name: 'Elias Quiej', route: 'Suchi I #21', active: true, hire_date: '2025-12-05', daily_goal: 15 }
 ];
 
 export const ALL_ROUTES = [
@@ -39,7 +39,7 @@ export const ALL_ROUTES = [
   'Coatepeque #24',
   'Suchi III #25',
   'Suchi I #21',
-  'Sacatepequez #31',
+  'Sacatepéquez #31',
   'Quiche Centro #32',
   'Quiche Montaña Baja #33',
   'Izabal I #34',
@@ -54,7 +54,8 @@ export const ALL_ROUTES = [
   'Solola I #52',
   'Solola II #53',
   'Nebaj #54',
-  '#64 y #65',
+  'Capital S1 #64',
+  'Capital S2 #65',
   'Chiquimula I #61',
   'Chiquimula II #63',
   'Jalapa #62',
@@ -67,7 +68,7 @@ export const ALL_ROUTES = [
   'Polochic #81',
   'Zacapa #82',
   'Capital S3 #94',
-  'Ixcan #95',
+  'Ixcán #95',
   'Petapa #91',
   'San Marcos I #92',
   'San Marcos II #93',
@@ -80,8 +81,112 @@ export const ALL_ROUTES = [
   'Peten IV #B2',
   'Transversal I #B3',
   'Transversal II #B4',
-  'Amatitlan #B5'
+  'Amatitlán #B5'
 ];
+
+// Specific assigned routes per vendor
+export const VENDOR_ASSIGNED_ROUTES = {
+  'Ana Lucia Marroquin': [
+    'Salama #14',
+    'Quetzaltenango #11',
+    'Municipios Oriente #15',
+    'Coban #13',
+    'Totonicapan #12'
+  ],
+  'Jessica Noriega': [
+    'Suchi I #21',
+    'Retalhuleu #22',
+    'Suchi II #23',
+    'Coatepeque #24',
+    'Suchi III #25'
+  ],
+  'Wally Natareno': [
+    'Sacatepéquez #31',
+    'Quiche Centro #32',
+    'Quiche Montaña Baja #33',
+    'Izabal I #34',
+    'Izabal II #35'
+  ],
+  'Erick Curley': [
+    'Jutiapa I #41',
+    'Jutiapa II #42',
+    'Chimaltenango I #43',
+    'Chimaltenango II #44',
+    'Santa Rosa #45'
+  ],
+  'Estuardo Cordova': [
+    'San Marcos Montaña Alta #51',
+    'Solola I #52',
+    'Solola II #53',
+    'Nebaj #54',
+    'Quiche Montaña Alta #55'
+  ],
+  'Karina Pineda': [
+    'Chiquimula I #61',
+    'Jalapa #62',
+    'Chiquimula II #63',
+    'Capital S1 #64',
+    'Capital S2 #65'
+  ],
+  'Dany Peres': [
+    'Huehuetenango Montaña Baja I #71',
+    'Huehuetenango Montaña Baja II #72',
+    'Peten I #73',
+    'Peten II #74'
+  ],
+  'Danny Perez': [
+    'Huehuetenango Montaña Baja I #71',
+    'Huehuetenango Montaña Baja II #72',
+    'Peten I #73',
+    'Peten II #74'
+  ],
+  'Klissman Hernandez': [
+    'Polochic #81',
+    'Zacapa #82',
+    'Huehuetenango Montaña Alta I #83',
+    'Huehuetenango Montaña Alta II #84'
+  ],
+  'Elio Caceros': [
+    'Petapa #91',
+    'San Marcos I #92',
+    'San Marcos II #93',
+    'Capital S3 #94',
+    'Ixcán #95'
+  ],
+  'Josue Aguilar': [
+    'Escuintla I #A1',
+    'Escuintla II #A2',
+    'Villa Nueva #A3',
+    'Huehuetenango Centro #A4',
+    'Municipios Norte #A5'
+  ],
+  'Elias Quiej': [
+    'Peten III #B1',
+    'Peten IV #B2',
+    'Transversal I #B3',
+    'Transversal II #B4',
+    'Amatitlán #B5'
+  ],
+  'Antonio Celada': ALL_ROUTES
+};
+
+export function getRoutesForVendor(vendorName) {
+  if (!vendorName) return ALL_ROUTES;
+  const normalized = vendorName.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+  if (normalized.includes('antonio') && normalized.includes('celada')) {
+    return ALL_ROUTES;
+  }
+
+  for (const [key, routes] of Object.entries(VENDOR_ASSIGNED_ROUTES)) {
+    const normKey = key.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (normKey === normalized || normalized.includes(normKey) || normKey.includes(normalized)) {
+      return routes;
+    }
+  }
+
+  return ALL_ROUTES;
+}
 
 // Helper to normalize usernames
 function generateUsername(name) {
@@ -111,7 +216,7 @@ export async function getVendorsList() {
       const creds = getStoredCredentials();
       const merged = data.map((v) => {
         const c = creds[v.id] || {};
-        const localMatch = local.find((l) => l.id === v.id);
+        const localMatch = local.find((l) => l.name === v.name || (l.id === v.id && l.name === v.name));
         return {
           id: v.id,
           name: v.name,
@@ -625,7 +730,7 @@ export function clearSession() {
 }
 
 // Authenticate user
-export async function authenticate(role, usernameOrName, password) {
+export async function authenticate(role, usernameOrName, password, selectedRoute = null) {
   if (role === 'admin') {
     const currentAdminPass = getAdminPassword();
     if (password === currentAdminPass || password === '0l4m_2025' || password === '0l@m_2025$') {
@@ -671,7 +776,7 @@ export async function authenticate(role, usernameOrName, password) {
       vendorId: foundVendor.id,
       name: foundVendor.name,
       username: foundVendor.username,
-      route: foundVendor.route,
+      route: selectedRoute || foundVendor.route || 'Coban #13',
       daily_goal: foundVendor.daily_goal || 15,
       hire_date: foundVendor.hire_date,
       loginTime: new Date().toISOString()

@@ -11,13 +11,17 @@ import {
   Navigation,
   FileSpreadsheet,
   Layers,
-  Award
+  Award,
+  LogOut,
+  Building2
 } from 'lucide-react';
 
 export default function AdminDashboard({ 
   vendors = [], 
   visits = [], 
-  onNavigate 
+  onNavigate,
+  onLogout,
+  onOpenDirectoryModal
 }) {
   const todayStr = new Date().toISOString().split('T')[0];
   const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -90,6 +94,26 @@ export default function AdminDashboard({
               <Target size={16} />
               <span>Análisis de Frecuencia</span>
             </button>
+            {onOpenDirectoryModal && (
+              <button
+                onClick={onOpenDirectoryModal}
+                className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm transition-all shadow-md flex items-center gap-1.5 border border-emerald-400/40 cursor-pointer"
+                title="Subir archivo Excel con directorio de farmacias y clientes"
+              >
+                <FileSpreadsheet size={16} />
+                <span>Cargar Clientes (Excel)</span>
+              </button>
+            )}
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs sm:text-sm transition-all shadow-md flex items-center gap-1.5 border border-red-400/40 cursor-pointer"
+                title="Regresar a la pantalla de login"
+              >
+                <LogOut size={16} />
+                <span>Salir / Regresar</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

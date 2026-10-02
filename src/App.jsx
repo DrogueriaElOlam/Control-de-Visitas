@@ -10,6 +10,8 @@ import InteractiveMapModal from './components/InteractiveMapModal';
 import ExportModal from './components/ExportModal';
 import DailyGoalWidget from './components/DailyGoalWidget';
 import VendorReportModal from './components/VendorReportModal';
+import CashCollectionsModal from './components/CashCollectionsModal';
+import AdminClientDirectoryModal from './components/AdminClientDirectoryModal';
 
 import { 
   getSavedSession, 
@@ -18,6 +20,7 @@ import {
   getVisitsList,
   syncPendingVisits
 } from './lib/db';
+import { syncCashFromVisits } from './lib/cashCollections';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -25,6 +28,8 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(false);
   const [targetMapVisit, setTargetMapVisit] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showCashModal, setShowCashModal] = useState(false);
+  const [showDirectoryModal, setShowDirectoryModal] = useState(false);
 
   const [vendors, setVendors] = useState([]);
   const [visits, setVisits] = useState([]);
@@ -98,6 +103,9 @@ export default function App() {
   // When a visit is added
   const handleVisitAdded = (newVisit) => {
     setVisits(prev => [newVisit, ...prev]);
+    if (newVisit) {
+      syncCashFromVisits([newVisit], newVisit.vendorName || currentUser?.name);
+    }
   };
 
   // When vendors are updated
@@ -129,6 +137,8 @@ export default function App() {
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         onOpenReportModal={() => setShowReportModal(true)}
+        onOpenCashModal={() => setShowCashModal(true)}
+        onOpenDirectoryModal={() => setShowDirectoryModal(true)}
       />
 
       {/* Main Content Area */}
@@ -142,6 +152,8 @@ export default function App() {
                 vendors={vendors}
                 visits={visits}
                 onNavigate={(tab) => setActiveTab(tab)}
+                onLogout={handleLogout}
+                onOpenDirectoryModal={() => setShowDirectoryModal(true)}
               />
             )}
 
@@ -193,6 +205,7 @@ export default function App() {
                 currentUser={currentUser}
                 onVisitAdded={handleVisitAdded}
                 allVisits={visits}
+                onLogout={handleLogout}
               />
             )}
 
@@ -210,6 +223,7 @@ export default function App() {
               <DailyGoalWidget
                 currentUser={currentUser}
                 visits={visits}
+                vendors={vendors}
                 onOpenReportModal={() => setShowReportModal(true)}
               />
             )}
@@ -231,6 +245,23 @@ export default function App() {
         visits={visits}
         vendors={vendors}
         onVisitAdded={handleVisitAdded}
+        onOpenCashModal={() => setShowCashModal(true)}
+      />
+
+      {/* Modal Reporte Cobros en Efectivo (conforme formato PDF solicitado) */}
+      <CashCollectionsModal
+        isOpen={showCashModal}
+        onClose={() => setShowCashModal(false)}
+        currentUser={currentUser}
+        vendors={vendors}
+        visits={visits}
+      />
+
+      {/* Modal Carga Masiva de Clientes desde Excel (Panel Administrador) */}
+      <AdminClientDirectoryModal
+        isOpen={showDirectoryModal}
+        onClose={() => setShowDirectoryModal(false)}
+        visits={visits}
       />
 
       {/* Footer */}

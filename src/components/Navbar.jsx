@@ -12,7 +12,8 @@ import {
   Sun,
   ShieldAlert,
   Target,
-  FileText
+  FileText,
+  Banknote
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -23,7 +24,9 @@ export default function Navbar({
   darkMode, 
   setDarkMode,
   syncStatus,
-  onOpenReportModal
+  onOpenReportModal,
+  onOpenCashModal,
+  onOpenDirectoryModal
 }) {
   const isAdmin = currentUser?.role === 'admin';
 
@@ -96,14 +99,14 @@ export default function Navbar({
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
-            {/* Logout button */}
+            {/* Logout / Return to Login button */}
             <button
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600/80 hover:bg-red-600 text-white text-sm font-medium transition-all shadow-md hover:shadow-red-500/20"
-              title="Cerrar Sesión"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white text-xs sm:text-sm font-bold transition-all shadow-md hover:shadow-red-500/30 border border-red-500/40 cursor-pointer"
+              title="Regresar a la pantalla principal de login (Cerrar Sesión)"
             >
-              <LogOut size={16} />
-              <span className="hidden sm:inline">Salir</span>
+              <LogOut size={15} className="shrink-0" />
+              <span>Regresar / Salir</span>
             </button>
           </div>
         </div>
@@ -183,6 +186,24 @@ export default function Navbar({
                 <FileSpreadsheet size={15} />
                 <span>Exportar Excel / PDF</span>
               </button>
+
+              <button
+                onClick={() => onOpenDirectoryModal && onOpenDirectoryModal()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-indigo-500/25 text-indigo-100 hover:bg-indigo-500 hover:text-white border border-indigo-400/40 shadow-sm cursor-pointer"
+                title="Cargar y gestionar directorio de farmacias y clientes desde Excel"
+              >
+                <Building2 size={15} />
+                <span>Cargar Clientes (Excel)</span>
+              </button>
+
+              <button
+                onClick={() => onOpenCashModal && onOpenCashModal()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-amber-500/20 text-amber-200 hover:bg-amber-500 hover:text-white border border-amber-400/40 shadow-sm"
+                title="Reporte Cobros en Efectivo (Boletas y Bancos)"
+              >
+                <Banknote size={15} />
+                <span>Cobros en Efectivo</span>
+              </button>
             </>
           ) : (
             <>
@@ -229,6 +250,15 @@ export default function Navbar({
               >
                 <FileText size={15} />
                 <span>Exportar Reporte</span>
+              </button>
+
+              <button
+                onClick={() => onOpenCashModal && onOpenCashModal()}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-amber-500/25 text-amber-200 hover:bg-amber-500 hover:text-white border border-amber-400/40 shadow-sm"
+                title="Reporte Cobros en Efectivo (Boletas y Bancos)"
+              >
+                <Banknote size={15} />
+                <span>Cobros en Efectivo</span>
               </button>
             </>
           )}
@@ -297,6 +327,24 @@ export default function Navbar({
               <FileText size={20} />
               <span className="text-[10px] mt-0.5 font-bold">Reportes</span>
             </button>
+
+            <button
+              onClick={() => onOpenCashModal && onOpenCashModal()}
+              className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all text-amber-600 dark:text-amber-400 hover:text-amber-700"
+              title="Reporte Cobros en Efectivo"
+            >
+              <Banknote size={20} />
+              <span className="text-[10px] mt-0.5 font-bold">Cobros</span>
+            </button>
+
+            <button
+              onClick={onLogout}
+              className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all text-red-500 hover:text-red-600 active:scale-95"
+              title="Regresar al inicio de sesión"
+            >
+              <LogOut size={20} className="stroke-[2.2]" />
+              <span className="text-[10px] mt-0.5 font-bold">Salir</span>
+            </button>
           </>
         ) : (
           <>
@@ -342,6 +390,24 @@ export default function Navbar({
             >
               <FileText size={20} />
               <span className="text-[10px] mt-0.5 font-bold">Reporte</span>
+            </button>
+
+            <button
+              onClick={() => onOpenCashModal && onOpenCashModal()}
+              className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all text-amber-600 dark:text-amber-400 hover:text-amber-700"
+              title="Reporte Cobros en Efectivo"
+            >
+              <Banknote size={20} />
+              <span className="text-[10px] mt-0.5 font-bold">Cobros</span>
+            </button>
+
+            <button
+              onClick={onLogout}
+              className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all text-red-500 hover:text-red-600 active:scale-95"
+              title="Regresar al inicio de sesión"
+            >
+              <LogOut size={20} className="stroke-[2.2]" />
+              <span className="text-[10px] mt-0.5 font-bold">Salir</span>
             </button>
           </>
         )}

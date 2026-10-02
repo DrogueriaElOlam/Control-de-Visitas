@@ -142,11 +142,11 @@ export default function LoginModal({ onLoginSuccess }) {
                 <select
                   value={selectedVendorId}
                   onChange={handleVendorSelect}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium appearance-none cursor-pointer"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl py-3 px-4 focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-sm appearance-none cursor-pointer"
                 >
                   {vendors.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {v.name} ({v.route || 'Ruta General'})
+                      {v.name}
                     </option>
                   ))}
                 </select>
@@ -154,15 +154,6 @@ export default function LoginModal({ onLoginSuccess }) {
                   <ChevronRight size={18} className="rotate-90" />
                 </div>
               </div>
-
-              {currentSelectedVendor && (
-                <div className="mt-2.5 flex items-center justify-between px-3 py-2 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-900/50">
-                  <span>Ruta asignada: <strong>{currentSelectedVendor.route}</strong></span>
-                  <span className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle2 size={13} /> Activo
-                  </span>
-                </div>
-              )}
             </div>
           ) : (
             <div>

@@ -31,3 +31,4 @@ dist-ssr
 # Temporary / probe files
 tmp_*.txt
 *.tmp
+.agents/
