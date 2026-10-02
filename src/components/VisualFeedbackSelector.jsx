@@ -14,12 +14,31 @@ import {
   RotateCcw
 } from 'lucide-react';
 
+const isDev = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  Boolean(import.meta.env?.DEV)
+);
+
 /**
  * VisualFeedbackSelector
  * Herramienta interactiva para que el usuario pueda marcar visualmente en localhost
  * qué elementos de la pantalla desea MODIFICAR o ELIMINAR.
+ * 
+ * SEGURIDAD: 
+ * - Bloqueado 100% en producción (Vercel / dominio público).
+ * - En localhost está oculto por defecto y se activa con el atajo Ctrl + Shift + X.
  */
 export default function VisualFeedbackSelector() {
+  // Si NO es entorno local, no ejecutar ni renderizar absolutamente nada
+  if (!isDev) return null;
+
+  // En localhost: Oculto por defecto. Se activa solo con atajo Ctrl+Shift+X o ?selector=1
+  const [isToolVisible, setIsToolVisible] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.location.search.includes('selector=1');
+  });
+
   const [isActive, setIsActive] = useState(false);
   const [hoveredElement, setHoveredElement] = useState(null);
   const [selectedElement, setSelectedElement] = useState(null);
@@ -33,6 +52,30 @@ export default function VisualFeedbackSelector() {
   const [hiddenElements, setHiddenElements] = useState([]);
 
   const overlayRef = useRef(null);
+
+  // Escuchar atajo global Ctrl + Shift + X en localhost para mostrar u ocultar la herramienta
+  useEffect(() => {
+    const handleGlobalShortcut = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'X' || e.key === 'x')) {
+        e.preventDefault();
+        setIsToolVisible((prev) => {
+          const next = !prev;
+          if (!next) {
+            setIsActive(false);
+            setSelectedElement(null);
+            setElementDetails(null);
+          }
+          return next;
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalShortcut);
+    return () => window.removeEventListener('keydown', handleGlobalShortcut);
+  }, []);
+
+  // Si la herramienta no ha sido activada con Ctrl+Shift+X, no mostrar nada en pantalla
+  if (!isToolVisible) return null;
 
   // Inspector de Hover y Clics cuando el modo está activo
   useEffect(() => {
@@ -291,6 +334,21 @@ export default function VisualFeedbackSelector() {
             <Layers size={16} />
           </button>
         )}
+
+        {/* Botón para Ocultar la Herramienta completamente */}
+        <button
+          type="button"
+          onClick={() => {
+            setIsToolVisible(false);
+            setIsActive(false);
+            setSelectedElement(null);
+            setElementDetails(null);
+          }}
+          className="p-2.5 rounded-2xl bg-slate-900/90 hover:bg-rose-950 text-slate-400 hover:text-rose-300 border border-slate-700 shadow-xl transition-all cursor-pointer"
+          title="Ocultar herramienta (Presiona Ctrl + Shift + X para volver a abrir)"
+        >
+          <X size={15} />
+        </button>
       </div>
 
       {/* 4. Modal / Tarjeta al hacer clic en un elemento seleccionado */}

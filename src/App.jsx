@@ -303,8 +303,10 @@ export default function App() {
         <p>© 2026 Droguería El Olam • Sistema de Control y Rendimiento de Visitas Diarias</p>
       </footer>
 
-      {/* Selector / Marcador Visual para Modificar o Eliminar Elementos en localhost */}
-      <VisualFeedbackSelector />
+      {/* Selector / Marcador Visual para Modificar o Eliminar Elementos (Solo en localhost) */}
+      {typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || Boolean(import.meta.env?.DEV)) && (
+        <VisualFeedbackSelector />
+      )}
 
     </div>
   );
