@@ -110,7 +110,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     return () => window.removeEventListener('olam_clients_directory_updated', handleDirectoryUpdated);
   }, []);
 
-  // Cerrar sugerencias al hacer clic fuera del componente
+  // Cerrar sugerencias al hacer clic o tocar fuera del contenedor
   useEffect(() => {
     const handleDocClick = (e) => {
       if (!e.target.closest('.client-autocomplete-container')) {
@@ -118,8 +118,8 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
         setShowNameSuggestions(false);
       }
     };
-    document.addEventListener('click', handleDocClick);
-    return () => document.removeEventListener('click', handleDocClick);
+    document.addEventListener('pointerdown', handleDocClick);
+    return () => document.removeEventListener('pointerdown', handleDocClick);
   }, []);
 
   async function loadCatalogs() {
@@ -811,7 +811,6 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                     value={clientCode}
                     onFocus={() => setShowCodeSuggestions(true)}
                     onChange={(e) => handleClientCodeChange(e.target.value)}
-                    onBlur={handleCodeBlur}
                     onKeyDown={handleCodeKeyDown}
                     autoComplete="off"
                     className="w-full pl-9 pr-9 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
@@ -830,7 +829,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
                 {/* MENÚ FLOTANTE DE RESULTADOS POR CÓDIGO / DÍGITOS */}
                 {showCodeSuggestions && clientCode.trim().length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1.5 z-[9999] bg-white dark:bg-slate-900 border-2 border-blue-500 dark:border-blue-500 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in slide-in-from-top-1">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-[9999] bg-white dark:bg-slate-900 border-2 border-blue-500 dark:border-blue-500 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in slide-in-from-top-1 touch-pan-y overscroll-contain">
                     {codeSuggestions.length > 0 ? (
                       <>
                         <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/80 text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md border-b border-blue-100 dark:border-blue-900/50">
@@ -844,10 +843,9 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                           <button
                             key={`code-sug-${item.code || idx}`}
                             type="button"
-                            onMouseDown={(e) => { e.preventDefault(); applyClientSelection(item); }}
-                            onTouchStart={(e) => { e.preventDefault(); applyClientSelection(item); }}
+                            onMouseDown={(e) => e.preventDefault()}
                             onClick={() => applyClientSelection(item)}
-                            className="w-full text-left p-3 hover:bg-blue-50 dark:hover:bg-slate-800/90 transition-colors flex items-center justify-between gap-2 cursor-pointer group"
+                            className="w-full text-left p-3 hover:bg-blue-50 active:bg-blue-100 dark:hover:bg-slate-800/90 dark:active:bg-slate-700 transition-colors flex items-center justify-between gap-2 cursor-pointer group"
                           >
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
@@ -954,7 +952,6 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                     value={clientName}
                     onFocus={() => setShowNameSuggestions(true)}
                     onChange={(e) => handleClientNameChange(e.target.value)}
-                    onBlur={handleNameBlur}
                     onKeyDown={handleNameKeyDown}
                     autoComplete="off"
                     className="w-full px-4 pr-9 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
@@ -974,7 +971,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
                 {/* MENÚ FLOTANTE DE RESULTADOS POR NOMBRE */}
                 {showNameSuggestions && clientName.trim().length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1.5 z-[9999] bg-white dark:bg-slate-900 border-2 border-blue-500 dark:border-blue-500 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in slide-in-from-top-1">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-[9999] bg-white dark:bg-slate-900 border-2 border-blue-500 dark:border-blue-500 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in slide-in-from-top-1 touch-pan-y overscroll-contain">
                     {nameSuggestions.length > 0 ? (
                       <>
                         <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/80 text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md border-b border-blue-100 dark:border-blue-900/50">
@@ -988,10 +985,9 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                           <button
                             key={`name-sug-${item.name || idx}`}
                             type="button"
-                            onMouseDown={(e) => { e.preventDefault(); applyClientSelection(item); }}
-                            onTouchStart={(e) => { e.preventDefault(); applyClientSelection(item); }}
+                            onMouseDown={(e) => e.preventDefault()}
                             onClick={() => applyClientSelection(item)}
-                            className="w-full text-left p-3 hover:bg-blue-50 dark:hover:bg-slate-800/90 transition-colors flex items-center justify-between gap-2 cursor-pointer group"
+                            className="w-full text-left p-3 hover:bg-blue-50 active:bg-blue-100 dark:hover:bg-slate-800/90 dark:active:bg-slate-700 transition-colors flex items-center justify-between gap-2 cursor-pointer group"
                           >
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
