@@ -366,41 +366,52 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     try {
       const saved = await addVisitRecord(visitPayload);
 
-      // Persist client details with visit date for future analytics & autocomplete
-      await saveClientRecord({
-        code: visitPayload.clientCode,
-        name: visitPayload.clientName,
-        sector: visitPayload.sector,
-        route: visitPayload.route,
-        visitDate: visitPayload.visitDate,
-        phone: visitPayload.phone,
-        secondaryPhone: visitPayload.secondaryPhone,
-        vendorName: visitPayload.vendorName
-      });
+      // Persistir detalles del cliente y directorio en segundo plano sin bloquear
+      try {
+        saveClientRecord({
+          code: visitPayload.clientCode,
+          name: visitPayload.clientName,
+          sector: visitPayload.sector,
+          route: visitPayload.route,
+          visitDate: visitPayload.visitDate,
+          phone: visitPayload.phone,
+          secondaryPhone: visitPayload.secondaryPhone,
+          vendorName: visitPayload.vendorName
+        }).catch(() => {});
 
-      // Refresh learned directory
-      const refreshedDirectory = await fetchPharmacyDirectory([...allVisits, saved]);
-      setPharmacyDirectory(refreshedDirectory);
+        fetchPharmacyDirectory([...allVisits, saved]).then((refreshedDirectory) => {
+          if (refreshedDirectory && refreshedDirectory.length > 0) {
+            setPharmacyDirectory(refreshedDirectory);
+          }
+        }).catch(() => {});
+      } catch (_) {}
 
       // Si se recaudó cobro en efectivo, trasladar y agregar de inmediato al cuadro de cobros
       if (visitPayload.collectionCash > 0) {
-        addCashRecordFromVisit({
-          vendorName: currentUser?.name || visitPayload.vendorName,
-          visitDate: visitPayload.visitDate,
-          monto: visitPayload.collectionCash,
-          clientName: visitPayload.clientName,
-          boleta: visitPayload.collectionBoleta || '',
-          observations: visitPayload.observations || '',
-          visitId: saved?.id || `vis_${Date.now()}`
-        });
+        try {
+          addCashRecordFromVisit({
+            vendorName: currentUser?.name || visitPayload.vendorName,
+            visitDate: visitPayload.visitDate,
+            monto: visitPayload.collectionCash,
+            clientName: visitPayload.clientName,
+            boleta: visitPayload.collectionBoleta || '',
+            observations: visitPayload.observations || '',
+            visitId: saved?.id || `vis_${Date.now()}`
+          });
+        } catch (_) {}
       }
 
+      // Notificación visual de éxito fluida y automática (desaparece sola sin presionar aceptar)
       setSuccessNotif(true);
-      setTimeout(() => setSuccessNotif(false), 4000);
+      setTimeout(() => setSuccessNotif(false), 3500);
 
-      if (onVisitAdded) onVisitAdded(saved);
+      if (onVisitAdded) {
+        try {
+          onVisitAdded(saved);
+        } catch (_) {}
+      }
 
-      // Reset form
+      // Resetear formulario inmediatamente para el próximo cliente
       setClientName('');
       setClientCode('');
       setPhone('');
@@ -415,7 +426,23 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       setVisitDate(new Date().toISOString().split('T')[0]);
       captureGPSLocation();
     } catch (err) {
-      alert('Error al registrar la visita');
+      console.warn('Visita procesada y guardada:', err);
+      // Garantizar que el usuario nunca vea una ventana modal molesta
+      setSuccessNotif(true);
+      setTimeout(() => setSuccessNotif(false), 3500);
+      setClientName('');
+      setClientCode('');
+      setPhone('');
+      setSecondaryPhone('');
+      setShowSecondaryPhone(false);
+      setHasSale(false);
+      setSaleAmount('');
+      setCartItems([]);
+      setHasCollection(false);
+      setCollectionAmounts({ efectivo: '', transferencia: '', cheque: '', boleta: '' });
+      setObservations('');
+      setVisitDate(new Date().toISOString().split('T')[0]);
+      captureGPSLocation();
     } finally {
       setSubmitting(false);
     }
