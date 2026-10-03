@@ -804,20 +804,22 @@ export default function VisitsListAndFilters({
                         Vendedor: <strong className="text-slate-800 dark:text-slate-200">{visit.vendorName}</strong>
                       </div>
 
-                      {hasGps ? (
-                        <button
-                          type="button"
-                          onClick={() => window.open(`https://www.google.com/maps?q=${visit.location.lat},${visit.location.lng}`, '_blank')}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-xs hover:bg-emerald-200 transition-colors shadow-sm cursor-pointer"
-                          title="Abrir ubicación exacta en Google Maps"
-                        >
-                          <Navigation size={12} className="text-emerald-600 dark:text-emerald-400 animate-pulse" />
-                          <span>📍 Ver Mapa GPS</span>
-                        </button>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                          <MapPin size={11} /> Sin GPS
-                        </span>
+                      {isAdmin && (
+                        hasGps ? (
+                          <button
+                            type="button"
+                            onClick={() => window.open(`https://www.google.com/maps?q=${visit.location.lat},${visit.location.lng}`, '_blank')}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-xs hover:bg-emerald-200 transition-colors shadow-sm cursor-pointer"
+                            title="Abrir ubicación exacta en Google Maps"
+                          >
+                            <Navigation size={12} className="text-emerald-600 dark:text-emerald-400 animate-pulse" />
+                            <span>📍 Ver Mapa GPS</span>
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                            <MapPin size={11} /> Sin GPS
+                          </span>
+                        )
                       )}
                     </div>
 
