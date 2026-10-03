@@ -798,6 +798,29 @@ export default function VisitsListAndFilters({
                       </div>
                     </div>
 
+                    {/* Vendor and GPS Status Badge */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1 border-t border-slate-100 dark:border-slate-800">
+                      <div className="text-slate-500 dark:text-slate-400">
+                        Vendedor: <strong className="text-slate-800 dark:text-slate-200">{visit.vendorName}</strong>
+                      </div>
+
+                      {hasGps ? (
+                        <button
+                          type="button"
+                          onClick={() => window.open(`https://www.google.com/maps?q=${visit.location.lat},${visit.location.lng}`, '_blank')}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-xs hover:bg-emerald-200 transition-colors shadow-sm cursor-pointer"
+                          title="Abrir ubicación exacta en Google Maps"
+                        >
+                          <Navigation size={12} className="text-emerald-600 dark:text-emerald-400 animate-pulse" />
+                          <span>📍 Ver Mapa GPS</span>
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                          <MapPin size={11} /> Sin GPS
+                        </span>
+                      )}
+                    </div>
+
                     {/* Amounts Badges (Venta & Cobro) */}
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <div className={`p-2.5 rounded-xl border text-center ${
@@ -993,15 +1016,16 @@ export default function VisitsListAndFilters({
                           <td className="py-4 px-4">
                             {hasGps ? (
                               <button
-                                onClick={() => onOpenMapLocation && onOpenMapLocation(visit)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
-                                title="Ver en el mapa interactivo"
+                                type="button"
+                                onClick={() => window.open(`https://www.google.com/maps?q=${visit.location.lat},${visit.location.lng}`, '_blank')}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition-all cursor-pointer border border-emerald-200 dark:border-emerald-800 shadow-sm"
+                                title={`Abrir coordenadas (${visit.location.lat.toFixed(4)}, ${visit.location.lng.toFixed(4)}) en Google Maps`}
                               >
-                                <Navigation size={12} />
-                                <span>GPS</span>
+                                <Navigation size={12} className="text-emerald-600 dark:text-emerald-400 animate-pulse" />
+                                <span>📍 Ver Mapa</span>
                               </button>
                             ) : (
-                              <span className="text-xs text-slate-400">Sin GPS</span>
+                              <span className="text-xs text-slate-400 italic">Sin GPS</span>
                             )}
                           </td>
                         )}

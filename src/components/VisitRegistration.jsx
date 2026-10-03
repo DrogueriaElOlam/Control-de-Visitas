@@ -955,6 +955,49 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               />
             </div>
 
+            {/* Indicador Visual de Ubicación GPS en Vivo */}
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg ${location ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600' : locating ? 'bg-blue-100 dark:bg-blue-950 text-blue-600 animate-spin' : 'bg-amber-100 dark:bg-amber-950 text-amber-600'}`}>
+                  <Navigation size={15} />
+                </div>
+                <div>
+                  {locating ? (
+                    <span className="text-slate-600 dark:text-slate-300 font-medium">Detectando coordenadas satelitales...</span>
+                  ) : location ? (
+                    <div>
+                      <div className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                        <span>✓ Ubicación Capturada</span>
+                        <span className="text-[10px] font-normal px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                          {location.source || 'GPS Satelital'}
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5">
+                        Lat: {location.lat?.toFixed(5)} • Lng: {location.lng?.toFixed(5)} {location.accuracy ? `(±${location.accuracy}m)` : ''}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="font-semibold text-amber-700 dark:text-amber-400">Activando geolocalización de respaldo...</span>
+                      <p className="text-[10px] text-slate-400">Se adjuntará automáticamente al guardar la visita</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {location && (
+                <button
+                  type="button"
+                  onClick={() => window.open(`https://www.google.com/maps?q=${location.lat},${location.lng}`, '_blank')}
+                  className="px-2.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                  title="Ver coordenadas en Google Maps"
+                >
+                  <MapPin size={13} />
+                  <span>Ver Mapa</span>
+                </button>
+              )}
+            </div>
+
             {/* GPS Warning if not captured - Only visible for Admin */}
             {isAdmin && locError && (
               <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 font-medium">

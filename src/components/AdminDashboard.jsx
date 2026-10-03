@@ -50,6 +50,10 @@ export default function AdminDashboard({
       const goal = vendor.daily_goal || 15;
       const progress = Math.min(100, Math.round((vToday.length / goal) * 100));
 
+      // Buscar última visita con ubicación GPS registrada
+      const latestWithLoc = [...vToday].reverse().find(v => v.location?.lat && v.location?.lng) ||
+                            [...visits].filter(v => v.vendorName === vendor.name).reverse().find(v => v.location?.lat && v.location?.lng);
+
       return {
         id: vendor.id,
         name: vendor.name,
@@ -57,10 +61,12 @@ export default function AdminDashboard({
         todayCount: vToday.length,
         goal,
         progress,
-        todaySales: vSales
+        todaySales: vSales,
+        lastGps: latestWithLoc?.location || null,
+        lastClient: latestWithLoc?.clientName || null
       };
     }).sort((a, b) => b.todayCount - a.todayCount);
-  }, [activeVendors, todayVisits]);
+  }, [activeVendors, todayVisits, visits]);
 
   // Helper para verificar presencia en tiempo real
   const isVendorOnline = (v) => {
@@ -255,9 +261,22 @@ export default function AdminDashboard({
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                    <MapPin size={11} className="text-blue-500" />
-                    <span>{v.route}</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <div className="text-xs text-slate-400 flex items-center gap-1">
+                      <MapPin size={11} className="text-blue-500" />
+                      <span>{v.route}</span>
+                    </div>
+                    {v.lastGps && (
+                      <button
+                        type="button"
+                        onClick={() => window.open(`https://www.google.com/maps?q=${v.lastGps.lat},${v.lastGps.lng}`, '_blank')}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-bold text-[10px] hover:bg-emerald-200 transition-colors shadow-sm cursor-pointer"
+                        title="Ver ubicación en Google Maps"
+                      >
+                        <Navigation size={10} className="text-emerald-600 animate-pulse" />
+                        <span>📍 GPS</span>
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">
@@ -300,6 +319,7 @@ export default function AdminDashboard({
                 <th className="py-4 px-4">Ruta</th>
                 <th className="py-4 px-4 text-center">Visitas Hoy</th>
                 <th className="py-4 px-6">Progreso de Meta</th>
+                <th className="py-4 px-4 text-center">Última Ubicación</th>
                 <th className="py-4 px-6 text-right">Ventas Hoy (Q)</th>
               </tr>
             </thead>
@@ -350,6 +370,21 @@ export default function AdminDashboard({
                         />
                       </div>
                     </div>
+                  </td>
+                  <td className="py-4 px-4 text-center">
+                    {v.lastGps ? (
+                      <button
+                        type="button"
+                        onClick={() => window.open(`https://www.google.com/maps?q=${v.lastGps.lat},${v.lastGps.lng}`, '_blank')}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-bold text-xs border border-emerald-200 dark:border-emerald-800 transition-all shadow-sm cursor-pointer"
+                        title={`Último punto GPS en ${v.lastClient || 'ruta'}`}
+                      >
+                        <Navigation size={12} className="text-emerald-600 animate-pulse" />
+                        <span>📍 GPS</span>
+                      </button>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">Sin registro</span>
+                    )}
                   </td>
                   <td className="py-4 px-6 text-right font-bold text-emerald-600 dark:text-emerald-400">
                     {v.todaySales > 0 ? `Q${v.todaySales.toFixed(2)}` : '—'}
