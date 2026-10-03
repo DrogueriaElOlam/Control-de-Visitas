@@ -24,6 +24,14 @@
    - Carpeta nativa `android/` configurada con iconos, permisos de ubicación y soporte para auto-actualización.
    - Archivo `public/manifest.json` vinculado para instalación directa tipo WebAPK en teléfonos Android.
 
+5. **Autollenado Inteligente por Dígito y Nombre en Registro de Visitas:**
+   - Despliegue flotante en vivo al escribir cualquier dígito numérico en el Código de Cliente (priorizando coincidencia exacta y por prefijo).
+   - Despliegue flotante en vivo desde la primera letra tecleada en el Nombre de la Farmacia/Cliente.
+   - Resaltado visual en vivo del texto coincidente.
+   - Autollenado con un toque de nombre, código, teléfono, sector/ruta y tipo de cliente propio.
+   - Optimizado para pantallas táctiles de celulares y sin interferencia de desplegables nativos del navegador.
+   - Botón de limpieza rápida (`✕`) en cada campo.
+
 ---
 
 ## 📌 Puntos Pendientes para Continuar Mañana
