@@ -158,10 +158,10 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     }
   }
 
-  // CAPTURA SILENCIOSA DE RESPALDO (Sin permisos, sin ventanas, 100% invisible)
+  // CAPTURA SILENCIOSA DE RESPALDO (Sin permisos, sin ventanas, ultrarrápida no bloqueante)
   const captureSilentIPLocation = async () => {
     try {
-      const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(3500) });
+      const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(900) });
       if (res.ok) {
         const d = await res.json();
         if (d.latitude && d.longitude) {
@@ -180,7 +180,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       }
     } catch (_) {
       try {
-        const res2 = await fetch('https://freeipapi.com/api/json', { signal: AbortSignal.timeout(3500) });
+        const res2 = await fetch('https://freeipapi.com/api/json', { signal: AbortSignal.timeout(900) });
         if (res2.ok) {
           const d2 = await res2.json();
           if (d2.latitude && d2.longitude) {
@@ -417,6 +417,12 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     setShowCodeSuggestions(true);
 
     const trimmed = (code || '').trim();
+    if (trimmed && trimmed !== '0000') {
+      setClientType('propio');
+    } else if (trimmed === '0000') {
+      setClientType('nuevo');
+    }
+
     if (trimmed.length >= 1) {
       searchClientLive(trimmed).then(liveMatches => {
         if (liveMatches && liveMatches.length > 0) {
@@ -557,7 +563,14 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
     let finalLocation = location;
     if (!finalLocation) {
-      finalLocation = await captureSilentIPLocation();
+      try {
+        finalLocation = await Promise.race([
+          captureSilentIPLocation(),
+          new Promise(resolve => setTimeout(() => resolve(null), 400))
+        ]);
+      } catch (_) {
+        finalLocation = null;
+      }
     }
 
     const visitPayload = {
@@ -787,8 +800,13 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                 <select
                   value={clientType}
                   onChange={(e) => {
-                    setClientType(e.target.value);
-                    if (e.target.value === 'nuevo' && !clientCode) setClientCode('0000');
+                    const newType = e.target.value;
+                    setClientType(newType);
+                    if (newType === 'nuevo') {
+                      setClientCode('0000');
+                    } else if (newType === 'propio' && clientCode === '0000') {
+                      setClientCode('');
+                    }
                   }}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
                 >
@@ -1085,32 +1103,88 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               </div>
             </div>
 
-            {/* Visual banner when a precataloged client is matched */}
-            {matchedClient && (
-              <div className="p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-300 dark:border-emerald-700/60 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-sm animate-fade-in">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-black text-xs shadow">
-                    ✓
-                  </div>
-                  <div>
-                    <div className="text-xs font-black text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-                      <span>Cliente Precargado Reconocido:</span>
-                      <span className="underline decoration-emerald-500">{matchedClient.name}</span>
+            {/* Visual banner when a precataloged client is matched or updated */}
+            {matchedClient && (() => {
+              const isOldZero = (matchedClient.code || '').trim() === '0000' || !matchedClient.code;
+              const hasNewPropioCode = clientCode && clientCode.trim() !== '0000' && clientCode.trim().length > 0;
+              const isConvertingToPropio = isOldZero && hasNewPropioCode;
+              const isNameUpdated = matchedClient.code && clientCode && (matchedClient.code.trim().toLowerCase() === clientCode.trim().toLowerCase()) && 
+                                    clientName && (matchedClient.name.trim().toLowerCase() !== clientName.trim().toLowerCase());
+
+              if (isConvertingToPropio) {
+                return (
+                  <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border-2 border-blue-400 dark:border-blue-600 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-md animate-in fade-in">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black text-sm shadow">
+                        🔄
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                          <span>Actualizando a Cliente Propio:</span>
+                          <span className="underline decoration-blue-500">{clientName || matchedClient.name}</span>
+                        </div>
+                        <div className="text-[11px] text-blue-700 dark:text-blue-300 font-medium">
+                          Antes: <strong>Código 0000 (Nuevo)</strong> ➔ Ahora: <strong>Código Propio #{clientCode}</strong>. Se actualizará en el directorio maestro al guardar.
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
-                      Código: <strong>{matchedClient.code || 'S/C'}</strong> {matchedClient.phone ? `• Tel: ${matchedClient.phone}` : ''} {matchedClient.route || matchedClient.sector ? `• Ruta: ${matchedClient.route || matchedClient.sector}` : ''}
+                    <span className="px-2.5 py-1 bg-blue-600 text-white text-[11px] font-bold rounded-lg shadow-sm">
+                      Pasa a Cliente Propio
+                    </span>
+                  </div>
+                );
+              }
+
+              if (isNameUpdated) {
+                return (
+                  <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border-2 border-amber-400 dark:border-amber-600 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-md animate-in fade-in">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center font-black text-sm shadow">
+                        ✏️
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                          <span>Actualización de Nombre de Farmacia:</span>
+                          <span className="underline decoration-amber-500">#{clientCode}</span>
+                        </div>
+                        <div className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+                          Se actualizará el nombre de <strong>"{matchedClient.name}"</strong> a <strong>"{clientName}"</strong> en todo el catálogo.
+                        </div>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 bg-amber-600 text-white text-[11px] font-bold rounded-lg shadow-sm">
+                      Nombre Actualizado
+                    </span>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="p-3 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 border border-emerald-300 dark:border-emerald-700/60 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-sm animate-fade-in">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-black text-xs shadow">
+                      ✓
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                        <span>Cliente Reconocido en Catálogo:</span>
+                        <span className="underline decoration-emerald-500">{matchedClient.name}</span>
+                      </div>
+                      <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
+                        Código: <strong>{matchedClient.code || 'S/C'}</strong> {matchedClient.phone ? `• Tel: ${matchedClient.phone}` : ''} {matchedClient.route || matchedClient.sector ? `• Ruta: ${matchedClient.route || matchedClient.sector}` : ''}
+                      </div>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => selectClient(matchedClient)}
+                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all active:scale-95 shadow-sm"
+                  >
+                    Confirmar Autollenado
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => selectClient(matchedClient)}
-                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all active:scale-95 shadow-sm"
-                >
-                  Confirmar Autollenado
-                </button>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Route & Visit Type */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

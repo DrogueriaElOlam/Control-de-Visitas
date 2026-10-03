@@ -20,6 +20,8 @@ import {
   getVendorsList, 
   getVisitsList,
   syncPendingVisits,
+  triggerReactiveSync,
+  getPendingSyncVisits,
   deduplicateVisitsList
 } from './lib/db';
 import { syncCashFromVisits } from './lib/cashCollections';
@@ -56,10 +58,32 @@ export default function App() {
 
     // Auto retry sync whenever internet connection is restored
     const handleOnline = () => {
-      syncPendingVisits().then(() => loadInitialData());
+      triggerReactiveSync();
+      loadInitialData();
     };
     window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+
+    // Escuchar evento de sincronización exitosa en segundo plano para actualizar UI al instante
+    const handleVisitsSynced = () => {
+      getVisitsList().then(refreshed => {
+        setVisits(deduplicateVisitsList(refreshed));
+      }).catch(() => {});
+    };
+    window.addEventListener('olam_visits_synced', handleVisitsSynced);
+
+    // Verificador periódico ligero de cola pendiente (cada 12 segundos)
+    const queueInterval = setInterval(() => {
+      const pending = getPendingSyncVisits();
+      if (pending && pending.length > 0) {
+        triggerReactiveSync();
+      }
+    }, 12000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('olam_visits_synced', handleVisitsSynced);
+      clearInterval(queueInterval);
+    };
   }, []);
 
   // Suscribirse a la presencia de vendedores en tiempo real

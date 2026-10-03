@@ -252,23 +252,49 @@ export async function saveClientRecord({ code, name, sector, route, visitDate, p
   const cleanRoute = (route || sector || '').trim();
   const cleanDate = (visitDate || new Date().toISOString().split('T')[0]).trim();
 
-  // 1. Update localStorage directory
+  // 1. Update localStorage directory (olam_pharmacy_directory_v2)
   try {
-    const list = getStoredPharmacyDirectory();
-    const idx = list.findIndex(c => 
-      (cleanCode && c.code && c.code.toLowerCase() === cleanCode.toLowerCase()) ||
-      (cleanName && c.name && c.name.toLowerCase() === cleanName.toLowerCase())
-    );
+    let list = getStoredPharmacyDirectory();
+    
+    // Buscar si ya existía el cliente por código o por nombre
+    let idx = -1;
+
+    // A. Prioridad 1: Coincidencia exacta de código propio (si no es 0000)
+    if (cleanCode && cleanCode !== '0000') {
+      idx = list.findIndex(c => (c.code || '').trim().toLowerCase() === cleanCode.toLowerCase());
+    }
+
+    // B. Prioridad 2: Coincidencia por nombre de farmacia (permite detectar clientes que tenían 0000 o cambiarles el código)
+    if (idx === -1 && cleanName) {
+      idx = list.findIndex(c => (c.name || '').trim().toLowerCase() === cleanName.toLowerCase());
+    }
+
+    const previousItem = idx !== -1 ? list[idx] : null;
+
+    // Determinar el código final:
+    // Si se especificó un código propio (no 0000), ese prevalece siempre
+    let finalCode = cleanCode;
+    if (!finalCode || finalCode === '0000') {
+      // Si el cliente ya tenía un código propio previo en el catálogo, conservarlo para no degradarlo a 0000
+      if (previousItem && previousItem.code && previousItem.code !== '0000') {
+        finalCode = previousItem.code;
+      } else {
+        finalCode = cleanCode || '0000';
+      }
+    }
+
+    // Determinar el nombre final: si se ingresó un nombre limpio, ese prevalece siempre (permite actualizar nombres de farmacia)
+    const finalName = cleanName || (previousItem ? previousItem.name : 'Cliente Farmacia');
 
     const record = {
-      code: cleanCode || (idx !== -1 ? list[idx].code : '0000'),
-      name: cleanName || (idx !== -1 ? list[idx].name : 'Cliente Farmacia'),
-      sector: cleanSector || (idx !== -1 ? list[idx].sector : ''),
-      route: cleanRoute || (idx !== -1 ? list[idx].route : cleanSector),
-      phone: (phone || '').trim() || (idx !== -1 ? list[idx].phone : ''),
+      code: finalCode,
+      name: finalName,
+      sector: cleanSector || (previousItem ? previousItem.sector : ''),
+      route: cleanRoute || (previousItem ? previousItem.route : cleanSector),
+      phone: (phone || '').trim() || (previousItem ? previousItem.phone : ''),
       last_visit_date: cleanDate,
       last_vendor: vendorName || '',
-      total_visits: idx !== -1 ? (list[idx].total_visits || 0) + 1 : 1,
+      total_visits: previousItem ? (previousItem.total_visits || 0) + 1 : 1,
       updated_at: new Date().toISOString()
     };
 
@@ -277,7 +303,46 @@ export async function saveClientRecord({ code, name, sector, route, visitDate, p
     } else {
       list.push(record);
     }
+
+    // Si se asignó un código propio real a un cliente que antes estaba registrado como '0000',
+    // limpiar las entradas viejas '0000' con el mismo nombre para que no queden duplicadas
+    if (finalCode && finalCode !== '0000' && finalName) {
+      list = list.filter(item => {
+        const isSameName = (item.name || '').trim().toLowerCase() === finalName.toLowerCase();
+        const isOldZero = (item.code || '').trim() === '0000' || !item.code;
+        return !(isSameName && isOldZero);
+      });
+      // Asegurarse de que el registro con código propio esté en la lista
+      const exists = list.some(item => (item.code || '').trim().toLowerCase() === finalCode.toLowerCase());
+      if (!exists) {
+        list.push(record);
+      }
+    }
+
     localStorage.setItem('olam_pharmacy_directory_v2', JSON.stringify(list));
+
+    // 2. Actualizar caché de códigos de cliente (olam_client_codes_cache) en caliente
+    try {
+      const rawCodes = localStorage.getItem('olam_client_codes_cache');
+      let codesList = rawCodes ? JSON.parse(rawCodes) : [];
+      if (Array.isArray(codesList)) {
+        // Si tiene código propio real, actualizar o insertar en la lista de códigos oficiales
+        if (finalCode && finalCode !== '0000') {
+          const cIdx = codesList.findIndex(c => 
+            (c.code || '').trim().toLowerCase() === finalCode.toLowerCase() ||
+            (c.name || '').trim().toLowerCase() === finalName.toLowerCase()
+          );
+          if (cIdx !== -1) {
+            codesList[cIdx] = { code: finalCode, name: finalName };
+          } else {
+            codesList.push({ code: finalCode, name: finalName });
+          }
+          localStorage.setItem('olam_client_codes_cache', JSON.stringify(codesList));
+        }
+      }
+    } catch (_) {}
+
+    // Notificar en tiempo real a todos los componentes y autocompletados
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('olam_clients_directory_updated', { detail: list }));
     }
@@ -285,15 +350,15 @@ export async function saveClientRecord({ code, name, sector, route, visitDate, p
     console.warn('Error saving local pharmacy directory:', e);
   }
 
-  // 2. Persist to Supabase client_codes table
-  if (cleanCode && cleanName) {
+  // 3. Persistir y actualizar en Supabase en la tabla client_codes (cuando tenga código real asignado)
+  if (cleanCode && cleanCode !== '0000' && cleanName) {
     try {
       await supabase.from('client_codes').upsert({
         code: cleanCode,
         client_name: cleanName
       }, { onConflict: 'code' });
     } catch (e) {
-      // Ignore conflict or missing schema columns
+      console.warn('Error guardando código de cliente en Supabase:', e);
     }
   }
 }

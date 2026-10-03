@@ -666,10 +666,46 @@ export function savePendingSyncVisits(list) {
   localStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify(list));
 }
 
-// Background sync to ensure NO data is ever lost
+// Motor reactivo de sincronización inmediata en segundo plano
+let isSyncing = false;
+let syncTimeoutIds = [];
+
+export function triggerReactiveSync() {
+  if (typeof window === 'undefined') return;
+  
+  // Limpiar reintentos previos acumulados para evitar sobrecarga
+  syncTimeoutIds.forEach(id => clearTimeout(id));
+  syncTimeoutIds = [];
+
+  const runImmediate = async () => {
+    if (isSyncing) return;
+    try {
+      isSyncing = true;
+      const res = await syncPendingVisits();
+      if (res && res.synced > 0) {
+        window.dispatchEvent(new CustomEvent('olam_visits_synced', { detail: res }));
+      }
+      // Si todavía quedan pendientes por mala conexión, reintentar progresivamente
+      if (res && res.pending > 0) {
+        const id1 = setTimeout(() => triggerReactiveSync(), 2500);
+        const id2 = setTimeout(() => triggerReactiveSync(), 6000);
+        syncTimeoutIds.push(id1, id2);
+      }
+    } catch (e) {
+      console.warn('Error en ejecución reactiva de sync:', e);
+    } finally {
+      isSyncing = false;
+    }
+  };
+
+  // Disparar primer intento de inmediato
+  runImmediate();
+}
+
+// Background sync to ensure NO data is ever lost and executes immediately
 export async function syncPendingVisits() {
   const pending = getPendingSyncVisits();
-  if (pending.length === 0) return { synced: 0, pending: 0 };
+  if (!pending || pending.length === 0) return { synced: 0, pending: 0 };
 
   let remaining = [];
   let syncedCount = 0;
@@ -677,8 +713,8 @@ export async function syncPendingVisits() {
   for (const item of pending) {
     try {
       const payload = {
-        client_name: item.clientName || 'Cliente Droguería',
-        client_code: item.clientCode || '0000',
+        client_name: (item.clientName || 'Cliente Droguería').trim(),
+        client_code: (item.clientCode || '0000').trim(),
         phone: item.phone || null,
         visit_type: (item.visitType || 'presencial').toLowerCase(),
         client_type: (item.clientType || 'propio').toLowerCase(),
@@ -688,24 +724,31 @@ export async function syncPendingVisits() {
         sale_type: item.hasSale ? (item.saleType || 'presencial') : null,
         sale_amount: Number(item.saleAmount) || 0,
         has_collection: !!item.hasCollection,
-        collection_cash: Number(item.collectionCash) || 0,
-        collection_transfer: Number(item.collectionTransfer) || 0,
-        collection_check: Number(item.collectionCheck) || 0,
-        collection_boleta: Number(item.collectionBoleta) || 0,
+        collection_cash: Number(item.collectionCash || item.collectionAmounts?.efectivo) || 0,
+        collection_transfer: Number(item.collectionTransfer || item.collectionAmounts?.transferencia) || 0,
+        collection_check: Number(item.collectionCheck || item.collectionAmounts?.cheque) || 0,
+        collection_boleta: Number(item.collectionBoleta || item.collectionAmounts?.boleta) || 0,
         collection_amount: Number(item.collectionAmount) || 0,
         observations: item.observations || null,
-        latitude: item.location?.lat || null,
-        longitude: item.location?.lng || null,
-        location_accuracy: item.location?.accuracy || null,
+        latitude: item.location?.lat ? Number(item.location.lat) : null,
+        longitude: item.location?.lng ? Number(item.location.lng) : null,
+        location_accuracy: item.location?.accuracy ? Number(item.location.accuracy) : null,
         vendor_name: item.vendorName || 'Vendedor El Olam',
         route: item.route || item.sector || 'General',
         visit_date: item.visitDate || new Date().toISOString().split('T')[0]
       };
 
-      const { data, error } = await supabase.from('visits').insert([payload]).select();
+      // Inserción con timeout de seguridad de 4 segundos
+      const insertPromise = supabase.from('visits').insert([payload]).select();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout de inserción Supabase')), 4000)
+      );
+
+      const { data, error } = await Promise.race([insertPromise, timeoutPromise]);
+      
       if (!error && data && data[0]?.id) {
         syncedCount++;
-        // Update local storage record with cloud_id
+        // Update local storage record with cloud_id and synced status
         try {
           const raw = localStorage.getItem(STORAGE_KEYS.VISITS);
           if (raw) {
@@ -714,7 +757,8 @@ export async function syncPendingVisits() {
             if (idx !== -1) {
               list[idx].cloud_id = data[0].id;
               list[idx].synced = true;
-              localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(list));
+              list[idx].created_at = data[0].created_at || list[idx].created_at;
+              localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(deduplicateVisitsList(list)));
             }
           }
         } catch {}
@@ -728,10 +772,15 @@ export async function syncPendingVisits() {
 
   savePendingSyncVisits(remaining);
   localStorage.setItem(STORAGE_KEYS.LAST_SYNC, new Date().toISOString());
+
+  if (syncedCount > 0 && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('olam_visits_synced', { detail: { synced: syncedCount, pending: remaining.length } }));
+  }
+
   return { synced: syncedCount, pending: remaining.length };
 }
 
-// Add visit (Dual layer: Supabase + LocalStorage with guaranteed persistence)
+// Add visit (Dual layer: Supabase + LocalStorage with guaranteed persistence & immediate sync)
 export async function addVisitRecord(visit) {
   const now = new Date();
   const todayStr = now.toISOString().split('T')[0];
@@ -776,22 +825,30 @@ export async function addVisitRecord(visit) {
     collection_boleta: Number(enhancedVisit.collectionBoleta || enhancedVisit.collectionAmounts?.boleta) || 0,
     collection_amount: Number(enhancedVisit.collectionAmount) || 0,
     observations: enhancedVisit.observations || null,
-    latitude: enhancedVisit.location?.lat || null,
-    longitude: enhancedVisit.location?.lng || null,
-    location_accuracy: enhancedVisit.location?.accuracy || null,
+    latitude: enhancedVisit.location?.lat ? Number(enhancedVisit.location.lat) : null,
+    longitude: enhancedVisit.location?.lng ? Number(enhancedVisit.location.lng) : null,
+    location_accuracy: enhancedVisit.location?.accuracy ? Number(enhancedVisit.location.accuracy) : null,
     vendor_name: enhancedVisit.vendorName || 'Vendedor El Olam',
     route: enhancedVisit.route || enhancedVisit.sector || 'General',
     visit_date: enhancedVisit.visitDate
   };
 
-  // 3. Sync to Supabase
+  // 3. Sync to Supabase con timeout de 3.5 segundos para no dejar en cola la ejecución
   try {
-    const { data, error } = await supabase.from('visits').insert([payload]).select();
+    const insertPromise = supabase.from('visits').insert([payload]).select();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout de respuesta Supabase')), 3500)
+    );
+
+    const { data, error } = await Promise.race([insertPromise, timeoutPromise]);
+
     if (error) {
-      console.warn('Supabase visit insert error, queuing for retry sync:', error);
+      console.warn('Supabase visit insert error, queuing and triggering immediate sync:', error);
       const pending = getPendingSyncVisits();
       pending.push(enhancedVisit);
       savePendingSyncVisits(pending);
+      // Disparar reintento reactivo inmediato sin esperar
+      setTimeout(() => triggerReactiveSync(), 400);
     } else if (data && data[0]?.id) {
       enhancedVisit.cloud_id = data[0].id;
       enhancedVisit.synced = true;
@@ -814,10 +871,12 @@ export async function addVisitRecord(visit) {
       } catch {}
     }
   } catch (err) {
-    console.warn('Supabase visit sync error, queued offline:', err);
+    console.warn('Supabase visit sync error/timeout, queued offline and triggering immediate sync:', err);
     const pending = getPendingSyncVisits();
     pending.push(enhancedVisit);
     savePendingSyncVisits(pending);
+    // Disparar reintento reactivo inmediato en segundo plano
+    setTimeout(() => triggerReactiveSync(), 400);
   }
 
   return enhancedVisit;
