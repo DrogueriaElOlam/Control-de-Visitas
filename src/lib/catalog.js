@@ -107,12 +107,13 @@ export async function searchClientLive(query) {
       });
     }
 
-    // 2. Buscar en visits para completar o encontrar visitas pasadas con sector y teléfono
+    // 2. Buscar en visits para completar o encontrar visitas pasadas con sector y teléfono más reciente
     const { data: visitData } = await supabase
       .from('visits')
-      .select('client_code, client_name, sector, route, phone')
+      .select('client_code, client_name, sector, route, phone, created_at')
       .or(`client_code.ilike.%${q}%,client_name.ilike.%${q}%`)
-      .limit(30);
+      .order('created_at', { ascending: false })
+      .limit(40);
 
     if (visitData && Array.isArray(visitData)) {
       visitData.forEach(v => {
@@ -120,9 +121,11 @@ export async function searchClientLive(query) {
         if (!k) return;
         const existing = results.find(r => (r.code && r.code === v.client_code) || (r.name && r.name.toLowerCase() === (v.client_name || '').toLowerCase()));
         if (existing) {
-          if (!existing.sector) existing.sector = v.sector || v.route || '';
-          if (!existing.route) existing.route = v.route || v.sector || '';
-          if (!existing.phone) existing.phone = v.phone || '';
+          if (!existing.sector && (v.sector || v.route)) existing.sector = v.sector || v.route || '';
+          if (!existing.route && (v.route || v.sector)) existing.route = v.route || v.sector || '';
+          if (v.phone && (!existing.phone || v.phone !== existing.phone)) {
+            existing.phone = v.phone;
+          }
         } else if (v.client_code && !seen.has(v.client_code)) {
           seen.add(v.client_code);
           results.push({
@@ -131,7 +134,7 @@ export async function searchClientLive(query) {
             sector: v.sector || v.route || '',
             route: v.route || v.sector || '',
             phone: v.phone || '',
-            lastVisitDate: '',
+            lastVisitDate: v.created_at ? v.created_at.split('T')[0] : '',
             totalVisits: 1
           });
         }
