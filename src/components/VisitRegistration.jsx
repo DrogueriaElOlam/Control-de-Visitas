@@ -21,7 +21,7 @@ import {
   X
 } from 'lucide-react';
 import { ALL_ROUTES, addVisitRecord, getRoutesForVendor } from '../lib/db';
-import { fetchClientCodes, fetchPharmacyDirectory, saveClientRecord } from '../lib/catalog';
+import { fetchClientCodes, fetchPharmacyDirectory, saveClientRecord, searchClientLive } from '../lib/catalog';
 import { addCashRecordFromVisit } from '../lib/cashCollections';
 
 export default function VisitRegistration({ currentUser, onVisitAdded, allVisits = [], onLogout, onNavigate }) {
@@ -123,12 +123,39 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
   }, []);
 
   async function loadCatalogs() {
-    const prods = await fetchProductsCatalog();
-    setProducts(prods);
-    const codes = await fetchClientCodes();
-    setClientCodesList(codes);
-    const directory = await fetchPharmacyDirectory(allVisits);
-    setPharmacyDirectory(directory);
+    try {
+      // 1. Cargar códigos de clientes de inmediato (0ms con caché)
+      fetchClientCodes().then(codes => {
+        if (codes && codes.length > 0) {
+          setClientCodesList(codes);
+          // Sembrar el directorio de inmediato con los 900+ clientes
+          setPharmacyDirectory(prev => {
+            if (prev && prev.length > 10) return prev;
+            return codes.map(c => ({
+              code: c.code,
+              name: c.name || '',
+              sector: '',
+              route: '',
+              phone: '',
+              lastVisitDate: '',
+              totalVisits: 0
+            }));
+          });
+        }
+      }).catch(() => {});
+
+      // 2. Cargar directorio completo con visitas históricas
+      fetchPharmacyDirectory(allVisits).then(directory => {
+        if (directory && directory.length > 0) {
+          setPharmacyDirectory(directory);
+        }
+      }).catch(() => {});
+
+      // 3. Productos en segundo plano
+      fetchProductsCatalog().then(prods => setProducts(prods)).catch(() => {});
+    } catch (e) {
+      console.warn('Error cargando catálogos:', e);
+    }
   }
 
   // CAPTURA SILENCIOSA DE RESPALDO (Sin permisos, sin ventanas, 100% invisible)
@@ -384,10 +411,23 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     }) || null;
   }, [clientCode, clientName, pharmacyDirectory]);
 
-  // MANEJO DE CAMBIO EN CÓDIGO (Despliega opciones de inmediato sin interferir con la escritura)
+  // MANEJO DE CAMBIO EN CÓDIGO (Despliega opciones de inmediato y consulta el directorio en vivo)
   const handleClientCodeChange = (code) => {
     setClientCode(code);
     setShowCodeSuggestions(true);
+
+    const trimmed = (code || '').trim();
+    if (trimmed.length >= 1) {
+      searchClientLive(trimmed).then(liveMatches => {
+        if (liveMatches && liveMatches.length > 0) {
+          setPharmacyDirectory(prev => {
+            const seen = new Set((prev || []).map(p => (p.code || '').toLowerCase()));
+            const toAdd = liveMatches.filter(m => m.code && !seen.has(m.code.toLowerCase()));
+            return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+          });
+        }
+      }).catch(() => {});
+    }
   };
 
   // Autollenar con Enter si hay sugerencias de código
@@ -415,10 +455,23 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     }
   };
 
-  // MANEJO DE CAMBIO EN NOMBRE (Despliega opciones desde el primer caracter)
+  // MANEJO DE CAMBIO EN NOMBRE (Despliega opciones desde el primer caracter y consulta en vivo)
   const handleClientNameChange = (name) => {
     setClientName(name);
     setShowNameSuggestions(true);
+
+    const trimmed = (name || '').trim();
+    if (trimmed.length >= 1) {
+      searchClientLive(trimmed).then(liveMatches => {
+        if (liveMatches && liveMatches.length > 0) {
+          setPharmacyDirectory(prev => {
+            const seen = new Set((prev || []).map(p => (p.name || '').toLowerCase()));
+            const toAdd = liveMatches.filter(m => m.name && !seen.has(m.name.toLowerCase()));
+            return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+          });
+        }
+      }).catch(() => {});
+    }
   };
 
   // Autollenar con Enter si hay sugerencias de nombre
@@ -646,10 +699,10 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       )}
 
       {/* Main Registration Card */}
-      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700">
         
         {/* Form Header */}
-        <div className="bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white p-6 sm:p-8">
+        <div className="bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white p-6 sm:p-8 rounded-t-3xl">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
@@ -777,7 +830,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
                 {/* MENÚ FLOTANTE DE RESULTADOS POR CÓDIGO / DÍGITOS */}
                 {showCodeSuggestions && clientCode.trim().length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in slide-in-from-top-1">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-[9999] bg-white dark:bg-slate-900 border-2 border-blue-500 dark:border-blue-500 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in slide-in-from-top-1">
                     {codeSuggestions.length > 0 ? (
                       <>
                         <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/80 text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md border-b border-blue-100 dark:border-blue-900/50">
@@ -921,7 +974,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
                 {/* MENÚ FLOTANTE DE RESULTADOS POR NOMBRE */}
                 {showNameSuggestions && clientName.trim().length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in slide-in-from-top-1">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-[9999] bg-white dark:bg-slate-900 border-2 border-blue-500 dark:border-blue-500 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in slide-in-from-top-1">
                     {nameSuggestions.length > 0 ? (
                       <>
                         <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/80 text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md border-b border-blue-100 dark:border-blue-900/50">

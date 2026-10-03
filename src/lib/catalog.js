@@ -34,13 +34,34 @@ export async function fetchProductsCatalog() {
 }
 
 export async function fetchClientCodes() {
+  // 1. Caché local para carga en 0 milisegundos
+  try {
+    const cached = localStorage.getItem('olam_client_codes_cache');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Refrescar en segundo plano sin bloquear la UI
+        supabase.from('client_codes').select('*').then(({ data }) => {
+          if (data && data.length > 0) {
+            const mapped = data.map(c => ({ code: c.code, name: c.client_name }));
+            try { localStorage.setItem('olam_client_codes_cache', JSON.stringify(mapped)); } catch (_) {}
+          }
+        }).catch(() => {});
+        return parsed;
+      }
+    }
+  } catch (_) {}
+
+  // 2. Consulta a Supabase si no hay caché
   try {
     const { data, error } = await supabase.from('client_codes').select('*');
     if (!error && data && data.length > 0) {
-      return data.map(c => ({
+      const mapped = data.map(c => ({
         code: c.code,
         name: c.client_name
       }));
+      try { localStorage.setItem('olam_client_codes_cache', JSON.stringify(mapped)); } catch (_) {}
+      return mapped;
     }
   } catch (e) {
     console.warn('Fallback client codes:', e);
@@ -52,6 +73,75 @@ export async function fetchClientCodes() {
     { code: '0004', name: 'Farmacia Santa María' },
     { code: '0005', name: 'Clínica y Farmacia San Juan' }
   ];
+}
+
+// Búsqueda en vivo y en tiempo real directamente contra Supabase
+export async function searchClientLive(query) {
+  if (!query || !query.trim()) return [];
+  const q = query.trim();
+  const results = [];
+  const seen = new Set();
+
+  try {
+    // 1. Buscar en client_codes por código o nombre
+    const { data: codeData } = await supabase
+      .from('client_codes')
+      .select('code, client_name')
+      .or(`code.ilike.%${q}%,client_name.ilike.%${q}%`)
+      .limit(30);
+
+    if (codeData && Array.isArray(codeData)) {
+      codeData.forEach(c => {
+        if (!seen.has(c.code)) {
+          seen.add(c.code);
+          results.push({
+            code: c.code,
+            name: c.client_name || '',
+            sector: '',
+            route: '',
+            phone: '',
+            lastVisitDate: '',
+            totalVisits: 0
+          });
+        }
+      });
+    }
+
+    // 2. Buscar en visits para completar o encontrar visitas pasadas con sector y teléfono
+    const { data: visitData } = await supabase
+      .from('visits')
+      .select('client_code, client_name, sector, route, phone')
+      .or(`client_code.ilike.%${q}%,client_name.ilike.%${q}%`)
+      .limit(30);
+
+    if (visitData && Array.isArray(visitData)) {
+      visitData.forEach(v => {
+        const k = v.client_code || v.client_name;
+        if (!k) return;
+        const existing = results.find(r => (r.code && r.code === v.client_code) || (r.name && r.name.toLowerCase() === (v.client_name || '').toLowerCase()));
+        if (existing) {
+          if (!existing.sector) existing.sector = v.sector || v.route || '';
+          if (!existing.route) existing.route = v.route || v.sector || '';
+          if (!existing.phone) existing.phone = v.phone || '';
+        } else if (v.client_code && !seen.has(v.client_code)) {
+          seen.add(v.client_code);
+          results.push({
+            code: v.client_code || '',
+            name: v.client_name || '',
+            sector: v.sector || v.route || '',
+            route: v.route || v.sector || '',
+            phone: v.phone || '',
+            lastVisitDate: '',
+            totalVisits: 1
+          });
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('Error en búsqueda live de clientes en Supabase:', err);
+  }
+
+  return results;
 }
 
 // Global Pharmacy Directory that stores and learns Code <-> Name <-> Sector/Route <-> Last Visit Date
