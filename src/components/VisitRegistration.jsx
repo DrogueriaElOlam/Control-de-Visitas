@@ -112,13 +112,55 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     setPharmacyDirectory(directory);
   }
 
-  // AUTO GPS CAPTURE
+  // CAPTURA SILENCIOSA DE RESPALDO (Sin permisos, sin ventanas, 100% invisible)
+  const captureSilentIPLocation = async () => {
+    try {
+      const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(3500) });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.latitude && d.longitude) {
+          const loc = {
+            lat: Number(d.latitude),
+            lng: Number(d.longitude),
+            accuracy: 2500,
+            city: d.city || '',
+            region: d.region || '',
+            org: d.org || '',
+            source: 'Red/IP (Silencioso)'
+          };
+          setLocation(loc);
+          return loc;
+        }
+      }
+    } catch (_) {
+      try {
+        const res2 = await fetch('https://freeipapi.com/api/json', { signal: AbortSignal.timeout(3500) });
+        if (res2.ok) {
+          const d2 = await res2.json();
+          if (d2.latitude && d2.longitude) {
+            const loc2 = {
+              lat: Number(d2.latitude),
+              lng: Number(d2.longitude),
+              accuracy: 3000,
+              city: d2.cityName || '',
+              region: d2.regionName || '',
+              source: 'Red/IP (Silencioso)'
+            };
+            setLocation(loc2);
+            return loc2;
+          }
+        }
+      } catch (__) {}
+    }
+    return null;
+  };
+
+  // AUTO GPS CAPTURE CON RESPALDO SILENCIOSO
   const captureGPSLocation = () => {
     setLocating(true);
     setLocError('');
     if (!navigator.geolocation) {
-      if (isAdmin) setLocError('Geolocalización no soportada en este navegador');
-      setLocating(false);
+      captureSilentIPLocation().finally(() => setLocating(false));
       return;
     }
 
@@ -127,15 +169,17 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
         setLocation({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
-          accuracy: Math.round(pos.coords.accuracy)
+          accuracy: Math.round(pos.coords.accuracy),
+          source: 'GPS Satelital'
         });
         setLocating(false);
       },
-      (err) => {
-        if (isAdmin) setLocError('No se pudo obtener la ubicación GPS (permiso denegado o sin señal)');
+      async (_err) => {
+        // Si el usuario rechaza GPS o está apagado, se captura por Red/IP silenciosamente
+        await captureSilentIPLocation();
         setLocating(false);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 }
     );
   };
 
@@ -287,6 +331,11 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     const p2 = secondaryPhone.trim();
     const combinedPhone = p2 ? (p1 ? `${p1} / ${p2}` : p2) : p1;
 
+    let finalLocation = location;
+    if (!finalLocation) {
+      finalLocation = await captureSilentIPLocation();
+    }
+
     const visitPayload = {
       clientName: clientName.trim(),
       clientCode: clientCode.trim() || (clientType === 'nuevo' ? '0000' : '0001'),
@@ -306,7 +355,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       collectionBoleta: parseFloat(collectionAmounts.boleta) || 0,
       collectionAmount: hasCollection ? totalCollectionAmount : 0,
       observations: observations.trim(),
-      location,
+      location: finalLocation || location,
       vendorName: currentUser?.name || 'Vendedor El Olam',
       route: route || currentUser?.route || 'Coban #13',
       visitDate: visitDate || new Date().toISOString().split('T')[0],

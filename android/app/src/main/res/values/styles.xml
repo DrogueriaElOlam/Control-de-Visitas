@@ -1,0 +1,14 @@
+<resources>
+    <style name="Theme.ControlVisitas" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">#0284c7</item>
+        <item name="colorPrimaryVariant">#0369a1</item>
+        <item name="colorOnPrimary">#ffffff</item>
+    </style>
+
+    <style name="Theme.ControlVisitas.NoActionBar" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+</resources>
