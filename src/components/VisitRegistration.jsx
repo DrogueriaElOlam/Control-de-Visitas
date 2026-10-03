@@ -16,7 +16,9 @@ import {
   Sparkles,
   AlertCircle,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Search,
+  X
 } from 'lucide-react';
 import { ALL_ROUTES, addVisitRecord, getRoutesForVendor } from '../lib/db';
 import { fetchClientCodes, fetchPharmacyDirectory, saveClientRecord } from '../lib/catalog';
@@ -89,6 +91,11 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
   const [clientCodesList, setClientCodesList] = useState([]);
   const [pharmacyDirectory, setPharmacyDirectory] = useState([]);
 
+  // Estados para sugerencias interactivas de autollenado al ingresar dígitos
+  const [showCodeSuggestions, setShowCodeSuggestions] = useState(false);
+  const [showNameSuggestions, setShowNameSuggestions] = useState(false);
+  const [autofillNotice, setAutofillNotice] = useState('');
+
   useEffect(() => {
     loadCatalogs();
     captureGPSLocation();
@@ -101,6 +108,18 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     };
     window.addEventListener('olam_clients_directory_updated', handleDirectoryUpdated);
     return () => window.removeEventListener('olam_clients_directory_updated', handleDirectoryUpdated);
+  }, []);
+
+  // Cerrar sugerencias al hacer clic fuera del componente
+  useEffect(() => {
+    const handleDocClick = (e) => {
+      if (!e.target.closest('.client-autocomplete-container')) {
+        setShowCodeSuggestions(false);
+        setShowNameSuggestions(false);
+      }
+    };
+    document.addEventListener('click', handleDocClick);
+    return () => document.removeEventListener('click', handleDocClick);
   }, []);
 
   async function loadCatalogs() {
@@ -183,7 +202,170 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     );
   };
 
-  // Matched client in real-time for visual feedback
+  // APLICAR SELECCIÓN Y AUTOLLENAR TODOS LOS CAMPOS DEL CLIENTE
+  const applyClientSelection = (client) => {
+    if (!client) return;
+    if (client.code) setClientCode(client.code);
+    if (client.name) setClientName(client.name);
+    if (client.phone) setPhone(client.phone);
+    if (client.secondaryPhone) {
+      setSecondaryPhone(client.secondaryPhone);
+      setShowSecondaryPhone(true);
+    }
+    const targetSector = client.sector || client.route || '';
+    if (targetSector) {
+      setSector(targetSector);
+      setRoute(client.route || targetSector);
+    }
+    if (client.code && client.code !== '0000') {
+      setClientType('propio');
+    }
+    
+    // Cerrar desplegables de autocompletado
+    setShowCodeSuggestions(false);
+    setShowNameSuggestions(false);
+
+    // Notificación visual de autollenado exitoso
+    setAutofillNotice(`✓ Cliente "${client.name || client.code}" autollenado con éxito`);
+    setTimeout(() => {
+      setAutofillNotice('');
+    }, 4500);
+  };
+
+  // HELPER PARA RESALTAR COINCIDENCIAS VISUALES EN LAS SUGERENCIAS
+  const renderHighlightedText = (text, query) => {
+    if (!text || !query) return text;
+    const q = query.trim();
+    if (!q) return text;
+    const lowerText = text.toLowerCase();
+    const lowerQ = q.toLowerCase();
+    const idx = lowerText.indexOf(lowerQ);
+    if (idx === -1) return text;
+    return (
+      <span>
+        {text.substring(0, idx)}
+        <span className="bg-amber-200 dark:bg-amber-900/80 text-amber-900 dark:text-amber-100 font-black px-1 rounded shadow-sm">
+          {text.substring(idx, idx + q.length)}
+        </span>
+        {text.substring(idx + q.length)}
+      </span>
+    );
+  };
+
+  // SUGERENCIAS INTERACTIVAS AL ESCRIBIR CUALQUIER DÍGITO O CÓDIGO
+  const codeSuggestions = React.useMemo(() => {
+    const rawQ = (clientCode || '').trim();
+    if (!rawQ) return [];
+    const q = rawQ.toLowerCase();
+    const numOnly = q.replace(/^0+/, '');
+
+    const exactMatch = [];
+    const startsWithCode = [];
+    const containsCode = [];
+    const nameMatch = [];
+    const seen = new Set();
+
+    for (const p of pharmacyDirectory) {
+      const pCode = (p.code || '').trim();
+      const pCodeLower = pCode.toLowerCase();
+      const pCodeNum = pCodeLower.replace(/^0+/, '');
+      const pName = (p.name || '').trim();
+      const pNameLower = pName.toLowerCase();
+
+      if (!pCode && !pName) continue;
+      const uniqueKey = p.code ? `c-${pCodeLower}` : `n-${pNameLower}`;
+      if (seen.has(uniqueKey)) continue;
+
+      // 1. Coincidencia exacta de código
+      if (pCodeLower === q || (numOnly && pCodeNum === numOnly)) {
+        seen.add(uniqueKey);
+        exactMatch.push(p);
+      }
+      // 2. Empieza con el dígito o código tecleado
+      else if (pCodeLower.startsWith(q) || (numOnly && pCodeNum.startsWith(numOnly))) {
+        seen.add(uniqueKey);
+        startsWithCode.push(p);
+      }
+      // 3. Contiene el dígito o código tecleado
+      else if (pCodeLower.includes(q) || (numOnly && pCodeNum.includes(numOnly))) {
+        seen.add(uniqueKey);
+        containsCode.push(p);
+      }
+      // 4. Si el usuario tecleó texto, buscar también en el nombre
+      else if (q.length >= 2 && pNameLower.includes(q)) {
+        seen.add(uniqueKey);
+        nameMatch.push(p);
+      }
+    }
+
+    // Ordenar numéricamente dentro de los grupos para fácil lectura
+    const numericSort = (a, b) => {
+      const aNum = parseInt((a.code || '').replace(/\D/g, ''), 10);
+      const bNum = parseInt((b.code || '').replace(/\D/g, ''), 10);
+      if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+      return (a.code || '').localeCompare(b.code || '');
+    };
+
+    startsWithCode.sort(numericSort);
+    containsCode.sort(numericSort);
+
+    const merged = [...exactMatch, ...startsWithCode, ...containsCode, ...nameMatch];
+    return merged.slice(0, 35);
+  }, [clientCode, pharmacyDirectory]);
+
+  // SUGERENCIAS INTERACTIVAS AL ESCRIBIR CUALQUIER LETRA DEL NOMBRE (DESDE EL 1ER CARACTER)
+  const nameSuggestions = React.useMemo(() => {
+    const rawQ = (clientName || '').trim();
+    if (!rawQ || rawQ.length < 1) return []; // Despliega opciones desde la primerísima letra
+    const q = rawQ.toLowerCase();
+
+    const startsWithName = [];
+    const startsWithWord = [];
+    const containsName = [];
+    const codeMatch = [];
+    const seen = new Set();
+
+    for (const p of pharmacyDirectory) {
+      const pName = (p.name || '').trim();
+      const pNameLower = pName.toLowerCase();
+      const pCode = (p.code || '').trim();
+      const pCodeLower = pCode.toLowerCase();
+
+      if (!pName && !pCode) continue;
+      const uniqueKey = p.name ? `n-${pNameLower}` : `c-${pCodeLower}`;
+      if (seen.has(uniqueKey)) continue;
+
+      // 1. Nombre empieza exactamente con lo escrito (ej: "far" -> "Farmacia...")
+      if (pNameLower.startsWith(q)) {
+        seen.add(uniqueKey);
+        startsWithName.push(p);
+      }
+      // 2. Alguna palabra dentro del nombre empieza con lo escrito (ej: "que" -> "Farmacia Quetzal")
+      else if (pNameLower.split(/\s+/).some(w => w.startsWith(q))) {
+        seen.add(uniqueKey);
+        startsWithWord.push(p);
+      }
+      // 3. Contiene el texto en cualquier parte
+      else if (pNameLower.includes(q)) {
+        seen.add(uniqueKey);
+        containsName.push(p);
+      }
+      // 4. Si escribió un código numérico en el campo de nombre
+      else if (pCodeLower && pCodeLower.includes(q)) {
+        seen.add(uniqueKey);
+        codeMatch.push(p);
+      }
+    }
+
+    const alphaSort = (a, b) => (a.name || '').localeCompare(b.name || '');
+    startsWithName.sort(alphaSort);
+    startsWithWord.sort(alphaSort);
+
+    const merged = [...startsWithName, ...startsWithWord, ...containsName, ...codeMatch];
+    return merged.slice(0, 35);
+  }, [clientName, pharmacyDirectory]);
+
+  // Cliente coincidente exacto para feedback visual
   const matchedClient = React.useMemo(() => {
     const trimmedCode = (clientCode || '').trim().toLowerCase();
     const trimmedName = (clientName || '').trim().toLowerCase();
@@ -202,73 +384,62 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     }) || null;
   }, [clientCode, clientName, pharmacyDirectory]);
 
-  // CLIENT SELECTION HELPER
-  const selectClient = (client) => {
-    if (!client) return;
-    if (client.code) setClientCode(client.code);
-    if (client.name) setClientName(client.name);
-    if (client.phone) setPhone(client.phone);
-    if (client.sector) setSector(client.sector);
-    if (client.route || client.sector) setRoute(client.route || client.sector);
-  };
-
-  // CLIENT CODE AUTOCOMPLETE (Autofills Pharmacy Name, Sector, Route & Phone)
+  // MANEJO DE CAMBIO EN CÓDIGO (Despliega opciones de inmediato sin interferir con la escritura)
   const handleClientCodeChange = (code) => {
     setClientCode(code);
-    const trimmed = code.trim().toLowerCase();
-    if (!trimmed) return;
+    setShowCodeSuggestions(true);
+  };
 
-    // Search in learned pharmacy directory (with flexible zero-padding matching)
-    const match = pharmacyDirectory.find(p => {
-      const pCode = (p.code || '').trim().toLowerCase();
-      return pCode === trimmed || (trimmed.length > 0 && pCode.replace(/^0+/, '') === trimmed.replace(/^0+/, ''));
-    });
-
-    if (match) {
-      if (match.name) setClientName(match.name);
-      if (match.sector) setSector(match.sector);
-      if (match.route || match.sector) setRoute(match.route || match.sector);
-      if (match.phone) setPhone(match.phone);
-      return;
-    }
-
-    // Search in previous visits
-    const foundVisit = allVisits.find(v => {
-      const vCode = (v.clientCode || '').trim().toLowerCase();
-      return vCode === trimmed || (trimmed.length > 0 && vCode.replace(/^0+/, '') === trimmed.replace(/^0+/, ''));
-    });
-
-    if (foundVisit) {
-      if (foundVisit.clientName) setClientName(foundVisit.clientName);
-      if (foundVisit.sector) setSector(foundVisit.sector);
-      if (foundVisit.route || foundVisit.sector) setRoute(foundVisit.route || foundVisit.sector);
-      if (foundVisit.phone) setPhone(foundVisit.phone);
+  // Autollenar con Enter si hay sugerencias de código
+  const handleCodeKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (codeSuggestions.length > 0) {
+        applyClientSelection(codeSuggestions[0]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowCodeSuggestions(false);
     }
   };
 
-  // PHARMACY / CLIENT NAME AUTOCOMPLETE (Autofills Client Code, Sector, Route & Phone)
+  // Autollenar suave al salir del campo si escribió el código exacto
+  const handleCodeBlur = () => {
+    const trimmed = (clientCode || '').trim().toLowerCase();
+    if (!trimmed) return;
+    const match = pharmacyDirectory.find(p => {
+      const pCode = (p.code || '').trim().toLowerCase();
+      return pCode === trimmed || (trimmed.length > 1 && pCode.replace(/^0+/, '') === trimmed.replace(/^0+/, ''));
+    });
+    if (match && !clientName) {
+      applyClientSelection(match);
+    }
+  };
+
+  // MANEJO DE CAMBIO EN NOMBRE (Despliega opciones desde el primer caracter)
   const handleClientNameChange = (name) => {
     setClientName(name);
-    const trimmed = name.trim().toLowerCase();
-    if (!trimmed) return;
+    setShowNameSuggestions(true);
+  };
 
-    // Search in learned pharmacy directory
-    const match = pharmacyDirectory.find(p => (p.name || '').trim().toLowerCase() === trimmed);
-    if (match) {
-      if (match.code) setClientCode(match.code);
-      if (match.sector) setSector(match.sector);
-      if (match.route || match.sector) setRoute(match.route || match.sector);
-      if (match.phone) setPhone(match.phone);
-      return;
+  // Autollenar con Enter si hay sugerencias de nombre
+  const handleNameKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (nameSuggestions.length > 0) {
+        applyClientSelection(nameSuggestions[0]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowNameSuggestions(false);
     }
+  };
 
-    // Search in previous visits
-    const foundVisit = allVisits.find(v => (v.clientName || '').trim().toLowerCase() === trimmed);
-    if (foundVisit) {
-      if (foundVisit.clientCode) setClientCode(foundVisit.clientCode);
-      if (foundVisit.sector) setSector(foundVisit.sector);
-      if (foundVisit.route || foundVisit.sector) setRoute(foundVisit.route || foundVisit.sector);
-      if (foundVisit.phone) setPhone(foundVisit.phone);
+  // Autollenar suave al salir del campo si escribió el nombre exacto
+  const handleNameBlur = () => {
+    const trimmed = (clientName || '').trim().toLowerCase();
+    if (!trimmed) return;
+    const match = pharmacyDirectory.find(p => (p.name || '').trim().toLowerCase() === trimmed);
+    if (match && !clientCode) {
+      applyClientSelection(match);
     }
   };
 
@@ -574,29 +745,87 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               </div>
 
               {/* Client Code */}
-              <div>
+              <div className="relative client-autocomplete-container">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
                   <span>Código de Cliente</span>
-                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">Autollenado</span>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">Autollenado en vivo</span>
                 </label>
                 <div className="relative">
                   <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    list="pharmacyCodesList"
-                    placeholder="Ej: 0001"
+                    placeholder="Escribe dígitos (ej: 1, 14, 2769)..."
                     value={clientCode}
+                    onFocus={() => setShowCodeSuggestions(true)}
                     onChange={(e) => handleClientCodeChange(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                    onBlur={handleCodeBlur}
+                    onKeyDown={handleCodeKeyDown}
+                    autoComplete="off"
+                    className="w-full pl-9 pr-9 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
                   />
-                  <datalist id="pharmacyCodesList">
-                    {pharmacyDirectory.map(p => (
-                      <option key={`code-${p.code}`} value={p.code}>
-                        {p.name} {p.sector ? `(${p.sector})` : ''}
-                      </option>
-                    ))}
-                  </datalist>
+                  {clientCode && (
+                    <button
+                      type="button"
+                      onClick={() => { setClientCode(''); setShowCodeSuggestions(false); }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                      title="Limpiar código"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                 </div>
+
+                {/* MENÚ FLOTANTE DE RESULTADOS POR CÓDIGO / DÍGITOS */}
+                {showCodeSuggestions && clientCode.trim().length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in slide-in-from-top-1">
+                    {codeSuggestions.length > 0 ? (
+                      <>
+                        <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/80 text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md border-b border-blue-100 dark:border-blue-900/50">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                            Coincidencias ({codeSuggestions.length})
+                          </span>
+                          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">Toca para autollenar</span>
+                        </div>
+                        {codeSuggestions.map((item, idx) => (
+                          <button
+                            key={`code-sug-${item.code || idx}`}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); applyClientSelection(item); }}
+                            onTouchStart={(e) => { e.preventDefault(); applyClientSelection(item); }}
+                            onClick={() => applyClientSelection(item)}
+                            className="w-full text-left p-3 hover:bg-blue-50 dark:hover:bg-slate-800/90 transition-colors flex items-center justify-between gap-2 cursor-pointer group"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 font-mono font-bold text-xs rounded-md">
+                                  #{renderHighlightedText(item.code || 'S/C', clientCode)}
+                                </span>
+                                <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                  {item.name || 'Sin Nombre'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                {item.sector && <span>📍 {item.sector}</span>}
+                                {item.phone && <span>📞 {item.phone}</span>}
+                              </div>
+                            </div>
+                            <span className="shrink-0 text-xs text-blue-600 dark:text-blue-400 font-bold opacity-80 group-hover:opacity-100 flex items-center gap-0.5">
+                              Elegir ➔
+                            </span>
+                          </button>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
+                        <p className="font-semibold text-slate-700 dark:text-slate-300">
+                          No hay farmacias con el código <span className="font-mono text-blue-600 dark:text-blue-400">"{clientCode}"</span>
+                        </p>
+                        <p className="mt-1 text-[11px]">Puedes continuar escribiendo o registrarla como cliente nuevo.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Day Period */}
@@ -641,33 +870,108 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               </div>
             )}
 
+            {/* Banner de retroalimentación de autollenado exitoso */}
+            {autofillNotice && (
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 rounded-xl flex items-center justify-between gap-2 text-xs text-emerald-800 dark:text-emerald-300 shadow-sm animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="font-bold">{autofillNotice}</span>
+                </div>
+                <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-full font-semibold">
+                  Campos completados
+                </span>
+              </div>
+            )}
+
             {/* Client Name & Phone */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-2 relative client-autocomplete-container">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                     Nombre de la Farmacia / Cliente *
                   </label>
                   <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">
-                    Autollena código y sector
+                    Opciones en vivo desde la 1ª letra
                   </span>
                 </div>
-                <input
-                  type="text"
-                  list="pharmacyNamesList"
-                  placeholder="Ej: Farmacia San Antonio"
-                  value={clientName}
-                  onChange={(e) => handleClientNameChange(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
-                  required
-                />
-                <datalist id="pharmacyNamesList">
-                  {pharmacyDirectory.map((p, idx) => (
-                    <option key={`name-${idx}`} value={p.name}>
-                      {p.code ? `Cód: ${p.code}` : ''} {p.sector ? `• Sector: ${p.sector}` : ''} {p.lastVisitDate ? `• Última visita: ${p.lastVisitDate}` : ''}
-                    </option>
-                  ))}
-                </datalist>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Empieza a escribir (ej: Farmacia Quetzal, San...)"
+                    value={clientName}
+                    onFocus={() => setShowNameSuggestions(true)}
+                    onChange={(e) => handleClientNameChange(e.target.value)}
+                    onBlur={handleNameBlur}
+                    onKeyDown={handleNameKeyDown}
+                    autoComplete="off"
+                    className="w-full px-4 pr-9 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                    required
+                  />
+                  {clientName && (
+                    <button
+                      type="button"
+                      onClick={() => { setClientName(''); setShowNameSuggestions(false); }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                      title="Limpiar nombre"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* MENÚ FLOTANTE DE RESULTADOS POR NOMBRE */}
+                {showNameSuggestions && clientName.trim().length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-slate-900 border border-blue-400 dark:border-blue-600 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in slide-in-from-top-1">
+                    {nameSuggestions.length > 0 ? (
+                      <>
+                        <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/80 text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md border-b border-blue-100 dark:border-blue-900/50">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                            Farmacias encontradas ({nameSuggestions.length})
+                          </span>
+                          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">Toca para autollenar</span>
+                        </div>
+                        {nameSuggestions.map((item, idx) => (
+                          <button
+                            key={`name-sug-${item.name || idx}`}
+                            type="button"
+                            onMouseDown={(e) => { e.preventDefault(); applyClientSelection(item); }}
+                            onTouchStart={(e) => { e.preventDefault(); applyClientSelection(item); }}
+                            onClick={() => applyClientSelection(item)}
+                            className="w-full text-left p-3 hover:bg-blue-50 dark:hover:bg-slate-800/90 transition-colors flex items-center justify-between gap-2 cursor-pointer group"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                {item.code && (
+                                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 font-mono font-bold text-xs rounded-md">
+                                    #{item.code}
+                                  </span>
+                                )}
+                                <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                                  {renderHighlightedText(item.name || 'Sin Nombre', clientName)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                {item.sector && <span>📍 {item.sector}</span>}
+                                {item.phone && <span>📞 {item.phone}</span>}
+                              </div>
+                            </div>
+                            <span className="shrink-0 text-xs text-blue-600 dark:text-blue-400 font-bold opacity-80 group-hover:opacity-100 flex items-center gap-0.5">
+                              Elegir ➔
+                            </span>
+                          </button>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">
+                        <p className="font-semibold text-slate-700 dark:text-slate-300">
+                          No hay farmacias que contengan <span className="text-blue-600 dark:text-blue-400">"{clientName}"</span>
+                        </p>
+                        <p className="mt-1 text-[11px]">Se guardará como nuevo cliente al registrar la visita.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
