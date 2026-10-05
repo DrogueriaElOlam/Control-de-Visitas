@@ -42,6 +42,7 @@ import {
 import { addVisitRecord, ALL_ROUTES } from '../lib/db';
 import { LOGO_DATA_URI, LOGO_URL } from '../lib/logo';
 import { getCashReportsForVendor, syncCashFromVisits, createNewCashReport, deleteCashReport } from '../lib/cashCollections';
+import { getLocalDateString } from '../lib/dateUtils';
 
 const CHART_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#64748b'];
 
@@ -57,7 +58,7 @@ export default function VendorReportModal({
   if (!isOpen) return null;
 
   const isAdmin = currentUser?.role === 'admin';
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   // Vendor selection (Admin can pick vendor, Vendor is locked to self)
   const [selectedVendorName, setSelectedVendorName] = useState(() => {
@@ -87,17 +88,18 @@ export default function VendorReportModal({
   });
 
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => {
-    const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(now.setDate(diff));
-    return monday.toISOString().split('T')[0];
+    const today = getLocalDateString();
+    const [y, m, d] = today.split('-').map(Number);
+    const dateObj = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0);
+    const day = dateObj.getDay();
+    const diff = dateObj.getDate() - day + (day === 0 ? -6 : 1);
+    dateObj.setDate(diff);
+    return getLocalDateString(dateObj);
   });
 
   const [selectedMonth, setSelectedMonth] = useState(() => {
-    const d = new Date();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    return `${d.getFullYear()}-${m}`;
+    const today = getLocalDateString();
+    return today.slice(0, 7);
   });
 
   const [customStartDate, setCustomStartDate] = useState(todayStr);
@@ -277,10 +279,11 @@ export default function VendorReportModal({
       rangeDesc = selectedDate;
     } else if (periodType === 'weekly') {
       start = selectedWeekStart;
-      const startDateObj = new Date(selectedWeekStart + 'T00:00:00');
+      const [sy, sm, sd] = selectedWeekStart.split('-').map(Number);
+      const startDateObj = new Date(sy, (sm || 1) - 1, sd || 1, 12, 0, 0);
       const endDateObj = new Date(startDateObj);
       endDateObj.setDate(startDateObj.getDate() + 6);
-      end = endDateObj.toISOString().split('T')[0];
+      end = getLocalDateString(endDateObj);
       title = 'CONTROL DE VISITAS SEMANAL';
       rangeDesc = `Semana del ${start} al ${end}`;
     } else if (periodType === 'monthly') {
@@ -358,10 +361,11 @@ export default function VendorReportModal({
         const todayMatches = allForVendor.filter(r => r.date === todayStr);
         return todayMatches.length > 0 ? todayMatches : allForVendor.slice(0, 3);
       } else if (periodType === 'weekly') {
-        const startDateObj = new Date(selectedWeekStart + 'T00:00:00');
+        const [sy, sm, sd] = selectedWeekStart.split('-').map(Number);
+        const startDateObj = new Date(sy, (sm || 1) - 1, sd || 1, 12, 0, 0);
         const endDateObj = new Date(startDateObj);
         endDateObj.setDate(startDateObj.getDate() + 6);
-        const endStr = endDateObj.toISOString().split('T')[0];
+        const endStr = getLocalDateString(endDateObj);
         return allForVendor.filter(r => r.date >= selectedWeekStart && r.date <= endStr);
       } else if (periodType === 'monthly') {
         return allForVendor.filter(r => r.date && r.date.startsWith(selectedMonth));

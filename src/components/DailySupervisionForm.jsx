@@ -13,6 +13,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 
 
 import { supabase } from '../lib/supabase';
+import { getLocalDateString } from '../lib/dateUtils';
+import { verifyPassword } from '../lib/security';
 
 const DEFAULT_VENDEDORES = [
   'Ana Lucia Marroquin',
@@ -58,7 +60,7 @@ const INITIAL_RECORD = {
 };
 
 export default function DailySupervisionForm() {
-  const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [currentDate, setCurrentDate] = useState(() => getLocalDateString());
   const [records, setRecords] = useState({});
   const [history, setHistory] = useState([]);
   const [activeTab, setActiveTab] = useState('ingreso');
@@ -87,7 +89,7 @@ export default function DailySupervisionForm() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (passwordInput === '0l@m_2025$') {
+    if (verifyPassword(passwordInput, null, 'admin')) {
       setIsAuthenticated(true);
       localStorage.setItem('formAuth_0lam', 'true');
       setError('');
@@ -149,7 +151,7 @@ export default function DailySupervisionForm() {
           localStorage.setItem('dailySupervisionHistory', JSON.stringify(supabaseHistory));
           
           // Refresh current date record if needed
-          const todayStr = new Date().toISOString().split('T')[0];
+          const todayStr = getLocalDateString();
           const existingEntry = supabaseHistory.find(h => h.date === todayStr);
           if (existingEntry) {
             const mergedRecords = { ...existingEntry.records };
@@ -165,7 +167,7 @@ export default function DailySupervisionForm() {
     };
     fetchSupabaseHistory();
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     const existingEntry = loadedHistory.find(h => h.date === todayStr);
 
     if (existingEntry) {

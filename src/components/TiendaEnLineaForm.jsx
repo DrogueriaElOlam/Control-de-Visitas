@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { getLocalDateString, getLocalStartOfMonthString } from '../lib/dateUtils';
 import { Store, Plus, Edit2, Trash2, Eye, Link as LinkIcon, BarChart3, Upload, Save, X } from 'lucide-react';
 import FormButtons from './FormButtons';
 
@@ -60,9 +61,9 @@ export default function TiendaEnLineaForm() {
 
   async function cargarVisitas() {
     try {
-      const hoy = new Date().toISOString().split('T')[0];
-      const inicioMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-      const inicioAño = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
+      const hoy = getLocalDateString();
+      const inicioMes = getLocalStartOfMonthString();
+      const inicioAño = `${hoy.split('-')[0]}-01-01`;
 
       // Visitas de hoy
       const { data: visitasHoy } = await supabase

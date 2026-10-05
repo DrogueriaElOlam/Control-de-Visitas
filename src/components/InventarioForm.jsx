@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useTransition } from 'react';
 import { Upload, Download, RefreshCw, Trash2, Calendar, CheckCircle, Circle, Plus } from 'lucide-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { getLocalDateString } from '../lib/dateUtils';
 
 export default function InventarioForm() {
   const [inventario, setInventario] = useState([]);
@@ -301,7 +302,7 @@ export default function InventarioForm() {
       ws['!cols'] = colWidths;
       console.log('Anchos de columnas configurados');
 
-      const fecha = new Date().toISOString().split('T')[0];
+      const fecha = getLocalDateString();
       const nombreArchivo = `Inventario_Drogueria_El_Olam_${fecha}.xlsx`;
       
       console.log('Intentando escribir y descargar archivo:', nombreArchivo);

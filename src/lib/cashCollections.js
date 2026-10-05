@@ -1,5 +1,6 @@
 // Cash Collections & Bank Deposits layer for Droguería El Olam
 // Manages "Reporte Cobros en Efectivo" with correlative, boleta, bank selection, amounts, and observations.
+import { getLocalDateString } from './dateUtils';
 
 export const BANK_OPTIONS = [
   'Banco Agromercantil (BAM)',
@@ -91,7 +92,7 @@ export function getCashReportsForVendor(vendorName, date = null) {
 
 // Create an empty new report structure
 export function createNewCashReport(vendorName, date = null) {
-  const reportDate = date || new Date().toISOString().split('T')[0];
+  const reportDate = date || getLocalDateString();
   const all = getAllCashReports();
 
   // Create new unique report
@@ -128,7 +129,7 @@ export function addCashRecordFromVisit({ vendorName, visitDate, monto, clientNam
   const cashNum = Number(monto) || 0;
   if (cashNum <= 0) return null;
 
-  const date = visitDate || new Date().toISOString().split('T')[0];
+  const date = visitDate || getLocalDateString();
   const vendor = vendorName || 'General';
   const allReports = getAllCashReports();
 
@@ -256,7 +257,7 @@ export function syncCashFromVisits(visits = [], currentVendorName = null) {
 
   cashVisits.forEach(v => {
     const vendor = v.vendorName || currentVendorName || 'General';
-    const date = v.visitDate || (v.created_at ? v.created_at.split('T')[0] : new Date().toISOString().split('T')[0]);
+    const date = v.visitDate || (v.created_at ? v.created_at.split('T')[0] : getLocalDateString());
     const cashAmount = Number(v.collectionCash || v.collectionAmounts?.efectivo || 0);
     const visitId = String(v.id || v.clientName);
 

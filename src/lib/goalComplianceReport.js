@@ -4,6 +4,7 @@
  */
 
 import { LOGO_DATA_URI } from './logo';
+import { getLocalDateString } from './dateUtils';
 
 // Nombres de los días de la semana en español
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -13,14 +14,16 @@ const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Vier
  */
 export function getDatesRangeArray(startDate, endDate) {
   if (!startDate || !endDate) return [];
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T00:00:00`);
+  const [sy, sm, sd] = startDate.split('-').map(Number);
+  const [ey, em, ed] = endDate.split('-').map(Number);
+  const start = new Date(sy, (sm || 1) - 1, sd || 1, 12, 0, 0);
+  const end = new Date(ey, (em || 1) - 1, ed || 1, 12, 0, 0);
   if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return [];
 
   const dates = [];
   const current = new Date(start);
   while (current <= end) {
-    dates.push(current.toISOString().split('T')[0]);
+    dates.push(getLocalDateString(current));
     current.setDate(current.getDate() + 1);
   }
   return dates;

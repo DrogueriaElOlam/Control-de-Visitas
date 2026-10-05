@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Navigation, Layers, User, Calendar, DollarSign } from 'lucide-react';
+import { getLocalDateString, getLocalYesterdayString } from '../lib/dateUtils';
 
 // Fix leaflet default marker icons in React/Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -48,10 +49,14 @@ export default function InteractiveMapModal({ visits = [], targetVisit = null, c
   const [selectedVendor, setSelectedVendor] = useState('all');
   const [selectedDate, setSelectedDate] = useState('all');
 
+  const todayStr = getLocalDateString();
+  const yesterdayStr = getLocalYesterdayString();
+
   // Filter visits that have coordinates
   const visitsWithGps = visits.filter(v => v.location && typeof v.location.lat === 'number' && typeof v.location.lng === 'number');
 
   const uniqueVendors = Array.from(new Set(visitsWithGps.map(v => v.vendorName).filter(Boolean)));
+  const uniqueDates = Array.from(new Set(visitsWithGps.map(v => v.visitDate).filter(Boolean))).sort().reverse();
 
   // Initialize Map
   useEffect(() => {
@@ -164,6 +169,20 @@ export default function InteractiveMapModal({ visits = [], targetVisit = null, c
               ))}
             </select>
           )}
+
+          {/* Selector de Fecha Local */}
+          <select
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold dark:text-white"
+          >
+            <option value="all">📅 Todas las Fechas</option>
+            <option value={todayStr}>📅 Hoy ({todayStr})</option>
+            <option value={yesterdayStr}>📅 Ayer ({yesterdayStr})</option>
+            {uniqueDates.filter(d => d !== todayStr && d !== yesterdayStr).map(d => (
+              <option key={d} value={d}>📅 {d}</option>
+            ))}
+          </select>
 
           {/* Color legend */}
           <div className="hidden sm:flex items-center gap-3 text-[11px] font-medium text-slate-600 dark:text-slate-300 ml-2">

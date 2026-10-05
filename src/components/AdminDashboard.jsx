@@ -15,6 +15,7 @@ import {
   LogOut,
   Building2
 } from 'lucide-react';
+import { getLocalDateString, getLocalYesterdayString } from '../lib/dateUtils';
 
 export default function AdminDashboard({ 
   vendors = [], 
@@ -24,8 +25,8 @@ export default function AdminDashboard({
   onOpenDirectoryModal,
   onlineVendors = {}
 }) {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
+  const yesterdayStr = getLocalYesterdayString();
 
   const todayVisits = useMemo(() => visits.filter(v => v.visitDate === todayStr), [visits, todayStr]);
   const yesterdayVisits = useMemo(() => visits.filter(v => v.visitDate === yesterdayStr), [visits, yesterdayStr]);

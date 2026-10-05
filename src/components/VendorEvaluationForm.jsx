@@ -7,6 +7,7 @@ import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Checkbox } from './ui/checkbox';
 import { supabase } from '../lib/supabase';
+import { getLocalDateString } from '../lib/dateUtils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "./ui/dialog";
 import { Label } from "./ui/label";
 
@@ -35,7 +36,7 @@ export default function VendorEvaluationForm({
 
   // Form State (for Evaluation Mode)
   const [formData, setFormData] = useState({
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: getLocalDateString(),
     vendedor: '',
     ruta: '',
     observaciones: '',

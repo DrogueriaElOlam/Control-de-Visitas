@@ -1,5 +1,28 @@
-// Database, Authentication and Sync layer for Droguería El Olam
 import { supabase } from './supabase.js';
+import { getLocalDateString, getLocalYesterdayString, getLocalStartOfMonthString } from './dateUtils.js';
+import { 
+  hashPassword, 
+  verifyPassword, 
+  getOtpKeysVault, 
+  saveOtpKeysVault, 
+  verifyAndConsumeOtpKey, 
+  isOtpKeyFormat, 
+  getOtpKeysStats,
+  DEFAULT_VENDOR_HASH
+} from './security.js';
+
+export { 
+  getLocalDateString, 
+  getLocalYesterdayString, 
+  getLocalStartOfMonthString,
+  hashPassword,
+  verifyPassword,
+  getOtpKeysVault,
+  saveOtpKeysVault,
+  verifyAndConsumeOtpKey,
+  isOtpKeyFormat,
+  getOtpKeysStats
+};
 
 const STORAGE_KEYS = {
   VENDORS: 'olam_vendors_db_v3',
@@ -240,7 +263,7 @@ export async function getVendorsList() {
           route: c.route || localMatch?.route || DEFAULT_VENDORS.find((d) => d.name === v.name)?.route || 'Ruta General',
           daily_goal: c.daily_goal || localMatch?.daily_goal || 15,
           username: c.username || generateUsername(v.name),
-          password: c.password || 'olam1234',
+          password: c.password ? (c.password.length === 64 ? c.password : hashPassword(c.password)) : DEFAULT_VENDOR_HASH,
           phone: c.phone || localMatch?.phone || ''
         };
       });
@@ -252,11 +275,11 @@ export async function getVendorsList() {
   }
 
   if (local.length === 0) {
-    // Initialize default vendors
+    // Initialize default vendors with hashed credentials
     const initialized = DEFAULT_VENDORS.map((v) => ({
       ...v,
       username: generateUsername(v.name),
-      password: 'olam1234'
+      password: DEFAULT_VENDOR_HASH
     }));
     localStorage.setItem(STORAGE_KEYS.VENDORS, JSON.stringify(initialized));
     return initialized;
@@ -279,21 +302,24 @@ export function saveStoredCredentials(creds) {
   localStorage.setItem(STORAGE_KEYS.VENDOR_CREDS, JSON.stringify(creds));
 }
 
-// Admin Password management
+// Admin Password management (Secure Hash)
+const DEFAULT_ADMIN_HASH = '26b8337cde31e62b0dd382969c9eeb27d1f5d79a88cc0cd37c07ac7ef5b62054';
+
 export function getAdminPassword() {
   const saved = localStorage.getItem(STORAGE_KEYS.ADMIN_PASS);
-  return saved || 'admin2025';
+  return saved || DEFAULT_ADMIN_HASH;
 }
 
 export function setAdminPassword(newPass) {
-  localStorage.setItem(STORAGE_KEYS.ADMIN_PASS, newPass);
+  const hashed = newPass.length === 64 ? newPass : hashPassword(newPass);
+  localStorage.setItem(STORAGE_KEYS.ADMIN_PASS, hashed);
 }
 
 // Create new vendor
 export async function createVendor({ name, username, password, route, daily_goal, phone, hire_date }) {
   const vendors = await getVendorsList();
   const newId = Date.now();
-  const hireDateFormatted = hire_date || new Date().toISOString().split('T')[0];
+  const hireDateFormatted = hire_date || getLocalDateString();
 
   // Try creating in Supabase
   let createdSupabaseId = null;
@@ -314,7 +340,7 @@ export async function createVendor({ name, username, password, route, daily_goal
     id: finalId,
     name,
     username: username || generateUsername(name),
-    password: password || 'olam1234',
+    password: password ? hashPassword(password) : DEFAULT_VENDOR_HASH,
     route: route || 'Ruta General',
     daily_goal: Number(daily_goal) || 15,
     phone: phone || '',
@@ -344,7 +370,7 @@ export async function createVendor({ name, username, password, route, daily_goal
 
 // Terminate / Deactivate vendor (Preserves their history for frequency/retention analysis)
 export async function terminateVendor(vendorId, terminationDate) {
-  const termDate = terminationDate || new Date().toISOString().split('T')[0];
+  const termDate = terminationDate || getLocalDateString();
   const vendors = await getVendorsList();
 
   const updated = vendors.map((v) => {
@@ -426,15 +452,17 @@ export async function deleteVendorPermanently(vendorId) {
   return updated;
 }
 
-// Update vendor password or details
+// Update vendor password or details (Secure Hash)
 export async function updateVendorCredentials(vendorId, { password, route, daily_goal, name }) {
   const vendors = await getVendorsList();
+  const hashedPassword = password ? (password.length === 64 ? password : hashPassword(password)) : undefined;
+
   const updated = vendors.map((v) => {
     if (v.id === vendorId) {
       return {
         ...v,
         name: name !== undefined ? name : v.name,
-        password: password !== undefined ? password : v.password,
+        password: hashedPassword !== undefined ? hashedPassword : v.password,
         route: route !== undefined ? route : v.route,
         daily_goal: daily_goal !== undefined ? Number(daily_goal) : v.daily_goal
       };
@@ -446,7 +474,7 @@ export async function updateVendorCredentials(vendorId, { password, route, daily
   const creds = getStoredCredentials();
   creds[vendorId] = {
     ...(creds[vendorId] || {}),
-    password,
+    password: hashedPassword !== undefined ? hashedPassword : creds[vendorId]?.password,
     route,
     daily_goal
   };
@@ -735,7 +763,7 @@ export async function syncPendingVisits() {
         location_accuracy: item.location?.accuracy ? Number(item.location.accuracy) : null,
         vendor_name: item.vendorName || 'Vendedor El Olam',
         route: item.route || item.sector || 'General',
-        visit_date: item.visitDate || new Date().toISOString().split('T')[0]
+        visit_date: item.visitDate || getLocalDateString()
       };
 
       // Inserción con timeout de seguridad de 4 segundos
@@ -783,7 +811,7 @@ export async function syncPendingVisits() {
 // Add visit (Dual layer: Supabase + LocalStorage with guaranteed persistence & immediate sync)
 export async function addVisitRecord(visit) {
   const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = getLocalDateString(now);
 
   // 1. Save locally first for instant response & absolute safety
   let visits = [];
@@ -994,15 +1022,78 @@ export function clearSession() {
   localStorage.removeItem(STORAGE_KEYS.AUTH);
 }
 
-// Authenticate user
+// Authenticate user with Secure Hashing & One-Time Keys (OTP)
 export async function authenticate(role, usernameOrName, password, selectedRoute = null) {
-  if (role === 'admin') {
-    const currentAdminPass = getAdminPassword();
-    if (password === currentAdminPass || password === '0l4m_2025' || password === '0l@m_2025$') {
+  if (!password) {
+    return { success: false, message: 'Por favor ingrese su contraseña o clave de acceso' };
+  }
+
+  const cleanPass = password.trim();
+
+  // 1. VERIFICAR SI ES UNA CLAVE DE UN SOLO TOQUE (OTP)
+  if (isOtpKeyFormat(cleanPass)) {
+    const otpResult = verifyAndConsumeOtpKey(cleanPass, {
+      role,
+      username: usernameOrName || (role === 'admin' ? 'admin' : 'vendedor'),
+      name: usernameOrName || (role === 'admin' ? 'Administrador General' : 'Vendedor')
+    });
+
+    if (!otpResult.valid) {
+      return {
+        success: false,
+        message: otpResult.message
+      };
+    }
+
+    // Clave de un solo toque válida y consumida exitosamente
+    if (role === 'admin') {
       const session = {
         role: 'admin',
         name: 'Administrador General',
         username: 'admin',
+        loginMethod: 'otp_one_time_key',
+        loginTime: new Date().toISOString()
+      };
+      saveSession(session);
+      return { success: true, session, isOtp: true, message: otpResult.message };
+    }
+
+    // Si es vendedor accediendo con clave de un solo toque
+    const vendors = await getVendorsList();
+    const normalizedUser = (usernameOrName || '').toLowerCase().trim();
+    const foundVendor = vendors.find(
+      (v) =>
+        v.name.toLowerCase() === normalizedUser ||
+        v.username.toLowerCase() === normalizedUser ||
+        (v.id && String(v.id) === normalizedUser)
+    ) || vendors[0];
+
+    const session = {
+      role: 'vendor',
+      vendorId: foundVendor?.id || 1,
+      name: foundVendor?.name || usernameOrName,
+      username: foundVendor?.username || usernameOrName,
+      route: selectedRoute || foundVendor?.route || 'Coban #13',
+      daily_goal: foundVendor?.daily_goal || 15,
+      hire_date: foundVendor?.hire_date,
+      loginMethod: 'otp_one_time_key',
+      loginTime: new Date().toISOString()
+    };
+    saveSession(session);
+    return { success: true, session, isOtp: true, message: otpResult.message };
+  }
+
+  // 2. AUTENTICACIÓN ADMINISTRADOR (HASH SEGURO)
+  if (role === 'admin') {
+    const currentAdminStored = getAdminPassword();
+    const isValidAdmin = verifyPassword(cleanPass, currentAdminStored, 'admin');
+
+    if (isValidAdmin) {
+      const session = {
+        role: 'admin',
+        name: 'Administrador General',
+        username: 'admin',
+        loginMethod: 'password',
         loginTime: new Date().toISOString()
       };
       saveSession(session);
@@ -1011,7 +1102,7 @@ export async function authenticate(role, usernameOrName, password, selectedRoute
     return { success: false, message: 'Contraseña de Administrador incorrecta' };
   }
 
-  // Vendor login
+  // 3. AUTENTICACIÓN VENDEDOR (HASH SEGURO)
   const vendors = await getVendorsList();
   const normalizedUser = (usernameOrName || '').toLowerCase().trim();
 
@@ -1033,9 +1124,9 @@ export async function authenticate(role, usernameOrName, password, selectedRoute
     };
   }
 
-  // Check password
-  const expectedPassword = foundVendor.password || 'olam1234';
-  if (password === expectedPassword || password === '0l@m_2025$' || password === 'olam1234') {
+  // Validar contraseña del vendedor con hash
+  const isValidVendor = verifyPassword(cleanPass, foundVendor.password, 'vendor');
+  if (isValidVendor) {
     const session = {
       role: 'vendor',
       vendorId: foundVendor.id,
@@ -1044,6 +1135,7 @@ export async function authenticate(role, usernameOrName, password, selectedRoute
       route: selectedRoute || foundVendor.route || 'Coban #13',
       daily_goal: foundVendor.daily_goal || 15,
       hire_date: foundVendor.hire_date,
+      loginMethod: 'password',
       loginTime: new Date().toISOString()
     };
     saveSession(session);

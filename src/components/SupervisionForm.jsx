@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Download, Trash2, Save, RefreshCw, History, UserPlus, MapPin } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Logo from './Logo';
+import { getLocalDateString } from '../lib/dateUtils';
+import { verifyPassword } from '../lib/security';
 import { 
   saveViaticosToHistory, 
   saveComisionesToHistory, 
@@ -317,7 +319,7 @@ export default function SupervisionForm() {
   // Verificar contraseña
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
-    if (password === '0l@m_2025$') {
+    if (verifyPassword(password, null, 'admin')) {
       setIsAuthenticated(true);
       console.log('Acceso autorizado a Supervisión');
     } else {
@@ -561,7 +563,7 @@ export default function SupervisionForm() {
         { wch: 18 }   // Monto Viaticos
       ];
 
-      const fecha = new Date().toISOString().split('T')[0];
+      const fecha = getLocalDateString();
       const nombreArchivo = `Historial_Viaticos_${fecha}.xlsx`;
 
       XLSX.writeFile(wb, nombreArchivo);
@@ -606,7 +608,7 @@ export default function SupervisionForm() {
         { wch: 30 }   // Observaciones
       ];
 
-      const fecha = new Date().toISOString().split('T')[0];
+      const fecha = getLocalDateString();
       const nombreArchivo = `Historial_Recibos_${fecha}.xlsx`;
 
       XLSX.writeFile(wb, nombreArchivo);
@@ -661,7 +663,7 @@ export default function SupervisionForm() {
         { wch: 18 }   // Monto Viaticos
       ];
 
-      const fecha = new Date().toISOString().split('T')[0];
+      const fecha = getLocalDateString();
       const nombreArchivo = `Control_Viaticos_${fecha}.xlsx`;
 
       console.log('Intentando escribir archivo:', nombreArchivo);
@@ -760,7 +762,7 @@ export default function SupervisionForm() {
         { wch: 18 }   // Correlativo Final
       ];
 
-      const fecha = new Date().toISOString().split('T')[0];
+      const fecha = getLocalDateString();
       const nombreArchivo = `Control_Recibos_Caja_${fecha}.xlsx`;
 
       XLSX.writeFile(wb, nombreArchivo);
@@ -933,7 +935,7 @@ export default function SupervisionForm() {
         { wch: 15 }
       ];
 
-      const fecha = new Date().toISOString().split('T')[0];
+      const fecha = getLocalDateString();
       const nombreArchivo = `Historial_Evaluaciones_${fecha}.xlsx`;
 
       XLSX.writeFile(wb, nombreArchivo);
@@ -1052,7 +1054,7 @@ export default function SupervisionForm() {
         { wch: 60 }
       ];
 
-      const fecha = new Date().toISOString().split('T')[0];
+      const fecha = getLocalDateString();
       const nombreArchivo = `Historial_Visitas_Proveedores_${fecha}.xlsx`;
 
       XLSX.writeFile(wb, nombreArchivo);
@@ -1226,7 +1228,7 @@ export default function SupervisionForm() {
         { wch: 18 }   // Comisiones
       ];
 
-      const fecha = new Date().toISOString().split('T')[0];
+      const fecha = getLocalDateString();
       const nombreArchivo = `Historial_Comisiones_${fecha}.xlsx`;
 
       XLSX.writeFile(wb, nombreArchivo);

@@ -18,8 +18,14 @@ import {
   Eye,
   EyeOff,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Download,
+  Copy,
+  FileSpreadsheet,
+  ShieldCheck,
+  Sparkles
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { 
   getVendorsList, 
   createVendor, 
@@ -29,8 +35,12 @@ import {
   updateVendorCredentials,
   getAdminPassword,
   setAdminPassword,
+  getOtpKeysVault,
+  getOtpKeysStats,
+  verifyPassword,
   ALL_ROUTES 
 } from '../lib/db';
+import { getLocalDateString } from '../lib/dateUtils';
 
 export default function AdminVendorManagement({ 
   onVendorUpdated,
@@ -45,6 +55,11 @@ export default function AdminVendorManagement({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAdminPassModal, setShowAdminPassModal] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpKeysList, setOtpKeysList] = useState([]);
+  const [otpSearch, setOtpSearch] = useState('');
+  const [otpFilter, setOtpFilter] = useState('all'); // all, available, used
+  const [copiedKey, setCopiedKey] = useState('');
   const [selectedVendor, setSelectedVendor] = useState(null);
 
   // New vendor form
@@ -55,7 +70,7 @@ export default function AdminVendorManagement({
     route: 'Coban #13',
     daily_goal: 15,
     phone: '',
-    hire_date: new Date().toISOString().split('T')[0]
+    hire_date: getLocalDateString()
   });
 
   // Edit vendor form
@@ -87,12 +102,50 @@ export default function AdminVendorManagement({
     try {
       const list = await getVendorsList();
       setVendors(list);
+      setOtpKeysList(getOtpKeysVault());
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
   }
+
+  const handleCopyKey = (key) => {
+    navigator.clipboard.writeText(key);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(''), 2500);
+    showNotification(`Clave "${key}" copiada al portapapeles.`);
+  };
+
+  const handleDownloadExcelClaves = () => {
+    try {
+      // 1. Intentar enlace directo si el archivo existe en public
+      const link = document.createElement('a');
+      link.href = '/claves 2.0.xlsx';
+      link.download = 'claves 2.0.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showNotification('Descargando archivo "claves 2.0.xlsx"...');
+    } catch (e) {
+      // Fallback con XLSX
+      const vault = getOtpKeysVault();
+      const rows = vault.map(k => ({
+        'No.': k.id,
+        'Clave de Un Solo Toque (OTP)': k.key,
+        'Tipo': 'Acceso Desechable (1 Solo Uso)',
+        'Estado': k.used ? 'QUEMADA / USADA' : 'DISPONIBLE',
+        'Usada Por': k.usedBy || '-',
+        'Fecha de Uso': k.usedAt || '-',
+        'Instrucciones': 'Válida para 1 solo inicio de sesión. Queda invalidada permanentemente al ingresar.'
+      }));
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, 'Claves 2.0');
+      XLSX.writeFile(wb, 'claves 2.0.xlsx');
+      showNotification('Archivo "claves 2.0.xlsx" generado y descargado.');
+    }
+  };
 
   function showNotification(msg, isError = false) {
     if (isError) {
@@ -130,7 +183,7 @@ export default function AdminVendorManagement({
         route: 'Coban #13',
         daily_goal: 15,
         phone: '',
-        hire_date: new Date().toISOString().split('T')[0]
+        hire_date: getLocalDateString()
       });
       loadVendors();
       if (onVendorUpdated) onVendorUpdated();
@@ -148,7 +201,7 @@ export default function AdminVendorManagement({
     if (!confirm) return;
 
     try {
-      const termDate = new Date().toISOString().split('T')[0];
+      const termDate = getLocalDateString();
       await terminateVendor(vendor.id, termDate);
       showNotification(`"${vendor.name}" ha sido dado de baja con fecha ${termDate}.`);
       loadVendors();
@@ -193,7 +246,7 @@ export default function AdminVendorManagement({
     setSelectedVendor(vendor);
     setEditFormData({
       name: vendor.name,
-      password: vendor.password || 'olam1234',
+      password: vendor.password?.length === 64 ? '' : (vendor.password || ''),
       route: vendor.route || 'Coban #13',
       daily_goal: vendor.daily_goal || 15
     });
@@ -220,7 +273,7 @@ export default function AdminVendorManagement({
   const handleChangeAdminPassword = (e) => {
     e.preventDefault();
     const current = getAdminPassword();
-    if (adminPassData.currentPass !== current) {
+    if (!verifyPassword(adminPassData.currentPass, current, 'admin')) {
       showNotification('La clave actual de administrador es incorrecta', true);
       return;
     }
@@ -281,12 +334,27 @@ export default function AdminVendorManagement({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Botón Bóveda Claves 2.0 (OTP) */}
+          <button
+            onClick={() => {
+              setOtpKeysList(getOtpKeysVault());
+              setShowOtpModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-bold text-xs sm:text-sm transition-all shadow-sm"
+          >
+            <Key size={16} className="text-amber-500" />
+            <span>Claves 2.0 (OTP)</span>
+            <span className="bg-amber-500 text-white text-[11px] px-1.5 py-0.5 rounded-full font-bold ml-1">
+              50
+            </span>
+          </button>
+
           <button
             onClick={() => setShowAdminPassModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm transition-all"
           >
-            <Key size={16} />
-            <span>Clave de Administrador</span>
+            <ShieldCheck size={16} />
+            <span>Clave Admin</span>
           </button>
 
           <button
@@ -512,7 +580,9 @@ export default function AdminVendorManagement({
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-xs font-semibold bg-slate-100 dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200">
-                            {isPasswordVisible ? (vendor.password || 'olam1234') : '••••••••'}
+                            {isPasswordVisible 
+                              ? (vendor.password?.length === 64 ? '🔒 Cifrado SHA-256' : (vendor.password || 'Protegida')) 
+                              : '••••••••'}
                           </span>
                           <button
                             onClick={() => togglePasswordVisibility(vendor.id)}
@@ -875,6 +945,228 @@ export default function AdminVendorManagement({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* BÓVEDA DE CLAVES 2.0 (OTP - UN SOLO TOQUE) MODAL */}
+      {showOtpModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 sm:p-7 w-full max-w-4xl shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-[92vh]">
+            
+            {/* Modal Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-2xl border border-amber-500/20">
+                  <Key size={26} />
+                </div>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Bóveda de Claves 2.0 (OTP)</span>
+                    <span className="text-[11px] bg-amber-500 text-white font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      1 Solo Uso
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    50 claves desechables criptográficas. Una vez logueados quedan <strong>quemadas/invalidadas</strong> de inmediato.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={handleDownloadExcelClaves}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-lg shadow-emerald-600/20 transition-all"
+                  title="Descargar archivo Excel oficial"
+                >
+                  <FileSpreadsheet size={16} />
+                  <span>Descargar "claves 2.0.xlsx"</span>
+                  <Download size={14} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowOtpModal(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* KPI Cards for OTP Vault */}
+            {(() => {
+              const stats = getOtpKeysStats();
+              return (
+                <div className="grid grid-cols-3 gap-3 my-4">
+                  <div className="bg-slate-50 dark:bg-slate-900/60 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Generadas</span>
+                    <div className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{stats.total}</div>
+                  </div>
+                  <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-3 sm:p-4 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/60">
+                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Disponibles</span>
+                    <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{stats.available}</div>
+                  </div>
+                  <div className="bg-red-50/60 dark:bg-red-950/30 p-3 sm:p-4 rounded-2xl border border-red-200/60 dark:border-red-800/60">
+                    <span className="text-[11px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">Quemadas / Usadas</span>
+                    <div className="text-2xl font-black text-red-600 dark:text-red-400 mt-0.5">{stats.used}</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Filters & Search */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-3">
+              <div className="relative w-full sm:w-72">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar clave o usuario..."
+                  value={otpSearch}
+                  onChange={(e) => setOtpSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 self-end sm:self-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setOtpFilter('all')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                    otpFilter === 'all' ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  Todas (50)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOtpFilter('available')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                    otpFilter === 'available' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  Disponibles
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOtpFilter('used')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                    otpFilter === 'used' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  Quemadas
+                </button>
+              </div>
+            </div>
+
+            {/* Keys Table Container */}
+            <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800/80 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-slate-500 uppercase tracking-wider text-[11px] font-bold">
+                  <tr>
+                    <th className="py-2.5 px-3">No.</th>
+                    <th className="py-2.5 px-3">Clave de 1 Solo Toque</th>
+                    <th className="py-2.5 px-3 text-center">Estado</th>
+                    <th className="py-2.5 px-3">Usada Por</th>
+                    <th className="py-2.5 px-3">Fecha y Hora</th>
+                    <th className="py-2.5 px-3 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {otpKeysList
+                    .filter((k) => {
+                      if (otpFilter === 'available') return !k.used;
+                      if (otpFilter === 'used') return k.used;
+                      return true;
+                    })
+                    .filter((k) => {
+                      if (!otpSearch) return true;
+                      const q = otpSearch.toLowerCase();
+                      return k.key.toLowerCase().includes(q) || (k.usedBy && k.usedBy.toLowerCase().includes(q));
+                    })
+                    .map((item) => (
+                      <tr 
+                        key={item.id} 
+                        className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${
+                          item.used ? 'opacity-65 bg-slate-50/40 dark:bg-slate-900/30' : ''
+                        }`}
+                      >
+                        <td className="py-2.5 px-3 font-mono font-bold text-slate-400">
+                          #{item.id}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`font-mono font-extrabold tracking-wider px-2 py-0.5 rounded-lg border text-xs sm:text-sm ${
+                            item.used 
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 line-through' 
+                              : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                          }`}>
+                            {item.key}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          {item.used ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
+                              ⛔ QUEMADA
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                              ✓ DISPONIBLE
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 font-medium text-slate-700 dark:text-slate-300">
+                          {item.usedBy ? (
+                            <span className="font-semibold text-slate-900 dark:text-white">
+                              {item.usedBy}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">—</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-xs text-slate-500">
+                          {item.usedAt || '—'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyKey(item.key)}
+                            disabled={item.used}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ml-auto ${
+                              copiedKey === item.key
+                                ? 'bg-emerald-600 text-white'
+                                : item.used
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                            }`}
+                          >
+                            <Copy size={12} />
+                            <span>{copiedKey === item.key ? 'Copiada' : 'Copiar'}</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Footer / Instructions */}
+            <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
+                <span>
+                  Protección de sesión activa: ninguna clave de un solo toque puede usarse dos veces.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOtpModal(false)}
+                className="w-full sm:w-auto px-5 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl text-xs hover:opacity-90 transition-opacity"
+              >
+                Cerrar Bóveda
+              </button>
+            </div>
+
           </div>
         </div>
       )}

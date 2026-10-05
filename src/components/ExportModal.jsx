@@ -14,6 +14,7 @@ import {
   UserPlus
 } from 'lucide-react';
 import { exportNewClientsToExcel } from '../lib/newClientsExport';
+import { getLocalDateString } from '../lib/dateUtils';
 
 export default function ExportModal({ visits = [], vendors = [] }) {
   const [vendorFilter, setVendorFilter] = useState('all');
@@ -23,7 +24,7 @@ export default function ExportModal({ visits = [], vendors = [] }) {
   const [downloading, setDownloading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   // Filtered dataset for export
   const getExportData = () => {

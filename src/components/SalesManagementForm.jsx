@@ -43,6 +43,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 
 import SalesHistory from './SalesHistory';
+import { getLocalDateString } from '../lib/dateUtils';
+import { verifyPassword } from '../lib/security';
 import { GeneralReport, VendorReport } from './SalesReports';
 
 // Register ChartJS components
@@ -61,7 +63,7 @@ ChartJS.register(
 
 export default function SalesManagementForm() {
   // State for form
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(() => getLocalDateString());
   const [time, setTime] = useState('08:00');
   const [team, setTeam] = useState('Equipo A');
   const [salesperson, setSalesperson] = useState('');
@@ -92,7 +94,7 @@ export default function SalesManagementForm() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (passwordInput === '0l@m_2025$') {
+    if (verifyPassword(passwordInput, null, 'admin')) {
       setIsAuthenticated(true);
       localStorage.setItem('formAuth_0lam', 'true');
       setError('');

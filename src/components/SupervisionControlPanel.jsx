@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getLocalDateString } from '@/lib/dateUtils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -64,7 +65,7 @@ export default function SupervisionControlPanel({ onDataChange }) {
   const chartData = useMemo(() => {
     if (!settings || !equipos.length) return [];
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     
     // Get general goal for the selected month
     const currentMonthGoal = parseFloat(settings.monthly_goals?.[selectedMonth] || settings.monthly_goal || 0);

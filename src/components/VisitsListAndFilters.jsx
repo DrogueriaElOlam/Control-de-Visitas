@@ -36,6 +36,7 @@ import { addCashRecordFromVisit } from '../lib/cashCollections';
 import { exportNewClientsToExcel } from '../lib/newClientsExport';
 import { generateGoalComplianceHTMLReport } from '../lib/goalComplianceReport';
 import { generateMonthlyRouteHTMLReport } from '../lib/monthlyRouteReport';
+import { getLocalDateString, getLocalYesterdayString, getLocalStartOfMonthString } from '../lib/dateUtils';
 
 export default function VisitsListAndFilters({ 
   visits = [], 
@@ -48,8 +49,8 @@ export default function VisitsListAndFilters({
   isFirstHandView = false
 }) {
   const isAdmin = currentUser?.role === 'admin';
-  const todayStr = new Date().toISOString().split('T')[0];
-  const yesterdayStr = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
+  const yesterdayStr = getLocalYesterdayString();
 
   // View mode: 'today' para pestaña Visitas (primera mano) | 'history' para Información General (Historial y base de datos)
   const [viewMode, setViewMode] = useState(isFirstHandView ? 'today' : 'history');
@@ -76,10 +77,7 @@ export default function VisitsListAndFilters({
 
   // Modal para Cumplimiento de Metas por Fecha
   const [showGoalModal, setShowGoalModal] = useState(false);
-  const [goalStartDate, setGoalStartDate] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  });
+  const [goalStartDate, setGoalStartDate] = useState(() => getLocalStartOfMonthString());
   const [goalEndDate, setGoalEndDate] = useState(todayStr);
 
   const handleOpenGoalModal = () => {
@@ -92,10 +90,7 @@ export default function VisitsListAndFilters({
 
   // Modal para Resumen Mensual por Ruta
   const [showRouteModal, setShowRouteModal] = useState(false);
-  const [routeStartDate, setRouteStartDate] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  });
+  const [routeStartDate, setRouteStartDate] = useState(() => getLocalStartOfMonthString());
   const [routeEndDate, setRouteEndDate] = useState(todayStr);
 
   const handleOpenRouteModal = () => {

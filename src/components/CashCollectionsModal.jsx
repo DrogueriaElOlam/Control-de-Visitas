@@ -25,6 +25,7 @@ import {
   deleteCashReport,
   syncCashFromVisits 
 } from '../lib/cashCollections';
+import { getLocalDateString } from '../lib/dateUtils';
 
 export default function CashCollectionsModal({ 
   isOpen, 
@@ -37,7 +38,7 @@ export default function CashCollectionsModal({
   if (!isOpen) return null;
 
   const isAdmin = currentUser?.role === 'admin';
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   // Selected vendor
   const [selectedVendorName, setSelectedVendorName] = useState(() => {

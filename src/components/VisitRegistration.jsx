@@ -23,6 +23,7 @@ import {
 import { ALL_ROUTES, addVisitRecord, getRoutesForVendor } from '../lib/db';
 import { fetchClientCodes, fetchPharmacyDirectory, saveClientRecord, searchClientLive } from '../lib/catalog';
 import { addCashRecordFromVisit } from '../lib/cashCollections';
+import { getLocalDateString } from '../lib/dateUtils';
 
 export default function VisitRegistration({ currentUser, onVisitAdded, allVisits = [], onLogout, onNavigate }) {
   const isAdmin = currentUser?.role === 'admin';
@@ -47,7 +48,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
   });
   const [dayPeriod, setDayPeriod] = useState('mañana');
   const [visitType, setVisitType] = useState('presencial');
-  const [visitDate, setVisitDate] = useState(new Date().toISOString().split('T')[0]);
+  const [visitDate, setVisitDate] = useState(() => getLocalDateString());
 
   // Sync route and sector when currentUser changes
   useEffect(() => {
@@ -595,8 +596,8 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       location: finalLocation || location,
       vendorName: currentUser?.name || 'Vendedor El Olam',
       route: route || currentUser?.route || 'Coban #13',
-      visitDate: visitDate || new Date().toISOString().split('T')[0],
-      recordedDate: new Date().toISOString().split('T')[0],
+      visitDate: visitDate || getLocalDateString(),
+      recordedDate: getLocalDateString(),
       recordedAt: new Date().toISOString()
     };
 
@@ -660,7 +661,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       setHasCollection(false);
       setCollectionAmounts({ efectivo: '', transferencia: '', cheque: '', boleta: '' });
       setObservations('');
-      setVisitDate(new Date().toISOString().split('T')[0]);
+      setVisitDate(getLocalDateString());
       captureGPSLocation();
     } catch (err) {
       console.warn('Visita procesada y guardada:', err);
@@ -678,7 +679,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       setHasCollection(false);
       setCollectionAmounts({ efectivo: '', transferencia: '', cheque: '', boleta: '' });
       setObservations('');
-      setVisitDate(new Date().toISOString().split('T')[0]);
+      setVisitDate(getLocalDateString());
       captureGPSLocation();
     } finally {
       setSubmitting(false);
@@ -770,10 +771,10 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                     <Calendar size={13} className="text-blue-600 dark:text-blue-400" />
                     <span>Fecha de Visita *</span>
                   </label>
-                  {visitDate !== new Date().toISOString().split('T')[0] && (
+                  {visitDate !== getLocalDateString() && (
                     <button
                       type="button"
-                      onClick={() => setVisitDate(new Date().toISOString().split('T')[0])}
+                      onClick={() => setVisitDate(getLocalDateString())}
                       className="text-[10px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline cursor-pointer"
                     >
                       Poner Hoy
@@ -785,7 +786,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                     type="date"
                     value={visitDate}
                     onChange={(e) => setVisitDate(e.target.value)}
-                    max={new Date().toISOString().split('T')[0]}
+                    max={getLocalDateString()}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
                     required
                   />
@@ -930,7 +931,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
             </div>
 
             {/* Aviso sutil si la fecha elegida es anterior a hoy */}
-            {visitDate && visitDate < new Date().toISOString().split('T')[0] && (
+            {visitDate && visitDate < getLocalDateString() && (
               <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-xl flex items-center gap-2.5 text-xs text-amber-800 dark:text-amber-300 animate-in fade-in">
                 <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0" />
                 <span>

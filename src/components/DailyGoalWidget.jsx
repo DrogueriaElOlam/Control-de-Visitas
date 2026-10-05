@@ -34,10 +34,11 @@ import {
   Line, 
   CartesianGrid 
 } from 'recharts';
+import { getLocalDateString } from '../lib/dateUtils';
 
 export default function DailyGoalWidget({ currentUser, visits = [], vendors = [], onOpenReportModal }) {
   const isAdmin = currentUser?.role === 'admin';
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   // Selected date (defaults to today)
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -205,12 +206,13 @@ export default function DailyGoalWidget({ currentUser, visits = [], vendors = []
   // Data for 7-day trend
   const weeklyTrendData = useMemo(() => {
     const days = [];
-    const baseDate = new Date(selectedDate);
+    const [y, m, day] = (selectedDate || todayStr).split('-').map(Number);
+    const baseDate = new Date(y, (m || 1) - 1, day || 1, 12, 0, 0);
 
     for (let i = 6; i >= 0; i--) {
       const d = new Date(baseDate);
       d.setDate(d.getDate() - i);
-      const dStr = d.toISOString().split('T')[0];
+      const dStr = getLocalDateString(d);
       const dayVisits = visits.filter(v => v.vendorName === selectedVendorName && v.visitDate === dStr);
       const daySales = dayVisits.reduce((sum, v) => sum + (Number(v.saleAmount) || 0), 0);
       const dayPresencial = dayVisits.filter(v => !isTelemarketing(v)).reduce((sum, v) => sum + (Number(v.saleAmount) || 0), 0);

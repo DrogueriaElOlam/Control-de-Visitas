@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getLocalDateString } from './dateUtils';
 
 export const DEFAULT_PRODUCTS = [
   { id: 1, name: 'Paracetamol 500mg (Caja x 100)', price: 45.00, category: 'Analgésicos' },
@@ -250,7 +251,7 @@ export async function saveClientRecord({ code, name, sector, route, visitDate, p
   const cleanName = (name || '').trim();
   const cleanSector = (sector || route || '').trim();
   const cleanRoute = (route || sector || '').trim();
-  const cleanDate = (visitDate || new Date().toISOString().split('T')[0]).trim();
+  const cleanDate = (visitDate || getLocalDateString()).trim();
 
   // 1. Update localStorage directory (olam_pharmacy_directory_v2)
   try {
