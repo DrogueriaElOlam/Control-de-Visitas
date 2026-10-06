@@ -58,6 +58,14 @@ export default function InteractiveMapModal({ visits = [], targetVisit = null, c
   const uniqueVendors = Array.from(new Set(visitsWithGps.map(v => v.vendorName).filter(Boolean)));
   const uniqueDates = Array.from(new Set(visitsWithGps.map(v => v.visitDate).filter(Boolean))).sort().reverse();
 
+  // Si se pasa una visita específica como target, sincronizar los filtros con sus datos
+  useEffect(() => {
+    if (targetVisit) {
+      if (targetVisit.vendorName && isAdmin) setSelectedVendor(targetVisit.vendorName);
+      if (targetVisit.visitDate) setSelectedDate(targetVisit.visitDate);
+    }
+  }, [targetVisit, isAdmin]);
+
   // Initialize Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -131,9 +139,11 @@ export default function InteractiveMapModal({ visits = [], targetVisit = null, c
       }
     });
 
-    // Fit map bounds
+    // Centrar mapa: enfocar targetVisit con zoom si existe, o ajustar a todos los pines visibles
     try {
-      if (layer.getLayers().length > 0) {
+      if (targetVisit?.location?.lat && targetVisit?.location?.lng) {
+        mapInstanceRef.current.setView([targetVisit.location.lat, targetVisit.location.lng], 15);
+      } else if (layer.getLayers().length > 0) {
         mapInstanceRef.current.fitBounds(layer.getBounds().pad(0.1));
       }
     } catch (e) {}

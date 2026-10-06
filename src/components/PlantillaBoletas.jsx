@@ -5,7 +5,7 @@ import FormHeader from './FormHeader';
 import FormButtons from './FormButtons';
 import jsPDF from 'jspdf';
 
-export default function PlantillaBoletas() {
+export default function PlantillaBoletas({ currentUser }) {
   const [pages, setPages] = useState([1]); // Array de páginas
   const [images, setImages] = useState({});
   const [editingBox, setEditingBox] = useState(null);
@@ -20,7 +20,10 @@ export default function PlantillaBoletas() {
   const fileInputRef = useRef(null);
   const canvasRef = useRef(null);
 
-  const [persistedImagesData, setPersistedImagesData, saveForm, lastSaved] = useFormPersistence('plantillaBoletas', {});
+  const persistenceKey = currentUser?.name 
+    ? `plantillaBoletas_${currentUser.name.replace(/\s+/g, '_')}` 
+    : 'plantillaBoletas';
+  const [persistedImagesData, setPersistedImagesData, saveForm, lastSaved] = useFormPersistence(persistenceKey, {});
 
   useEffect(() => {
     if (persistedImagesData && Object.keys(persistedImagesData).length > 0) {
@@ -268,36 +271,40 @@ export default function PlantillaBoletas() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6" onPaste={handlePaste}>
-      <FormHeader title="Plantilla Boletas" />
+    <div className="p-2 sm:p-4 md:p-6" onPaste={handlePaste}>
+      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-sm border border-blue-900/20 p-4 sm:p-6 md:p-8">
+        <FormHeader logoSize="small" />
 
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6">
+        <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-950 text-white text-center py-2.5 rounded-xl mb-4 sm:mb-6 shadow-md">
+          <h2 className="text-base sm:text-lg font-black tracking-wide">PLANTILLA DE BOLETAS BANCARIAS</h2>
+        </div>
+
         {/* Botones de acción */}
         <div className="flex gap-2 mb-6 flex-wrap">
           <button
             onClick={handleSaveForm}
-            className="flex items-center gap-2 bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 font-semibold text-sm sm:text-base"
+            className="flex items-center gap-2 bg-yellow-400 text-black px-4 py-2 rounded-lg hover:bg-yellow-500 font-semibold text-sm sm:text-base shadow-sm"
           >
             <Save className="w-4 h-4" />
             Guardar
           </button>
           <button
             onClick={exportToPDF}
-            className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 font-semibold text-sm sm:text-base"
+            className="flex items-center gap-2 bg-blue-900 text-white px-4 py-2 rounded-lg hover:bg-blue-950 font-semibold text-sm sm:text-base shadow-sm"
           >
             <Download className="w-4 h-4" />
             Exportar PDF
           </button>
           <button
             onClick={addNewPage}
-            className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 font-semibold text-sm sm:text-base"
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-semibold text-sm sm:text-base shadow-sm"
           >
             <ZoomIn className="w-4 h-4" />
             Agregar Nueva Página
           </button>
           <button
             onClick={handleClear}
-            className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 font-semibold text-sm sm:text-base"
+            className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 font-semibold text-sm sm:text-base shadow-sm"
           >
             <Trash2 className="w-4 h-4" />
             Limpiar
@@ -307,16 +314,18 @@ export default function PlantillaBoletas() {
         {/* Páginas con cuadrícula 2x2 */}
         {pages.map((pageNum) => (
           <div key={pageNum} className="mb-8">
-            <h3 className="text-lg font-bold mb-2 text-gray-700">Página {pageNum}</h3>
-            <div className="bg-white border-2 border-gray-300 p-4" style={{ aspectRatio: '8.5/11' }}>
+            <h3 className="bg-blue-50/80 border-l-4 border-blue-900 px-3 py-2 font-black text-blue-950 text-sm sm:text-base tracking-wide rounded-r mb-3">
+              PÁGINA {pageNum}
+            </h3>
+            <div className="bg-white border-2 border-blue-900/20 rounded-xl p-4 shadow-sm" style={{ aspectRatio: '8.5/11' }}>
               <div className="grid grid-cols-2 gap-4 h-full">
                 {['1', '2', '3', '4'].map((boxNum) => {
                   const boxId = `${pageNum}-${boxNum}`;
                   return (
                     <div
                       key={boxId}
-                      className={`relative border-2 border-dashed border-gray-400 rounded-lg overflow-hidden cursor-pointer transition-all ${
-                        editingBox === boxId ? 'ring-2 ring-blue-500 border-blue-500' : 'hover:border-blue-400'
+                      className={`relative border-2 border-dashed border-blue-300 dark:border-blue-800 rounded-xl overflow-hidden cursor-pointer transition-all ${
+                        editingBox === boxId ? 'ring-2 ring-blue-600 border-blue-600 bg-blue-50/30' : 'hover:border-blue-500 hover:bg-blue-50/10'
                       }`}
                       onClick={() => setEditingBox(boxId)}
                     >
@@ -328,16 +337,16 @@ export default function PlantillaBoletas() {
                               e.stopPropagation();
                               deleteImage(boxId);
                             }}
-                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded hover:bg-red-600"
+                            className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-lg hover:bg-red-600 shadow"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </>
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100">
-                          <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                          <p className="text-xs text-gray-500 text-center px-2">Cuadro {boxNum}</p>
-                          <p className="text-xs text-gray-400 text-center px-2 mt-1">Pega (Ctrl+V) o haz clic para subir</p>
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 hover:bg-blue-50/40 transition-colors">
+                          <Upload className="w-8 h-8 text-blue-400 mb-2" />
+                          <p className="text-xs font-bold text-blue-950 text-center px-2">Cuadro {boxNum}</p>
+                          <p className="text-[11px] text-slate-500 text-center px-2 mt-1">Pega (Ctrl+V) o haz clic para subir boleta</p>
                           <input
                             ref={fileInputRef}
                             type="file"

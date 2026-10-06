@@ -220,8 +220,8 @@ export default function CashCollectionsModal({
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 text-white p-5 sm:p-6 flex items-center justify-between shrink-0 shadow-md">
           <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2.5 rounded-2xl backdrop-blur-sm border border-white/20">
-              <DollarSign size={24} className="text-white" />
+            <div className="bg-white p-1 rounded-xl shadow-sm border border-amber-200 shrink-0">
+              <img src="/logo.png" alt="Droguería El Olam" className="h-10 w-auto object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">

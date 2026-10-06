@@ -224,7 +224,7 @@ export default function LoginModal({ onLoginSuccess }) {
             ) : (
               <p className="text-[11px] text-slate-400 mt-1.5">
                 {role === 'admin' 
-                  ? 'Puedes ingresar con la clave maestra o con cualquiera de las 50 claves de un solo toque.' 
+                  ? 'Puedes ingresar con la clave de administrador o con cualquiera de las 50 claves de un solo toque.' 
                   : 'Puedes ingresar con tu contraseña personal o con una clave de un solo toque.'}
               </p>
             )}

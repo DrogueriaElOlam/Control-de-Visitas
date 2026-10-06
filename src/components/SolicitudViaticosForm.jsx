@@ -1,12 +1,15 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useFormPersistence } from '../hooks/useFormPersistence';
 import { Save, History } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FormButtons from './FormButtons';
 import FormHeader from './FormHeader';
 import SolicitudViaticosHistory from './SolicitudViaticosHistory';
+import { isSuperUser, getPermittedRoutesForUser, ALL_ROUTES } from '../lib/formsPermissions';
+import { LOGO_DATA_URI } from '../lib/logo';
 
-export default function SolicitudViaticosForm() {
+export default function SolicitudViaticosForm({ currentUser }) {
+  const isSuper = isSuperUser(currentUser);
   const formRef = useRef(null);
   const [formData, setFormData, saveForm, lastSaved] = useFormPersistence('solicitud-viaticos', {
     vendedor: '',
@@ -22,6 +25,32 @@ export default function SolicitudViaticosForm() {
     observaciones: '',
   });
 
+  // Pre-llenar y sincronizar vendedor y rutas autorizadas si no es Antonio Celada ni Admin
+  useEffect(() => {
+    if (!isSuper && currentUser?.name) {
+      const permitted = getPermittedRoutesForUser(currentUser);
+      const defaultRuta = (currentUser.route && permitted.includes(currentUser.route))
+        ? currentUser.route
+        : (permitted && permitted[0]) || '';
+
+      setFormData(prev => {
+        const targetRutaA = (prev.rutaA && permitted.includes(prev.rutaA)) ? prev.rutaA : defaultRuta;
+        const targetRutaB = (prev.rutaB && permitted.includes(prev.rutaB)) ? prev.rutaB : '';
+
+        if (prev.vendedor === currentUser.name && prev.rutaA === targetRutaA && prev.rutaB === targetRutaB) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          vendedor: currentUser.name,
+          rutaA: targetRutaA,
+          rutaB: targetRutaB
+        };
+      });
+    }
+  }, [currentUser?.name, currentUser?.route, isSuper]);
+
   const [vendedores, setVendedores] = useState(() => {
     const saved = localStorage.getItem('vendedores_list');
     if (saved) {
@@ -30,7 +59,7 @@ export default function SolicitudViaticosForm() {
     return [
       'Ana Lucia Marroquin',
       'Antonio Celada',
-      'Danny Perez',
+      'Dany Perez',
       'Elias Quiej',
       'Elio Caceros',
       'Erick Curley',
@@ -58,20 +87,28 @@ export default function SolicitudViaticosForm() {
         const { data, error } = await supabase
           .from('route_templates')
           .select('*');
-        
         if (data) {
-          const templatesMap = {};
-          data.forEach(template => {
-            templatesMap[template.route_name] = template;
+          const tMap = {};
+          data.forEach(t => {
+            tMap[t.route_name] = t;
           });
-          setRouteTemplates(templatesMap);
+          setRouteTemplates(tMap);
         }
-      } catch (error) {
-        console.error('Error al cargar plantillas de rutas:', error);
-      }
+      } catch (err) {}
     };
     fetchTemplates();
   });
+
+  // Pre-llenar automáticamente los datos del vendedor si no es Antonio Celada ni Admin
+  useEffect(() => {
+    if (!isSuper && currentUser?.name && !formData.vendedor) {
+      setFormData(prev => ({
+        ...prev,
+        vendedor: currentUser.name,
+        rutaA: prev.rutaA || currentUser.route || ''
+      }));
+    }
+  }, [currentUser, isSuper]);
 
   const rutas = [
     'Amatitlan #B5',
@@ -135,31 +172,31 @@ export default function SolicitudViaticosForm() {
       return JSON.parse(saved);
     }
     return {
-      'Ana Lucia Marroquin': [
-        'Salama #14',
-        'Quetzaltenango #11',
-        'Municipios Oriente #15',
-        'Coban #13',
-        'Totonicapan #12'
-      ],
-      'Jessica Noriega': ['Suchi I #21', 'Retalhuleu #22', 'Suchi II #23', 'Coatepeque #24', 'Suchi III #25'],
-      'Wally Natareno': ['Sacatepéquez #31', 'Quiche Centro #32', 'Quiche Montaña Baja #33', 'Izabal I #34', 'Izabal II #35'],
-      'Erick Curley': ['Jutiapa I #41', 'Jutiapa II #42', 'Chimaltenango I #43', 'Chimaltenango II #44', 'Santa Rosa #45'],
-      'Estuardo Cordova': ['San Marcos Montaña Alta #51', 'Solola I #52', 'Solola II #53', 'Nebaj #54', 'Quiche Montaña Alta #55'],
-      'Karina Pineda': ['Chiquimula I #61', 'Jalapa #62', 'Chiquimula II #63', 'Capital S1 #64', 'Capital S2 #65'],
-      'Danny Perez': ['Huehuetenango Montaña Baja I #71', 'Huehuetenango Montaña Baja II #72', 'Peten I #73', 'Peten II #74'],
-      'Klissman Hernandez': ['Polochic #81', 'Zacapa #82', 'Huehuetenango Montaña Alta I #83', 'Huehuetenango Montaña Alta II #84'],
-      'Elio Caceros': ['Petapa #91', 'San Marcos I #92', 'San Marcos II #93', 'Capital S3 #94', 'Ixcán #95'],
-      'Josue Aguilar': ['Escuintla I #A1', 'Escuintla II #A2', 'Villa Nueva #A3', 'Huehuetenango Centro #A4', 'Municipios Norte #A5'],
-      'Elias Quiej': ['Peten III #B1', 'Peten IV #B2', 'Transversal I #B3', 'Transversal II #B4', 'Amatitlán #B5']
+      'Ana Lucia Marroquin': ['Salama #14', 'Quetzaltenango #11', 'Municipios Oriente #15', 'Coban #13', 'Totonicapan #12', 'Oficina'],
+      'Jessica Noriega': ['Suchi I #21', 'Retalhuleu #22', 'Suchi II #23', 'Coatepeque #24', 'Suchi III #25', 'Oficina'],
+      'Wally Natareno': ['Sacatepéquez #31', 'Quiche Centro #32', 'Quiche Montaña Baja #33', 'Izabal I #34', 'Izabal II #35', 'Oficina'],
+      'Erick Curley': ['Jutiapa I #41', 'Jutiapa II #42', 'Chimaltenango I #43', 'Chimaltenango II #44', 'Santa Rosa #45', 'Oficina'],
+      'Estuardo Cordova': ['San Marcos Montaña Alta #51', 'Solola I #52', 'Solola II #53', 'Nebaj #54', 'Quiche Montaña Alta #55', 'Oficina'],
+      'Karina Pineda': ['Chiquimula I #61', 'Jalapa #62', 'Chiquimula II #63', 'Capital S1 #64', 'Capital S2 #65', 'Oficina'],
+      'Dany Perez': ['Huehuetenango Montaña Baja I #71', 'Huehuetenango Montaña Baja II #72', 'Peten I #73', 'Peten II #74', 'Oficina'],
+      'Danny Perez': ['Huehuetenango Montaña Baja I #71', 'Huehuetenango Montaña Baja II #72', 'Peten I #73', 'Peten II #74', 'Oficina'],
+      'Klissman Hernandez': ['Polochic #81', 'Zacapa #82', 'Huehuetenango Montaña Alta I #83', 'Huehuetenango Montaña Alta II #84', 'Oficina'],
+      'Elio Caceros': ['Petapa #91', 'San Marcos I #92', 'San Marcos II #93', 'Capital S3 #94', 'Ixcán #95', 'Oficina'],
+      'Josue Aguilar': ['Escuintla I #A1', 'Escuintla II #A2', 'Villa Nueva #A3', 'Huehuetenango Centro #A4', 'Municipios Norte #A5', 'Oficina'],
+      'Elias Quiej': ['Peten III #B1', 'Peten IV #B2', 'Transversal I #B3', 'Transversal II #B4', 'Amatitlán #B5', 'Oficina']
     };
   });
   const [nuevaRuta, setNuevaRuta] = useState('');
   const [showRutasModal, setShowRutasModal] = useState(false);
 
-  const rutasVisibles = formData.vendedor && routesByVendor[formData.vendedor] 
-    ? routesByVendor[formData.vendedor]
-    : rutas;
+  // Antonio Celada / Admin ven todas las rutas; vendedores regulares solo sus rutas asignadas
+  const rutasVisibles = useMemo(() => {
+    if (isSuper) {
+      return ALL_ROUTES;
+    }
+    return getPermittedRoutesForUser(currentUser, formData.vendedor);
+  }, [isSuper, currentUser, formData.vendedor]);
+
 
   const agregarRuta = () => {
     if (nuevaRuta.trim() !== '' && formData.vendedor) {
@@ -352,7 +389,7 @@ export default function SolicitudViaticosForm() {
 
   const handleClear = () => {
     setFormData({
-      vendedor: '',
+      vendedor: (!isSuper && currentUser?.name) ? currentUser.name : '',
       rutaA: '',
       fechaInicial: '',
       fechaFinal: '',
@@ -383,13 +420,13 @@ export default function SolicitudViaticosForm() {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, sans-serif; padding: 0; }
     .container { width: 6in; height: 8in; margin: 0 auto; border: 4px solid #000; padding: 0.3in; box-sizing: border-box; position: relative; }
-    .fecha-solicitud { position: absolute; top: 0.3in; right: 0.3in; font-size: 11px; font-weight: bold; }
-    .header-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; margin-top: 20px; }
-    .header-left { width: 70%; vertical-align: top; padding-right: 10px; }
-    .header-right { width: 30%; text-align: right; vertical-align: top; }
+    .header-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; margin-top: 2px; }
+    .header-left { width: 60%; vertical-align: top; padding-right: 10px; }
+    .header-right { width: 40%; text-align: right; vertical-align: top; }
+    .header-left img { width: 95px; height: auto; display: block; margin-bottom: 4px; }
     .header-left h2 { font-size: 9px; margin-bottom: 2px; font-weight: bold; }
-    .header-left p { font-size: 7px; color: #666; margin: 1px 0; line-height: 1.3; }
-    .header-right img { width: 100px; height: auto; display: block; }
+    .header-left p { font-size: 7px; color: #555; margin: 1px 0; line-height: 1.3; }
+    .fecha-solicitud { font-size: 10px; font-weight: bold; text-align: right; margin-bottom: 4px; }
     .title { font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 8px; }
     .header-section { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
     .header-field { display: flex; align-items: center; gap: 5px; }
@@ -421,16 +458,30 @@ export default function SolicitudViaticosForm() {
 </head>
 <body>
   <div class="container">
-    <div class="fecha-solicitud"><strong>Fecha de Solicitud:</strong> ${fechaSolicitud}</div>
-    
     <table class="header-table">
       <tr>
         <td class="header-left">
+          <img src="${LOGO_DATA_URI}" style="width: 95px; height: auto; display: block; margin-bottom: 4px;">
           <h2>DISTRIBUIDORA COMERCIAL EL OLAM S.A.</h2>
           <p>7a. Avenida "A" 17-67 Zona 13, Guatemala<br>Teléfonos: 2308-4353, 2332-7814, 2339-4613</p>
         </td>
         <td class="header-right">
-          <img src="/logo.png" style="width: 100px; height: auto; display: block;">
+          <div class="fecha-solicitud"><strong>Fecha de Solicitud:</strong> ${fechaSolicitud}</div>
+          <table style="width: 100%; max-width: 180px; margin-left: auto; border: 1.5px solid #000; border-collapse: collapse; font-size: 8px; text-align: left; margin-top: 4px;">
+            <tr>
+              <th colspan="2" style="border-bottom: 1.5px solid #000; background-color: #f2f2f2; text-align: center; font-size: 8px; font-weight: bold; padding: 2px 4px; letter-spacing: 0.5px;">
+                PARA USO INTERNO
+              </th>
+            </tr>
+            <tr>
+              <td style="padding: 3px 4px 2px 4px; font-weight: bold; width: 48%; white-space: nowrap; font-size: 8px;">No. De Cheque:</td>
+              <td style="padding: 3px 4px 2px 4px; border-bottom: 1px solid #000; width: 52%; font-size: 8px;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 4px 3px 4px; font-weight: bold; width: 48%; white-space: nowrap; font-size: 8px;">Banco:</td>
+              <td style="padding: 3px 4px 3px 4px; border-bottom: 1px solid #000; width: 52%; font-size: 8px;">&nbsp;</td>
+            </tr>
+          </table>
         </td>
       </tr>
     </table>
@@ -577,212 +628,225 @@ export default function SolicitudViaticosForm() {
           </div>
         )}
         
-        <div ref={formRef} className="bg-white p-3 sm:p-4 md:p-6 border-4 border-black mt-4">
+        <div ref={formRef} className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl border border-blue-900/20 shadow-sm mt-4">
           <FormHeader logoSize="small" />
           
-          <div className="text-center mb-3 sm:mb-4">
-            <h2 className="text-base sm:text-lg font-semibold mt-2">SOLICITUD DE VIATICOS</h2>
+          <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-950 text-white text-center py-2.5 rounded-xl mb-4 sm:mb-6 shadow-md">
+            <h2 className="text-base sm:text-lg font-black tracking-wide">SOLICITUD DE VIATICOS</h2>
           </div>
 
-          <div className="space-y-2 sm:space-y-3 mb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+          <div className="space-y-3 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block font-semibold text-xs sm:text-sm">EJECUTIVO DE VENTAS:</label>
-                  <button
-                    type="button"
-                    onClick={() => setShowVendedoresModal(true)}
-                    className="text-xs text-blue-600 hover:text-blue-800 underline"
-                  >
-                    Editar Lista
-                  </button>
+                  <label className="block font-bold text-xs sm:text-sm text-blue-950">EJECUTIVO DE VENTAS:</label>
+                  {isSuper && (
+                    <button
+                      type="button"
+                      onClick={() => setShowVendedoresModal(true)}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline font-semibold"
+                    >
+                      Editar Lista
+                    </button>
+                  )}
                 </div>
-                <select
-                  name="vendedor"
-                  value={formData.vendedor}
-                  onChange={handleVendedorChange}
-                  className="w-full border-b-2 border-black px-2 py-1 focus:outline-none text-xs sm:text-sm bg-white"
-                >
-                  <option value="">Seleccione un ejecutivo</option>
-                  {vendedores.map((vendedor, index) => (
-                    <option key={index} value={vendedor}>{vendedor}</option>
-                  ))}
-                </select>
+                {isSuper ? (
+                  <select
+                    name="vendedor"
+                    value={formData.vendedor}
+                    onChange={handleVendedorChange}
+                    className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1.5 focus:outline-none text-xs sm:text-sm text-blue-950 font-medium bg-white"
+                  >
+                    <option value="">Seleccione un ejecutivo</option>
+                    {vendedores.map((vendedor, index) => (
+                      <option key={index} value={vendedor}>{vendedor}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="w-full border-b-2 border-blue-800 py-1.5 px-2 bg-blue-50 text-blue-950 font-bold text-xs sm:text-sm rounded-t flex items-center justify-between">
+                    <span>{formData.vendedor || currentUser?.name || 'Vendedor'}</span>
+                    <span className="text-[10px] uppercase tracking-wider bg-blue-200 text-blue-900 px-2 py-0.5 rounded font-black">
+                      Asignado a ti
+                    </span>
+                  </div>
+                )}
               </div>
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block font-semibold text-xs sm:text-sm">RUTA A:</label>
-                  {formData.vendedor && (
+                  <label className="block font-bold text-xs sm:text-sm text-blue-950">RUTA A:</label>
+                  {isSuper && formData.vendedor && (
                     <button
                       type="button"
                       onClick={() => setShowRutasModal(true)}
-                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                      className="text-xs text-blue-600 hover:text-blue-800 underline font-semibold"
                     >
                       Editar Rutas
                     </button>
                   )}
                 </div>
-                  <select
-                    name="rutaA"
-                    value={formData.rutaA}
-                    onChange={handleChange}
-                    className="w-full border-b-2 border-black px-2 py-1 focus:outline-none text-xs sm:text-sm bg-white"
-                  >
-                    <option value="">Seleccione una ruta</option>
-                    {rutasVisibles.map((ruta, index) => (
-                      <option key={index} value={ruta}>{ruta}</option>
-                    ))}
-                  </select>
+                <select
+                  name="rutaA"
+                  value={formData.rutaA}
+                  onChange={handleChange}
+                  className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1.5 focus:outline-none text-xs sm:text-sm text-blue-950 font-medium bg-white"
+                >
+                  <option value="">Seleccione una ruta</option>
+                  {rutasVisibles.map((ruta, index) => (
+                    <option key={index} value={ruta}>{ruta}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="block font-semibold mb-1 text-xs sm:text-sm">FECHA INICIAL:</label>
+                <label className="block font-bold mb-1 text-xs sm:text-sm text-blue-950">FECHA INICIAL:</label>
                 <input
                   type="date"
                   name="fechaInicial"
                   value={formData.fechaInicial}
                   onChange={handleChange}
-                  className="w-full border-b-2 border-black px-2 py-1 focus:outline-none text-xs sm:text-sm"
+                  className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1.5 focus:outline-none text-xs sm:text-sm text-blue-950 font-medium bg-white"
                 />
               </div>
               <div>
-                <label className="block font-semibold mb-1 text-xs sm:text-sm">FECHA FINAL:</label>
+                <label className="block font-bold mb-1 text-xs sm:text-sm text-blue-950">FECHA FINAL:</label>
                 <input
                   type="date"
                   name="fechaFinal"
                   value={formData.fechaFinal}
                   onChange={handleChange}
-                  className="w-full border-b-2 border-black px-2 py-1 focus:outline-none text-xs sm:text-sm"
+                  className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1.5 focus:outline-none text-xs sm:text-sm text-blue-950 font-medium bg-white"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block font-semibold mb-1 text-xs sm:text-sm">LUGARES A VISITAR:</label>
+              <label className="block font-bold mb-1 text-xs sm:text-sm text-blue-950">LUGARES A VISITAR:</label>
               <textarea
                 name="lugaresVisitar"
                 value={formData.lugaresVisitar}
                 onChange={handleChange}
                 rows="2"
-                className="w-full border-2 border-black px-2 py-1 focus:outline-none text-xs sm:text-sm uppercase"
+                className="w-full border border-blue-900/30 focus:border-blue-700 rounded-lg p-2 focus:outline-none text-xs sm:text-sm text-blue-950 uppercase font-medium bg-white"
                 placeholder="Ingrese los lugares en mayúsculas"
               />
             </div>
           </div>
 
-          <div className="mb-4">
-            <h3 className="font-bold text-center mb-2 text-base sm:text-lg">VALORES APROXIMADOS</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
-              <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="font-semibold text-xs sm:text-sm">COMBUSTIBLE:</span>
+          <div className="mb-6">
+            <h3 className="bg-blue-50/80 border-l-4 border-blue-900 px-3 py-2 font-black text-blue-950 mb-3 text-sm sm:text-base tracking-wide rounded-r">
+              VALORES APROXIMADOS
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2.5">
+                <div className="grid grid-cols-2 gap-2 items-center">
+                  <span className="font-bold text-xs sm:text-sm text-blue-950">COMBUSTIBLE:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs">Q.</span>
+                    <span className="text-xs font-bold text-blue-900">Q.</span>
                     <input
                       type="number"
                       name="combustible"
                       value={formData.combustible}
                       onChange={handleChange}
-                      className="flex-1 border-b-2 border-black px-1 py-1 focus:outline-none text-xs sm:text-sm"
+                      className="flex-1 border-b-2 border-blue-900/30 focus:border-blue-700 px-1 py-1 focus:outline-none text-xs sm:text-sm text-blue-950 font-semibold bg-white"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="font-semibold text-xs sm:text-sm">ALIMENTACION:</span>
+                <div className="grid grid-cols-2 gap-2 items-center">
+                  <span className="font-bold text-xs sm:text-sm text-blue-950">ALIMENTACION:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs">Q.</span>
+                    <span className="text-xs font-bold text-blue-900">Q.</span>
                     <input
                       type="number"
                       name="alimentacion"
                       value={formData.alimentacion}
                       onChange={handleChange}
-                      className="flex-1 border-b-2 border-black px-1 py-1 focus:outline-none text-xs sm:text-sm"
+                      className="flex-1 border-b-2 border-blue-900/30 focus:border-blue-700 px-1 py-1 focus:outline-none text-xs sm:text-sm text-blue-950 font-semibold bg-white"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="font-semibold text-xs sm:text-sm">HOSPEDAJE:</span>
+                <div className="grid grid-cols-2 gap-2 items-center">
+                  <span className="font-bold text-xs sm:text-sm text-blue-950">HOSPEDAJE:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs">Q.</span>
+                    <span className="text-xs font-bold text-blue-900">Q.</span>
                     <input
                       type="number"
                       name="hospedaje"
                       value={formData.hospedaje}
                       onChange={handleChange}
-                      className="flex-1 border-b-2 border-black px-1 py-1 focus:outline-none text-xs sm:text-sm"
+                      className="flex-1 border-b-2 border-blue-900/30 focus:border-blue-700 px-1 py-1 focus:outline-none text-xs sm:text-sm text-blue-950 font-semibold bg-white"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="font-semibold text-xs sm:text-sm">FOTOCOPIAS:</span>
+                <div className="grid grid-cols-2 gap-2 items-center">
+                  <span className="font-bold text-xs sm:text-sm text-blue-950">FOTOCOPIAS:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs">Q.</span>
+                    <span className="text-xs font-bold text-blue-900">Q.</span>
                     <input
                       type="number"
                       name="fotocopias"
                       value={formData.fotocopias}
                       onChange={handleChange}
-                      className="flex-1 border-b-2 border-black px-1 py-1 focus:outline-none text-xs sm:text-sm"
+                      className="flex-1 border-b-2 border-blue-900/30 focus:border-blue-700 px-1 py-1 focus:outline-none text-xs sm:text-sm text-blue-950 font-semibold bg-white"
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <span className="font-semibold text-xs sm:text-sm">OTROS:</span>
+                <div className="grid grid-cols-2 gap-2 items-center">
+                  <span className="font-bold text-xs sm:text-sm text-blue-950">OTROS:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs">Q.</span>
+                    <span className="text-xs font-bold text-blue-900">Q.</span>
                     <input
                       type="number"
                       name="otros"
                       value={formData.otros}
                       onChange={handleChange}
-                      className="flex-1 border-b-2 border-black px-1 py-1 focus:outline-none text-xs sm:text-sm"
+                      className="flex-1 border-b-2 border-blue-900/30 focus:border-blue-700 px-1 py-1 focus:outline-none text-xs sm:text-sm text-blue-950 font-semibold bg-white"
                     />
                   </div>
                 </div>
               </div>
               <div className="flex items-end">
-                <div className="w-full border-2 border-black p-3 text-center">
-                  <p className="font-bold text-xs sm:text-sm mb-1">TOTAL:</p>
-                  <p className="font-bold text-lg sm:text-xl">Q. {calcularTotal()}</p>
+                <div className="w-full bg-gradient-to-br from-blue-900 to-blue-950 text-white p-4 rounded-xl shadow text-center border border-blue-800">
+                  <p className="font-black text-xs sm:text-sm uppercase tracking-wider text-blue-200 mb-1">TOTAL SOLICITADO</p>
+                  <p className="font-black text-xl sm:text-2xl text-amber-300 drop-shadow">Q. {calcularTotal()}</p>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="mt-6 mb-6">
-            <label className="block font-semibold mb-2 text-xs sm:text-sm">OBSERVACIONES:</label>
+            <label className="block font-bold mb-2 text-xs sm:text-sm text-blue-950">OBSERVACIONES:</label>
             <textarea
               name="observaciones"
               value={formData.observaciones}
               onChange={handleChange}
               rows="3"
-              className="w-full border-2 border-black px-2 py-1 focus:outline-none text-xs sm:text-sm"
+              className="w-full border border-blue-900/30 focus:border-blue-700 rounded-lg p-2 focus:outline-none text-xs sm:text-sm text-blue-950 font-medium bg-white"
             />
           </div>
 
-          <div className="border-t-2 border-black pt-4 mb-4 min-h-20"></div>
+          <div className="border-t border-slate-200 pt-4 mb-4"></div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-6">
             <div className="text-center">
-              <div className="border-t-2 border-black pt-2 min-h-24">
-                <p className="text-xs font-semibold">SOLICITADO POR:</p>
+              <div className="border-t-2 border-blue-900/40 pt-2 min-h-20">
+                <p className="text-xs font-bold text-blue-950">SOLICITADO POR:</p>
               </div>
             </div>
             <div className="text-center">
-              <div className="border-t-2 border-black pt-2 min-h-24">
-                <p className="text-xs font-semibold">REVISADO GERENCIA DE VENTAS:</p>
+              <div className="border-t-2 border-blue-900/40 pt-2 min-h-20">
+                <p className="text-xs font-bold text-blue-950">REVISADO GERENCIA DE VENTAS:</p>
               </div>
             </div>
             <div className="text-center">
-              <div className="border-t-2 border-black pt-2 min-h-24">
-                <p className="text-xs font-semibold">REVISADO CONTABILIDAD:</p>
+              <div className="border-t-2 border-blue-900/40 pt-2 min-h-20">
+                <p className="text-xs font-bold text-blue-950">REVISADO CONTABILIDAD:</p>
               </div>
             </div>
             <div className="text-center">
-              <div className="border-t-2 border-black pt-2 min-h-24">
-                <p className="text-xs font-semibold">AUTORIZADO GERENCIA GENERAL:</p>
+              <div className="border-t-2 border-blue-900/40 pt-2 min-h-20">
+                <p className="text-xs font-bold text-blue-950">AUTORIZADO GERENCIA GENERAL:</p>
               </div>
             </div>
           </div>
@@ -904,6 +968,7 @@ export default function SolicitudViaticosForm() {
           <SolicitudViaticosHistory
             onClose={() => setShowHistory(false)}
             onEdit={handleHistoryEdit}
+            currentUser={currentUser}
           />
         )}
       </div>

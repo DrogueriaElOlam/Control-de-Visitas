@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { exportNewClientsToExcel } from '../lib/newClientsExport';
 import { getLocalDateString } from '../lib/dateUtils';
+import { LOGO_DATA_URI } from '../lib/logo';
 
 export default function ExportModal({ visits = [], vendors = [] }) {
   const [vendorFilter, setVendorFilter] = useState('all');
@@ -122,14 +123,22 @@ export default function ExportModal({ visits = [], vendors = [] }) {
       doc.setFillColor(30, 58, 138); // Deep Blue
       doc.rect(0, 0, 297, 24, 'F');
 
+      if (LOGO_DATA_URI) {
+        try {
+          doc.addImage(LOGO_DATA_URI, 'PNG', 12, 2, 20, 20);
+        } catch (err) {
+          console.warn('Error agregando logo al PDF:', err);
+        }
+      }
+
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text('DROGUERÍA EL OLAM', 14, 12);
+      doc.text('DROGUERÍA EL OLAM', 36, 12);
 
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      doc.text('Control Diario de Visitas & Rendimiento en Ruta', 14, 18);
+      doc.text('Control Diario de Visitas & Rendimiento en Ruta', 36, 18);
 
       doc.setFontSize(9);
       doc.text(`Fecha de Emisión: ${todayStr}`, 235, 12);

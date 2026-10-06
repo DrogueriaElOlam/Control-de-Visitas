@@ -29,6 +29,7 @@ export default function Navbar({
   onOpenReportModal,
   onOpenCashModal,
   onOpenDirectoryModal,
+  onOpenFormulariosModal,
   onlineVendors = {}
 }) {
   const isAdmin = currentUser?.role === 'admin';
@@ -189,9 +190,10 @@ export default function Navbar({
                     ? 'bg-white text-blue-900 shadow-md font-bold'
                     : 'text-blue-100 hover:bg-white/10'
                 }`}
+                title="Rastreo en tiempo real, recorridos diarios e histórico de vendedores"
               >
-                <MapPin size={15} />
-                <span>Mapa GPS</span>
+                <MapPin size={15} className="text-emerald-300" />
+                <span>Rastreo GPS en Vivo</span>
               </button>
 
               <button
@@ -222,6 +224,15 @@ export default function Navbar({
               >
                 <Banknote size={15} />
                 <span>Cobros en Efectivo</span>
+              </button>
+
+              <button
+                onClick={() => onOpenFormulariosModal && onOpenFormulariosModal()}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-blue-500/30 text-white hover:bg-blue-500 border border-blue-400/60 shadow-md cursor-pointer animate-pulse hover:animate-none"
+                title="Formularios Droguería El Olam (Aperturas, Viáticos, Recibos y Boletas)"
+              >
+                <FileText size={15} className="text-amber-300" />
+                <span>Formularios Droguería El Olam</span>
               </button>
             </>
           ) : (
@@ -294,6 +305,15 @@ export default function Navbar({
               >
                 <Banknote size={15} />
                 <span>Cobros en Efectivo</span>
+              </button>
+
+              <button
+                onClick={() => onOpenFormulariosModal && onOpenFormulariosModal()}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-blue-500/30 text-white hover:bg-blue-500 border border-blue-400/60 shadow-md cursor-pointer animate-pulse hover:animate-none"
+                title="Formularios Droguería El Olam (Aperturas, Viáticos, Recibos y Boletas)"
+              >
+                <FileText size={15} className="text-amber-300" />
+                <span>Formularios Droguería El Olam</span>
               </button>
             </>
           )}
@@ -370,6 +390,15 @@ export default function Navbar({
             >
               <Banknote size={20} />
               <span className="text-[10px] mt-0.5 font-bold">Cobros</span>
+            </button>
+
+            <button
+              onClick={() => onOpenFormulariosModal && onOpenFormulariosModal()}
+              className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all text-blue-400 hover:text-blue-300"
+              title="Formularios Droguería El Olam"
+            >
+              <FileText size={20} className="text-amber-400" />
+              <span className="text-[10px] mt-0.5 font-bold">Formularios</span>
             </button>
 
             <button
@@ -450,6 +479,15 @@ export default function Navbar({
             >
               <Banknote size={20} />
               <span className="text-[10px] mt-0.5 font-bold">Cobros</span>
+            </button>
+
+            <button
+              onClick={() => onOpenFormulariosModal && onOpenFormulariosModal()}
+              className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all text-blue-400 hover:text-blue-300"
+              title="Formularios Droguería El Olam"
+            >
+              <FileText size={20} className="text-amber-400" />
+              <span className="text-[10px] mt-0.5 font-bold">Formularios</span>
             </button>
 
             <button

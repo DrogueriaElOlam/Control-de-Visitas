@@ -464,6 +464,7 @@ export default function TiendaEnLineaForm() {
 <body>
   <div class="container">
     <div class="header">
+      <img src="${config?.logo_url || '/logo.png'}" alt="${config?.nombre_tienda || 'Droguería El Olam'}" style="max-height: 80px; width: auto; object-fit: contain; margin-bottom: 12px; display: inline-block;" />
       <h1>${config?.nombre_tienda || 'Tienda en Línea'}</h1>
       <p>${config?.descripcion || 'Catálogo de productos'}</p>
     </div>

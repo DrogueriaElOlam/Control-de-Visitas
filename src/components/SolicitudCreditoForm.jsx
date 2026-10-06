@@ -8,6 +8,7 @@ import DocumentosRequeridosSection from './DocumentosRequeridosSection';
 import UsoExclusivoSection from './UsoExclusivoSection';
 import ConfirmacionReferenciasSection from './ConfirmacionReferenciasSection';
 import AutorizacionFinalSection from './AutorizacionFinalSection';
+import { LOGO_DATA_URI } from '../lib/logo';
 
 export default function SolicitudCreditoForm() {
   const formRef = useRef(null);
@@ -131,7 +132,7 @@ export default function SolicitudCreditoForm() {
   };
 
   const handleExport = () => {
-    const logoUrl = '/logo.png';
+    const logoUrl = LOGO_DATA_URI;
     
     const htmlContent = `
 <!DOCTYPE html>

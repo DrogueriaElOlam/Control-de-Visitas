@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Edit2, Eye, Printer, Trash2, Calendar, Filter, Share2 } from 'lucide-react';
+import { X, Edit2, Eye, Printer, Trash2, Calendar, Filter, Share2, ShieldCheck, UserCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { isSuperUser, matchesVendorUser } from '../lib/formsPermissions';
 
-export default function LiquidacionRecibosHistory({ onClose, onEdit }) {
+export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser }) {
+  const isSuper = isSuperUser(currentUser);
   const [loading, setLoading] = useState(true);
   const [historyData, setHistoryData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
@@ -10,6 +12,7 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit }) {
   const [fechaFin, setFechaFin] = useState('');
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [ejecutivoFilter, setEjecutivoFilter] = useState('');
 
   useEffect(() => {
     loadHistory();
@@ -17,7 +20,7 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit }) {
 
   useEffect(() => {
     applyFilters();
-  }, [historyData, fechaInicio, fechaFin]);
+  }, [historyData, fechaInicio, fechaFin, ejecutivoFilter]);
 
   const loadHistory = async () => {
     console.log('Cargando historial de liquidaciones...');
@@ -47,8 +50,20 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit }) {
   const applyFilters = () => {
     let filtered = [...historyData];
 
+    // Restricción por permisos: Si no es Antonio Celada ni Admin, solo ver sus propias liquidaciones de recibos
+    if (!isSuper && currentUser?.name) {
+      filtered = filtered.filter(record =>
+        matchesVendorUser(record.datos?.ejecutivo || record.datos?.liquidadoPor, currentUser.name)
+      );
+    } else if (ejecutivoFilter) {
+      filtered = filtered.filter(record => {
+        const ej = record.datos?.ejecutivo || record.datos?.liquidadoPor || '';
+        return ej.toLowerCase().includes(ejecutivoFilter.toLowerCase());
+      });
+    }
+
     if (fechaInicio || fechaFin) {
-      filtered = historyData.filter(record => {
+      filtered = filtered.filter(record => {
         const recordDate = new Date(record.fecha_creacion);
         if (fechaInicio && recordDate < new Date(fechaInicio)) return false;
         if (fechaFin && recordDate > new Date(fechaFin + 'T23:59:59')) return false;
@@ -851,7 +866,7 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit }) {
               <Filter className="w-5 h-5" />
               Filtros
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Fecha Inicio:
@@ -860,7 +875,7 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit }) {
                   type="date"
                   value={fechaInicio}
                   onChange={(e) => setFechaInicio(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
                 />
               </div>
               <div>
@@ -871,8 +886,27 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit }) {
                   type="date"
                   value={fechaFin}
                   onChange={(e) => setFechaFin(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ejecutivo de Ventas:
+                </label>
+                {isSuper ? (
+                  <input
+                    type="text"
+                    value={ejecutivoFilter}
+                    onChange={(e) => setEjecutivoFilter(e.target.value)}
+                    placeholder="Filtrar por cualquier ejecutivo..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 text-sm"
+                  />
+                ) : (
+                  <div className="w-full px-3 py-2 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-sm font-semibold flex items-center gap-1.5">
+                    <UserCheck size={15} className="text-emerald-600 shrink-0" />
+                    <span>{currentUser?.name || 'Vendedor'} (Tus recibos)</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

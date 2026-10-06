@@ -1,30 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Save, Download, Trash2, Plus, X, Edit2, History } from 'lucide-react';
 import Logo from './Logo';
 import FormHeader from './FormHeader';
 import { supabase } from '../lib/supabase';
 import LiquidacionViaticosHistory from './LiquidacionViaticosHistory';
+import { isSuperUser, getPermittedRoutesForUser, ALL_ROUTES, getRoutesForVendor } from '../lib/formsPermissions';
+import { LOGO_DATA_URI } from '../lib/logo';
 
-const VENDOR_ROUTES = {
-  'Ana Lucia Marroquin': ['Quetzaltenango #11', 'Totonicapan #12', 'Coban #13', 'Salama #14', 'Municipios Oriente #15'],
-  'Jessica Noriega': ['Suchi I #21', 'Retalhuleu #22', 'Suchi II #23', 'Coatepeque #24', 'Suchi III #25'],
-  'Wally Natareno': ['Sacatepéquez #31', 'Quiche Centro #32', 'Quiche Montaña Baja #33', 'Izabal I #34', 'Izabal II #35'],
-  'Erick Curley': ['Jutiapa I #41', 'Jutiapa II #42', 'Chimaltenango I #43', 'Chimaltenango II #44', 'Santa Rosa #45'],
-  'Estuardo Cordova': ['San Marcos Montaña Alta #51', 'Solola I #52', 'Solola II #53', 'Nebaj #54', 'Quiche Montaña Alta #55'],
-  'Karina Pineda': ['Chiquimula I #61', 'Jalapa #62', 'Chiquimula II #63', 'Capital S1 #64', 'Capital S2 #65'],
-  'Danny Perez': ['Huehuetenango Montaña Baja I #71', 'Huehuetenango Montaña Baja II #72', 'Peten I #73', 'Peten II #74'],
-  'Klissman Hernandez': ['Polochic #81', 'Zacapa #82', 'Huehuetenango Montaña Alta I #83', 'Huehuetenango Montaña Alta II #84'],
-  'Elio Caceros': ['Petapa #91', 'San Marcos I #92', 'San Marcos II #93', 'Capital S3 #94', 'Ixcán #95'],
-  'Josue Aguilar': ['Escuintla I #A1', 'Escuintla II #A2', 'Villa Nueva #A3', 'Huehuetenango Centro #A4', 'Municipios Norte #A5'],
-  'Elias Quiej': ['Peten III #B1', 'Peten IV #B2', 'Transversal I #B3', 'Transversal II #B4', 'Amatitlán #B5']
-};
-
-export default function LiquidacionViaticosForm() {
+export default function LiquidacionViaticosForm({ currentUser }) {
+  const isSuper = isSuperUser(currentUser);
   const [formData, setFormData] = useState({
-    ruta: '',
+    ruta: (!isSuper && currentUser?.route) ? currentUser.route : '',
     fechaSalida: '',
     fechaRegreso: '',
-    liquidadoPor: '',
+    liquidadoPor: (!isSuper && currentUser?.name) ? currentUser.name : '',
     gastos: [
       { 
         fecha: '', 
@@ -40,65 +29,40 @@ export default function LiquidacionViaticosForm() {
     ]
   });
 
-  const [rutas, setRutas] = useState([
-    'Coban #13',
-    'Salama #14',
-    'Municipios Oriente #15',
-    'Quetzaltenango #11',
-    'Totonicapan #12',
-    'Retalhuleu #22',
-    'Suchi II #23',
-    'Coatepeque #24',
-    'Suchi III #25',
-    'Suchi I #21',
-    'Sacatepequez #31',
-    'Quiche Centro #32',
-    'Quiche Montaña Baja #33',
-    'Izabal I #34',
-    'Izabal II #35',
-    'Chimaltenango I #43',
-    'Chimaltenango II #44',
-    'Santa Rosa #45',
-    'Jutiapa I #41',
-    'Jutiapa II #42',
-    'Quiche Montaña Alta #55',
-    'San Marcos Montaña Alta #51',
-    'Solola I #52',
-    'Solola II #53',
-    'Nebaj #54',
-    '#64 y #65',
-    'Chiquimula I #61',
-    'Chiquimula II #63',
-    'Jalapa #62',
-    'Huehuetenango Montaña Baja I #71',
-    'Huehuetenango Montaña Baja II #72',
-    'Peten I #73',
-    'Peten II #74',
-    'Huehuetenango Montaña Alta I #83',
-    'Huehuetenango Montaña Alta II #84',
-    'Polochic #81',
-    'Zacapa #82',
-    'Capital S3 #94',
-    'Ixcan #95',
-    'Petapa #91',
-    'San Marcos I #92',
-    'San Marcos II #93',
-    'Municipios Norte #A5',
-    'Escuintla I #A1',
-    'Escuintla II #A2',
-    'Villa Nueva #A3',
-    'Huehuetenango Centro #A4',
-    'Peten III #B1',
-    'Peten IV #B2',
-    'Transversal I #B3',
-    'Transversal II #B4',
-    'Amatitlan #B5'
-  ]);
+  // Rutas autorizadas (todas para Antonio Celada / Admin, o solo las asignadas para cada vendedor)
+  const rutasFiltradas = useMemo(() => {
+    if (isSuper) {
+      return ALL_ROUTES;
+    }
+    return getPermittedRoutesForUser(currentUser, formData.liquidadoPor);
+  }, [isSuper, currentUser, formData.liquidadoPor]);
+
+  // Sincronizar vendedor y ruta asignada si no es superusuario
+  useEffect(() => {
+    if (!isSuper && currentUser?.name) {
+      const defaultRuta = (currentUser.route && rutasFiltradas.includes(currentUser.route))
+        ? currentUser.route
+        : (rutasFiltradas && rutasFiltradas[0]) || '';
+
+      setFormData(prev => {
+        const targetRuta = (prev.ruta && rutasFiltradas.includes(prev.ruta)) ? prev.ruta : defaultRuta;
+        if (prev.liquidadoPor === currentUser.name && prev.ruta === targetRuta) {
+          return prev;
+        }
+        return {
+          ...prev,
+          liquidadoPor: currentUser.name,
+          ruta: targetRuta
+        };
+      });
+    }
+  }, [currentUser?.name, currentUser?.route, isSuper, rutasFiltradas]);
+
 
   const [liquidadores, setLiquidadores] = useState([
     'Ana Lucia Marroquin',
     'Antonio Celada',
-    'Danny Perez',
+    'Dany Perez',
     'Elias Quiej',
     'Elio Caceros',
     'Erick Curley',
@@ -147,16 +111,6 @@ export default function LiquidacionViaticosForm() {
     fetchEstablecimientos();
   }, []);
 
-  // Filtrar rutas basadas en el liquidador seleccionado
-  const rutasFiltradas = (() => {
-    if (formData.liquidadoPor && VENDOR_ROUTES[formData.liquidadoPor]) {
-      // Si el liquidador tiene rutas asignadas, mostrar solo esas
-      // Pero también incluir las rutas personalizadas que no estén en la lista predeterminada
-      // Para simplificar según requerimiento: "solo muestra las rutas que cubre"
-      return VENDOR_ROUTES[formData.liquidadoPor];
-    }
-    return rutas;
-  })();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -537,7 +491,7 @@ export default function LiquidacionViaticosForm() {
           <!-- Encabezado -->
           <div class="header">
             <div class="logo-section">
-              <img src="/logo.png" class="logo" alt="Logo Droguería El Olam" />
+              <img src="${LOGO_DATA_URI}" class="logo" alt="Logo Droguería El Olam" />
             </div>
             <div class="title-section">
               <div class="main-title">Liquidación de Gastos Por Viáticos</div>
@@ -632,11 +586,14 @@ export default function LiquidacionViaticosForm() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-lg p-6">
-      <Logo />
-      <FormHeader title="LIQUIDACIÓN DE VIÁTICOS" />
+    <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-sm border border-blue-900/20 p-4 sm:p-6 md:p-8">
+      <FormHeader logoSize="small" />
 
-        {/* Botones de acción */}
+      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-950 text-white text-center py-2.5 rounded-xl mb-4 sm:mb-6 shadow-md">
+        <h2 className="text-base sm:text-lg font-black tracking-wide">LIQUIDACIÓN DE VIÁTICOS</h2>
+      </div>
+
+      {/* Botones de acción */}
       <div className="flex gap-2 mb-6 flex-wrap">
         <button
           onClick={handleSave}
@@ -648,14 +605,14 @@ export default function LiquidacionViaticosForm() {
         </button>
         <button
           onClick={() => setShowHistory(true)}
-          className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 font-semibold text-sm sm:text-base"
+          className="flex items-center gap-2 bg-blue-900 text-white px-4 py-2 rounded hover:bg-blue-950 font-semibold text-sm sm:text-base"
         >
           <History className="w-4 h-4" />
           Historial
         </button>
         <button
           onClick={handleExportPDF}
-          className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 font-semibold text-sm sm:text-base"
+          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 font-semibold text-sm sm:text-base"
         >
           <Download className="w-4 h-4" />
           Exportar PDF
@@ -670,13 +627,13 @@ export default function LiquidacionViaticosForm() {
       </div>
 
       {showSaveMessage && (
-        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 font-medium">
           ✓ Formulario guardado correctamente en el historial
         </div>
       )}
 
       {editingRecord && (
-        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4">
+        <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mb-4 font-medium">
           ℹ️ Editando registro del historial. Los cambios se guardarán al presionar "Actualizar".
         </div>
       )}
@@ -684,15 +641,15 @@ export default function LiquidacionViaticosForm() {
       {/* Información principal */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1 sm:mb-2">
             Ruta/Gira *
           </label>
           <div className="flex gap-2 items-center">
-              <select
+            <select
               name="ruta"
               value={formData.ruta}
               onChange={handleInputChange}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-3 py-2 border border-blue-900/30 focus:border-blue-700 rounded-lg text-sm text-blue-950 font-medium bg-white"
               required
             >
               <option value="">Seleccione una ruta</option>
@@ -700,13 +657,16 @@ export default function LiquidacionViaticosForm() {
                 <option key={index} value={ruta}>{ruta}</option>
               ))}
             </select>
-            <button
-              onClick={() => setMostrarEditarRutas(!mostrarEditarRutas)}
-              className="flex items-center gap-1 bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600"
-              title="Editar rutas"
-            >
-              <Edit2 className="w-4 h-4" />
-            </button>
+            {isSuper && (
+              <button
+                type="button"
+                onClick={() => setMostrarEditarRutas(!mostrarEditarRutas)}
+                className="flex items-center gap-1 bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600"
+                title="Editar rutas"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
           
           {mostrarEditarRutas && (
@@ -744,30 +704,39 @@ export default function LiquidacionViaticosForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1 sm:mb-2">
             Liquidado por *
           </label>
-          <div className="flex gap-2 items-center">
-            <select
-              name="liquidadoPor"
-              value={formData.liquidadoPor}
-              onChange={handleInputChange}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-            >
-              <option value="">Seleccione un liquidador</option>
-              {liquidadores.map((liquidador, index) => (
-                <option key={index} value={liquidador}>{liquidador}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => setMostrarEditarLiquidadores(!mostrarEditarLiquidadores)}
-              className="flex items-center gap-1 bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600"
-              title="Editar liquidadores"
-            >
-              <Edit2 className="w-4 h-4" />
-            </button>
-          </div>
+          {isSuper ? (
+            <div className="flex gap-2 items-center">
+              <select
+                name="liquidadoPor"
+                value={formData.liquidadoPor}
+                onChange={handleInputChange}
+                className="flex-1 px-3 py-2 border border-blue-900/30 focus:border-blue-700 rounded-lg text-sm text-blue-950 font-medium bg-white"
+                required
+              >
+                <option value="">Seleccione un liquidador</option>
+                {liquidadores.map((liquidador, index) => (
+                  <option key={index} value={liquidador}>{liquidador}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => setMostrarEditarLiquidadores(!mostrarEditarLiquidadores)}
+                className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700"
+                title="Editar liquidadores"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="w-full border-b-2 border-blue-800 py-2 px-3 bg-blue-50 text-blue-950 font-bold text-sm rounded-t flex items-center justify-between">
+              <span>{formData.liquidadoPor || currentUser?.name || 'Vendedor'}</span>
+              <span className="text-[10px] uppercase tracking-wider bg-blue-200 text-blue-900 px-2 py-0.5 rounded font-black">
+                Asignado a ti
+              </span>
+            </div>
+          )}
           
           {mostrarEditarLiquidadores && (
             <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
@@ -804,7 +773,7 @@ export default function LiquidacionViaticosForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1 sm:mb-2">
             Fecha de Salida *
           </label>
           <input
@@ -812,13 +781,13 @@ export default function LiquidacionViaticosForm() {
             name="fechaSalida"
             value={formData.fechaSalida}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-blue-900/30 focus:border-blue-700 rounded-lg text-sm text-blue-950 font-medium bg-white"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1 sm:mb-2">
             Fecha de Regreso *
           </label>
           <input
@@ -826,7 +795,7 @@ export default function LiquidacionViaticosForm() {
             name="fechaRegreso"
             value={formData.fechaRegreso}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-blue-900/30 focus:border-blue-700 rounded-lg text-sm text-blue-950 font-medium bg-white"
             required
           />
         </div>
@@ -835,10 +804,12 @@ export default function LiquidacionViaticosForm() {
       {/* Tabla de gastos */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-3">
-          <h3 className="font-bold text-lg">Detalle de Gastos</h3>
+          <h3 className="bg-blue-50/80 border-l-4 border-blue-900 px-3 py-2 font-black text-blue-950 text-sm sm:text-base tracking-wide rounded-r">
+            DETALLE DE GASTOS
+          </h3>
           <button
             onClick={agregarGasto}
-            className="flex items-center gap-2 bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm"
+            className="flex items-center gap-2 bg-blue-900 text-white px-3 py-1.5 rounded-lg hover:bg-blue-950 font-semibold text-xs sm:text-sm shadow-sm"
           >
             <Plus className="w-4 h-4" />
             Agregar Gasto
@@ -851,19 +822,19 @@ export default function LiquidacionViaticosForm() {
               <option key={i} value={est} />
             ))}
           </datalist>
-          <table className="w-full border-collapse border border-gray-300">
+          <table className="w-full border-collapse border border-blue-900/20 rounded-lg overflow-hidden shadow-sm">
             <thead>
-              <tr className="bg-blue-100 text-gray-900">
-                <th className="border border-gray-300 px-2 py-2 text-xs">FECHA</th>
-                <th className="border border-gray-300 px-2 py-2 text-xs">No. DOC</th>
-                <th className="border border-gray-300 px-2 py-2 text-xs">ESTABLECIMIENTO</th>
-                <th className="border border-gray-300 px-2 py-2 text-xs">ALIMENTACIÓN</th>
-                <th className="border border-gray-300 px-2 py-2 text-xs">HOTEL</th>
-                <th className="border border-gray-300 px-2 py-2 text-xs">COMBUSTIBLE</th>
-                <th className="border border-gray-300 px-2 py-2 text-xs">PEAJE/PARQUEO</th>
-                <th className="border border-gray-300 px-2 py-2 text-xs">FOTOCOPIAS</th>
-                <th className="border border-gray-300 px-2 py-2 text-xs">VARIOS</th>
-                <th className="border border-gray-300 px-2 py-2 text-xs w-16">ACCIÓN</th>
+              <tr className="bg-gradient-to-r from-blue-900 to-blue-950 text-white">
+                <th className="border border-blue-800 px-2 py-2 text-xs font-bold text-white tracking-wider">FECHA</th>
+                <th className="border border-blue-800 px-2 py-2 text-xs font-bold text-white tracking-wider">No. DOC</th>
+                <th className="border border-blue-800 px-2 py-2 text-xs font-bold text-white tracking-wider">ESTABLECIMIENTO</th>
+                <th className="border border-blue-800 px-2 py-2 text-xs font-bold text-white tracking-wider">ALIMENTACIÓN</th>
+                <th className="border border-blue-800 px-2 py-2 text-xs font-bold text-white tracking-wider">HOTEL</th>
+                <th className="border border-blue-800 px-2 py-2 text-xs font-bold text-white tracking-wider">COMBUSTIBLE</th>
+                <th className="border border-blue-800 px-2 py-2 text-xs font-bold text-white tracking-wider">PEAJE/PARQUEO</th>
+                <th className="border border-blue-800 px-2 py-2 text-xs font-bold text-white tracking-wider">FOTOCOPIAS</th>
+                <th className="border border-blue-800 px-2 py-2 text-xs font-bold text-white tracking-wider">VARIOS</th>
+                <th className="border border-blue-800 px-2 py-2 text-xs font-bold text-white tracking-wider w-16">ACCIÓN</th>
               </tr>
             </thead>
             <tbody>
@@ -968,21 +939,21 @@ export default function LiquidacionViaticosForm() {
                   </td>
                 </tr>
               ))}
-              <tr className="bg-gray-100 font-bold">
-                <td colSpan="3" className="border border-gray-300 px-4 py-2 text-right text-sm">TOTALES:</td>
-                <td className="border border-gray-300 px-2 py-2 text-sm">Q {calcularTotalPorCategoria('alimentacion').toFixed(2)}</td>
-                <td className="border border-gray-300 px-2 py-2 text-sm">Q {calcularTotalPorCategoria('hotel').toFixed(2)}</td>
-                <td className="border border-gray-300 px-2 py-2 text-sm">Q {calcularTotalPorCategoria('combustible').toFixed(2)}</td>
-                <td className="border border-gray-300 px-2 py-2 text-sm">Q {calcularTotalPorCategoria('peajeParqueo').toFixed(2)}</td>
-                <td className="border border-gray-300 px-2 py-2 text-sm">Q {calcularTotalPorCategoria('fotocopias').toFixed(2)}</td>
-                <td className="border border-gray-300 px-2 py-2 text-sm">Q {calcularTotalPorCategoria('varios').toFixed(2)}</td>
-                <td className="border border-gray-300"></td>
+              <tr className="bg-blue-50/90 font-black text-blue-950 border-t-2 border-blue-900">
+                <td colSpan="3" className="border border-blue-200 px-4 py-2.5 text-right text-sm">TOTALES:</td>
+                <td className="border border-blue-200 px-2 py-2 text-sm text-blue-900">Q {calcularTotalPorCategoria('alimentacion').toFixed(2)}</td>
+                <td className="border border-blue-200 px-2 py-2 text-sm text-blue-900">Q {calcularTotalPorCategoria('hotel').toFixed(2)}</td>
+                <td className="border border-blue-200 px-2 py-2 text-sm text-blue-900">Q {calcularTotalPorCategoria('combustible').toFixed(2)}</td>
+                <td className="border border-blue-200 px-2 py-2 text-sm text-blue-900">Q {calcularTotalPorCategoria('peajeParqueo').toFixed(2)}</td>
+                <td className="border border-blue-200 px-2 py-2 text-sm text-blue-900">Q {calcularTotalPorCategoria('fotocopias').toFixed(2)}</td>
+                <td className="border border-blue-200 px-2 py-2 text-sm text-blue-900">Q {calcularTotalPorCategoria('varios').toFixed(2)}</td>
+                <td className="border border-blue-200"></td>
               </tr>
-              <tr className="bg-blue-900 text-white font-bold">
-                <td colSpan="9" className="border border-gray-300 px-4 py-2 text-right text-base">
-                  GRAN TOTAL: Q {calcularTotal().toFixed(2)}
+              <tr className="bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-950 text-white font-black">
+                <td colSpan="9" className="border border-blue-900 px-4 py-3 text-right text-base tracking-wide">
+                  GRAN TOTAL: <span className="text-amber-300 ml-2 text-lg">Q {calcularTotal().toFixed(2)}</span>
                 </td>
-                <td className="border border-gray-300"></td>
+                <td className="border border-blue-900"></td>
               </tr>
             </tbody>
           </table>
@@ -993,6 +964,7 @@ export default function LiquidacionViaticosForm() {
         <LiquidacionViaticosHistory
           onClose={() => setShowHistory(false)}
           onEdit={handleEditFromHistory}
+          currentUser={currentUser}
         />
       )}
     </div>

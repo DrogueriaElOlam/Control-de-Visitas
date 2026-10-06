@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FileDown, Trash2 } from 'lucide-react';
 import FormHeader from './FormHeader';
+import { LOGO_DATA_URI } from '../lib/logo';
 
 export default function SolicitudEmpleoForm() {
   const [formData, setFormData] = useState({
@@ -145,7 +146,7 @@ export default function SolicitudEmpleoForm() {
               Teléfonos: 2308-4353, 2332-7814, 2339-4613
             </td>
             <td class="logo-cell">
-              <img src="/logo.png" 
+              <img src="${LOGO_DATA_URI}" 
                    alt="Logo" style="width: 100px; height: auto; display: block; margin-left: auto;">
             </td>
           </tr>

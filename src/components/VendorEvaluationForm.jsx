@@ -332,8 +332,9 @@ export default function VendorEvaluationForm({
          )}
       </div>
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-center mb-4">EVALUACIÓN DE DESEMPEÑO DE VENDEDORES RUTERO</h1>
+      <div className="mb-6 flex flex-col items-center justify-center text-center">
+        <img src="/logo.png" alt="Droguería El Olam" className="h-16 w-auto object-contain mb-3" />
+        <h1 className="text-2xl font-bold text-slate-800">EVALUACIÓN DE DESEMPEÑO DE VENDEDORES RUTERO</h1>
       </div>
 
       {/* Header Fields */}

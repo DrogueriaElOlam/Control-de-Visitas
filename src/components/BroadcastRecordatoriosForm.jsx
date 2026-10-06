@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { LOGO_DATA_URI } from '../lib/logo';
 
 export default function BroadcastRecordatoriosForm() {
   const [contacts, setContacts] = useState([]);
@@ -141,7 +142,7 @@ export default function BroadcastRecordatoriosForm() {
     printWindow.document.write('<html><head><title>Reporte de Envíos</title>');
     printWindow.document.write('<style>table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid black; padding: 8px; text-align: left; } body { font-family: sans-serif; }</style>');
     printWindow.document.write('</head><body>');
-    printWindow.document.write('<h1>Reporte de Envíos - Broadcast Recordatorios</h1>');
+    printWindow.document.write(`<div style="text-align: center; margin-bottom: 20px;"><img src="${LOGO_DATA_URI}" alt="Droguería El Olam" style="max-height: 70px; object-fit: contain; margin-bottom: 10px;" /><h1 style="margin: 0; font-size: 20px; color: #1e3a8a;">Reporte de Envíos - Broadcast Recordatorios</h1></div>`);
     
     history.forEach(session => {
       printWindow.document.write(`<h3>Fecha: ${new Date(session.date).toLocaleString()}</h3>`);

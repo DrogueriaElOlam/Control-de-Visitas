@@ -13,7 +13,8 @@ import {
   Layers,
   Award,
   LogOut,
-  Building2
+  Building2,
+  FileText
 } from 'lucide-react';
 import { getLocalDateString, getLocalYesterdayString } from '../lib/dateUtils';
 
@@ -23,6 +24,7 @@ export default function AdminDashboard({
   onNavigate,
   onLogout,
   onOpenDirectoryModal,
+  onOpenFormulariosModal,
   onlineVendors = {}
 }) {
   const todayStr = getLocalDateString();
@@ -115,6 +117,26 @@ export default function AdminDashboard({
               <Target size={16} />
               <span>Análisis de Frecuencia</span>
             </button>
+            {onNavigate && (
+              <button
+                onClick={() => onNavigate('map')}
+                className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 flex items-center gap-2 border border-emerald-400/50 cursor-pointer active:scale-95"
+                title="Monitorear ubicación en vivo y recorridos de los vendedores"
+              >
+                <Navigation size={16} className="text-white animate-pulse" />
+                <span>🛰️ Rastreo GPS en Vivo</span>
+              </button>
+            )}
+            {onOpenFormulariosModal && (
+              <button
+                onClick={onOpenFormulariosModal}
+                className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-extrabold text-xs sm:text-sm transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 border border-blue-400/50 cursor-pointer active:scale-95"
+                title="Acceso Maestro a los Formularios Droguería El Olam"
+              >
+                <FileText size={16} className="text-amber-300" />
+                <span>📋 Formularios El Olam</span>
+              </button>
+            )}
             {onOpenDirectoryModal && (
               <button
                 onClick={onOpenDirectoryModal}

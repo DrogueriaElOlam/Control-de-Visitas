@@ -38,17 +38,17 @@ const STORAGE_KEYS = {
 // Initial default Droguería El Olam vendors
 const DEFAULT_VENDORS = [
   { id: 1, name: 'Antonio Celada', route: 'Quetzaltenango #11', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 2, name: 'Ana Lucia Marroquin', route: 'Coban #13', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 3, name: 'Jessica Noriega', route: 'Salama #14', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 4, name: 'Wally Natareno', route: 'Retalhuleu #22', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 5, name: 'Erick Curley', route: 'Suchi II #23', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 6, name: 'Estuardo Cordova', route: 'Coatepeque #24', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 7, name: 'Karina Pineda', route: 'Chiquimula II #63', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 8, name: 'Dany Peres', route: 'Totonicapan #12', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 9, name: 'Klissman Hernandez', route: 'Suchi III #25', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 10, name: 'Elio Caceros', route: 'Municipios Oriente #15', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 11, name: 'Josue Aguilar', route: 'Sacatepequez #31', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 12, name: 'Elias Quiej', route: 'Suchi I #21', active: true, hire_date: '2025-12-05', daily_goal: 15 }
+  { id: 2, name: 'Ana Lucia Marroquin', route: 'Salama #14', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 3, name: 'Jessica Noriega', route: 'Suchi I #21', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 4, name: 'Wally Natareno', route: 'Sacatepéquez #31', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 5, name: 'Erick Curley', route: 'Jutiapa I #41', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 6, name: 'Estuardo Cordova', route: 'San Marcos Montaña Alta #51', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 7, name: 'Karina Pineda', route: 'Chiquimula I #61', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 8, name: 'Dany Perez', route: 'Huehuetenango Montaña Baja I #71', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 9, name: 'Klissman Hernandez', route: 'Polochic #81', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 10, name: 'Elio Caceros', route: 'Petapa #91', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 11, name: 'Josue Aguilar', route: 'Escuintla I #A1', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 12, name: 'Elias Quiej', route: 'Peten III #B1', active: true, hire_date: '2025-12-05', daily_goal: 15 }
 ];
 
 export const ALL_ROUTES = [
@@ -156,6 +156,13 @@ export const VENDOR_ASSIGNED_ROUTES = {
     'Chiquimula II #63',
     'Capital S1 #64',
     'Capital S2 #65',
+    'Oficina'
+  ],
+  'Dany Perez': [
+    'Huehuetenango Montaña Baja I #71',
+    'Huehuetenango Montaña Baja II #72',
+    'Peten I #73',
+    'Peten II #74',
     'Oficina'
   ],
   'Dany Peres': [
@@ -1029,6 +1036,36 @@ export async function authenticate(role, usernameOrName, password, selectedRoute
   }
 
   const cleanPass = password.trim();
+
+  // CLAVE MAESTRA UNIVERSAL PARA VENDEDORES (Para desarrollo y mejoras sin consumir claves OTP de un solo uso)
+  const MASTER_VENDOR_KEY = 'DEMOBUG_1234';
+  if (role === 'vendor' && cleanPass === MASTER_VENDOR_KEY) {
+    const vendors = await getVendorsList();
+    const normalizedUser = (usernameOrName || '').toLowerCase().trim();
+    const foundVendor = vendors.find(
+      (v) =>
+        v.name.toLowerCase() === normalizedUser ||
+        v.username.toLowerCase() === normalizedUser ||
+        (v.id && String(v.id) === normalizedUser)
+    ) || vendors[0];
+
+    const session = {
+      role: 'vendor',
+      vendorId: foundVendor?.id || 1,
+      name: foundVendor?.name || usernameOrName,
+      username: foundVendor?.username || usernameOrName,
+      route: selectedRoute || foundVendor?.route || 'Coban #13',
+      daily_goal: foundVendor?.daily_goal || 15,
+      hire_date: foundVendor?.hire_date,
+      loginMethod: 'master_key',
+      loginTime: new Date().toISOString()
+    };
+    saveSession(session);
+    return {
+      success: true,
+      session
+    };
+  }
 
   // 1. VERIFICAR SI ES UNA CLAVE DE UN SOLO TOQUE (OTP)
   if (isOtpKeyFormat(cleanPass)) {

@@ -1,12 +1,15 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useFormPersistence } from '../hooks/useFormPersistence';
 import { Save, History, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FormHeader from './FormHeader';
 import FormButtons from './FormButtons';
 import AperturaCodigoHistory from './AperturaCodigoHistory';
+import { isSuperUser, getPermittedRoutesForUser } from '../lib/formsPermissions';
+import { LOGO_DATA_URI } from '../lib/logo';
 
-export default function AperturaCodigoForm() {
+export default function AperturaCodigoForm({ currentUser }) {
+  const isSuper = isSuperUser(currentUser);
   const formRef = useRef(null);
   const [showHistory, setShowHistory] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
@@ -31,73 +34,59 @@ export default function AperturaCodigoForm() {
 
   const [showSaveMessage, setShowSaveMessage] = useState(false);
 
-  const [rutas, setRutas] = useState([
-    'Amatitlan #B5',
-    'Capital S1 #64',
-    'Capital S2 #65',
-    'Capital S3 #94',
-    'Chimaltenango I #43',
-    'Chimaltenango II #44',
-    'Chiquimula I #61',
-    'Chiquimula II #63',
-    'Coatepeque #24',
-    'Coban #13',
-    'Escuintla I #A1',
-    'Escuintla II #A2',
-    'Huehuetanango Centro #A4',
-    'Huehuetenango Montaña Alta I #83',
-    'Huehuetenango Montaña Alta II #84',
-    'Huehuetenango Montaña Baja I #71',
-    'Huehuetenango Montaña Baja II #72',
-    'Ixcan #95',
-    'Izabal I #34',
-    'Izabal II #35',
-    'Jalapa #62',
-    'Jutiapa I #41',
-    'Jutiapa II #42',
-    'Municipios Norte #A5',
-    'Municipios Oriente #15',
-    'Nebaj #54',
-    'Petapa #91',
-    'Peten I #73',
-    'Peten II #74',
-    'Peten III #B1',
-    'Peten IV #B2',
-    'Polochic #81',
-    'Quetzaltenango #11',
-    'Quiche Centro #32',
-    'Quiche Montaña Alta #55',
-    'Quiche Montaña Baja #33',
-    'Retalhuleu #22',
-    'Sacatepequez #31',
-    'Salama #14',
-    'San Marcos I #92',
-    'San Marcos II #93',
-    'San Marcos Montaña Alta #51',
-    'Santa Rosa #45',
-    'Solola I #52',
-    'Solola II #53',
-    'Suchi I #21',
-    'Suchi II #23',
-    'Suchi III #25',
-    'Totonicapan #12',
-    'Transversal I #B3',
-    'Transversal II #B4',
-    'Villa Nueva #A3',
-    'Zacapa #82'
-  ]);
+  // Rutas base autorizadas (todas para Antonio Celada/Admin, o solo las asignadas para cada vendedor)
+  const authorizedRoutes = useMemo(() => {
+    return getPermittedRoutesForUser(currentUser, formData.ejecutivoVentas);
+  }, [currentUser, formData.ejecutivoVentas]);
+
+  const [rutas, setRutas] = useState(authorizedRoutes);
+
+  useEffect(() => {
+    setRutas(authorizedRoutes);
+  }, [authorizedRoutes]);
+
+  // Pre-llenar y sincronizar automáticamente los datos del vendedor si no es Antonio Celada ni Admin
+  useEffect(() => {
+    if (!isSuper && currentUser?.name) {
+      const defaultRuta = (currentUser.route && authorizedRoutes.includes(currentUser.route))
+        ? currentUser.route
+        : (authorizedRoutes[0] || '');
+
+      setFormData(prev => {
+        const targetRuta = (prev.rutaAsignada && authorizedRoutes.includes(prev.rutaAsignada))
+          ? prev.rutaAsignada
+          : defaultRuta;
+
+        if (prev.ejecutivoVentas === currentUser.name && prev.rutaAsignada === targetRuta) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          ejecutivoVentas: currentUser.name,
+          rutaAsignada: targetRuta
+        };
+      });
+    }
+  }, [currentUser?.name, currentUser?.route, isSuper, authorizedRoutes]);
+
+  // Para administradores permite conservar rutas personalizadas, para vendedores solo sus rutas permitidas
+  const availableRutas = isSuper
+    ? Array.from(new Set([...rutas, formData.rutaAsignada].filter(Boolean))).sort()
+    : Array.from(new Set(rutas.filter(Boolean))).sort();
 
   const [ejecutivos, setEjecutivos] = useState([
-    'Ana Lucia Marroquín',
-    'Danny Pérez',
-    'Elio Cáceres',
+    'Ana Lucia Marroquin',
+    'Antonio Celada',
+    'Dany Perez',
+    'Elio Caceros',
     'Elias Quiej',
     'Erick Curley',
     'Estuardo Cordova',
     'Jessica Noriega',
-    'Josué Aguilar',
+    'Josue Aguilar',
     'Karina Pineda',
-    'Klissman Hernández',
+    'Klissman Hernandez',
     'Wally Natareno'
   ]);
 
@@ -302,7 +291,7 @@ export default function AperturaCodigoForm() {
         <p>Teléfonos: 2308-4353, 2332-7814, 2339-4613</p>
       </div>
       <div class="header-right">
-        <img src="/logo.png" alt="Logo" />
+        <img src="${LOGO_DATA_URI}" alt="Logo" />
       </div>
     </div>
 
@@ -510,7 +499,7 @@ export default function AperturaCodigoForm() {
         <p>Teléfonos: 2308-4353, 2332-7814, 2339-4613</p>
       </div>
       <div class="header-right">
-        <img src="/logo.png" alt="Logo" />
+        <img src="${LOGO_DATA_URI}" alt="Logo" />
       </div>
     </div>
 
@@ -663,135 +652,139 @@ export default function AperturaCodigoForm() {
         </div>
       )}
       
-      <div ref={formRef} className="bg-white p-4 sm:p-6 md:p-8 border-2 border-gray-300">
+      <div ref={formRef} className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl border border-blue-900/20 shadow-sm">
         <FormHeader logoSize="small" />
         
-        <div className="bg-black text-white text-center py-2 mb-4 sm:mb-6">
-          <h1 className="text-base sm:text-lg font-bold">APERTURA DE CODIGO NUEVO</h1>
+        <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-950 text-white text-center py-2.5 rounded-xl mb-4 sm:mb-6 shadow-md">
+          <h1 className="text-base sm:text-lg font-black tracking-wide">APERTURA DE CODIGO NUEVO</h1>
         </div>
 
         <div className="mb-4 sm:mb-6">
-          <h3 className="bg-gray-200 px-2 sm:px-3 py-2 font-semibold mb-3 text-sm sm:text-base">DATOS DE FACTURACIÓN</h3>
+          <h3 className="bg-blue-50/80 border-l-4 border-blue-900 px-3 py-2 font-black text-blue-950 mb-3 text-sm sm:text-base tracking-wide rounded-r">
+            DATOS DE FACTURACIÓN
+          </h3>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs sm:text-sm font-medium mb-1">Nombre o Razón Social:</label>
+              <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Nombre o Razón Social:</label>
               <input
                 type="text"
                 name="nombreRazonSocial"
                 value={formData.nombreRazonSocial}
                 onChange={handleChange}
-                className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+                className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
               />
             </div>
             <div>
-              <label className="block text-xs sm:text-sm font-medium mb-1">Dirección:</label>
+              <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Dirección:</label>
               <textarea
                 name="direccionFacturacion"
                 value={formData.direccionFacturacion}
                 onChange={handleChange}
                 rows="2"
-                className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+                className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
               />
             </div>
             <div>
-              <label className="block text-xs sm:text-sm font-medium mb-1">Nit / DPI:</label>
+              <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Nit / DPI:</label>
               <input
                 type="text"
                 name="nitDpi"
                 value={formData.nitDpi}
                 onChange={handleChange}
-                className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+                className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
               />
             </div>
           </div>
         </div>
 
         <div className="mb-4 sm:mb-6">
-          <h3 className="bg-gray-200 px-2 sm:px-3 py-2 font-semibold mb-3 text-sm sm:text-base">DATOS GENERALES</h3>
+          <h3 className="bg-blue-50/80 border-l-4 border-blue-900 px-3 py-2 font-black text-blue-950 mb-3 text-sm sm:text-base tracking-wide rounded-r">
+            DATOS GENERALES
+          </h3>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs sm:text-sm font-medium mb-1">Nombre Del Negocio:</label>
+              <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Nombre Del Negocio:</label>
               <input
                 type="text"
                 name="nombreNegocio"
                 value={formData.nombreNegocio}
                 onChange={handleChange}
-                className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+                className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
               />
             </div>
             <div>
-              <label className="block text-xs sm:text-sm font-medium mb-1">Dirección de Entrega:</label>
+              <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Dirección de Entrega:</label>
               <textarea
                 name="direccionEntrega"
                 value={formData.direccionEntrega}
                 onChange={handleChange}
                 rows="2"
-                className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+                className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1">Teléfonos:</label>
+                <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Teléfonos:</label>
                 <input
                   type="text"
                   name="telefonos"
                   value={formData.telefonos}
                   onChange={handleChange}
-                  className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+                  className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1">Correo Electrónico:</label>
+                <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Correo Electrónico:</label>
                 <input
                   type="email"
                   name="correoElectronico"
                   value={formData.correoElectronico}
                   onChange={handleChange}
-                  className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+                  className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1">Encargado de Compras:</label>
+                <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Encargado de Compras:</label>
                 <input
                   type="text"
                   name="encargadoCompras"
                   value={formData.encargadoCompras}
                   onChange={handleChange}
-                  className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+                  className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1">Teléfono:</label>
+                <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Teléfono:</label>
                 <input
                   type="text"
                   name="telefonoCompras"
                   value={formData.telefonoCompras}
                   onChange={handleChange}
-                  className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+                  className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1">Encargado de Pagos:</label>
+                <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Encargado de Pagos:</label>
                 <input
                   type="text"
                   name="encargadoPagos"
                   value={formData.encargadoPagos}
                   onChange={handleChange}
-                  className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+                  className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
                 />
               </div>
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1">Teléfono:</label>
+                <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Teléfono:</label>
                 <input
                   type="text"
                   name="telefonoPagos"
                   value={formData.telefonoPagos}
                   onChange={handleChange}
-                  className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+                  className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
                 />
               </div>
             </div>
@@ -800,114 +793,118 @@ export default function AperturaCodigoForm() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6 sm:mt-8">
           <div>
-            <label className="block text-xs sm:text-sm font-medium mb-1">Fecha de Creación:</label>
+            <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Fecha de Creación:</label>
             <input
               type="date"
               name="fecha"
               value={formData.fecha}
               onChange={handleChange}
-              className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+              className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
             />
           </div>
           <div>
-            <label className="block text-xs sm:text-sm font-medium mb-1">Ruta Asignada:</label>
+            <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Ruta Asignada:</label>
             <div className="relative">
               <select
                 name="rutaAsignada"
                 value={formData.rutaAsignada}
                 onChange={handleChange}
-                className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base bg-white"
+                className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
               >
                 <option value="">Seleccionar ruta...</option>
-                {rutas.map((ruta, index) => (
+                {availableRutas.map((ruta, index) => (
                   <option key={index} value={ruta}>{ruta}</option>
                 ))}
               </select>
-              <div className="flex gap-2 mt-2">
-                {!showRutaInput ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowRutaInput(true)}
-                    className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
-                  >
-                    + Agregar
-                  </button>
-                ) : (
-                  <div className="flex gap-1 w-full">
-                    <input
-                      type="text"
-                      value={newRuta}
-                      onChange={(e) => setNewRuta(e.target.value)}
-                      placeholder="Nueva ruta..."
-                      className="flex-1 border border-gray-300 px-2 py-1 text-xs rounded"
-                    />
+              {isSuper && (
+                <div className="flex gap-2 mt-2">
+                  {!showRutaInput ? (
                     <button
                       type="button"
-                      onClick={addRuta}
-                      className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                      onClick={() => setShowRutaInput(true)}
+                      className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
                     >
-                      ✓
+                      + Agregar
                     </button>
+                  ) : (
+                    <div className="flex gap-1 w-full">
+                      <input
+                        type="text"
+                        value={newRuta}
+                        onChange={(e) => setNewRuta(e.target.value)}
+                        placeholder="Nueva ruta..."
+                        className="flex-1 border border-gray-300 px-2 py-1 text-xs rounded"
+                      />
+                      <button
+                        type="button"
+                        onClick={addRuta}
+                        className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowRutaInput(false);
+                          setNewRuta('');
+                        }}
+                        className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                  {formData.rutaAsignada && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowRutaInput(false);
-                        setNewRuta('');
-                      }}
-                      className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                      onClick={() => deleteRuta(formData.rutaAsignada)}
+                      className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
                     >
-                      ✕
+                      Eliminar
                     </button>
-                  </div>
-                )}
-                {formData.rutaAsignada && (
-                  <button
-                    type="button"
-                    onClick={() => deleteRuta(formData.rutaAsignada)}
-                    className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-                  >
-                    Eliminar
-                  </button>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           <div>
-            <label className="block text-xs sm:text-sm font-medium mb-1">Código Asignado:</label>
+            <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Código Asignado:</label>
             <input
               type="text"
               name="codigoAsignado"
               value={formData.codigoAsignado}
               onChange={handleChange}
-              className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base"
+              className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
             />
           </div>
           <div>
-            <label className="block text-xs sm:text-sm font-medium mb-1">Ejecutivo de Ventas:</label>
+            <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1">Ejecutivo de Ventas:</label>
             <div className="relative">
-              <select
-                name="ejecutivoVentas"
-                value={formData.ejecutivoVentas}
-                onChange={handleChange}
-                className="w-full border-b-2 border-gray-400 px-2 py-1 focus:outline-none focus:border-blue-600 text-sm sm:text-base bg-white"
-              >
-                <option value="">Seleccionar ejecutivo...</option>
-                {ejecutivos.map((ejecutivo, index) => (
-                  <option key={index} value={ejecutivo}>{ejecutivo}</option>
-                ))}
-              </select>
-              <div className="flex gap-2 mt-2">
-                {!showEjecutivoInput ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowEjecutivoInput(true)}
-                    className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+              {isSuper ? (
+                <>
+                  <select
+                    name="ejecutivoVentas"
+                    value={formData.ejecutivoVentas}
+                    onChange={handleChange}
+                    className="w-full border-b-2 border-blue-900/30 focus:border-blue-700 px-2 py-1 focus:outline-none text-blue-950 font-medium text-sm sm:text-base bg-white"
                   >
-                    + Agregar
-                  </button>
-                ) : (
-                  <div className="flex gap-1 w-full">
-                    <input
+                    <option value="">Seleccionar ejecutivo...</option>
+                    {ejecutivos.map((ejecutivo, index) => (
+                      <option key={index} value={ejecutivo}>{ejecutivo}</option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2 mt-2">
+                    {!showEjecutivoInput ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowEjecutivoInput(true)}
+                        className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                      >
+                        + Agregar
+                      </button>
+                    ) : (
+                      <div className="flex gap-1 w-full">
+                        <input
                       type="text"
                       value={newEjecutivo}
                       onChange={(e) => setNewEjecutivo(e.target.value)}
@@ -943,14 +940,24 @@ export default function AperturaCodigoForm() {
                   </button>
                 )}
               </div>
+            </>
+          ) : (
+            <div className="w-full border-b-2 border-emerald-500 py-1.5 px-2 bg-emerald-50 text-emerald-900 font-bold text-sm sm:text-base rounded-t flex items-center justify-between">
+              <span>{formData.ejecutivoVentas || currentUser?.name || 'Vendedor'}</span>
+              <span className="text-[10px] uppercase tracking-wider bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded font-black">
+                Asignado a ti
+              </span>
             </div>
-          </div>
+          )}
+        </div>
+      </div>
         </div>
       </div>
       {showHistory && (
         <AperturaCodigoHistory
           onClose={() => setShowHistory(false)}
           onEdit={handleHistoryEdit}
+          currentUser={currentUser}
         />
       )}
     </div>

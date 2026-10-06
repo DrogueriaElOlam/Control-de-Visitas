@@ -5,12 +5,14 @@ import FormHeader from './FormHeader';
 import FormButtons from './FormButtons';
 import { supabase } from '../lib/supabase';
 import LiquidacionRecibosHistory from './LiquidacionRecibosHistory';
+import { isSuperUser, getPermittedRoutesForUser, ALL_ROUTES } from '../lib/formsPermissions';
+import { LOGO_DATA_URI } from '../lib/logo';
 
 const MIN_ROWS = 15;
 
 const EJECUTIVOS = [
   'Ana Lucia Marroquin',
-  'Danny Perez',
+  'Dany Perez',
   'Elio Caceros',
   'Elias Quiej',
   'Erick Curley',
@@ -78,27 +80,14 @@ const RUTAS = [
   'Zacapa #82'
 ];
 
-const VENDOR_ROUTES = {
-  'Ana Lucia Marroquin': ['Quetzaltenango #11', 'Totonicapan #12', 'Coban #13', 'Salama #14', 'Municipios Oriente #15'],
-  'Jessica Noriega': ['Suchi I #21', 'Retalhuleu #22', 'Suchi II #23', 'Coatepeque #24', 'Suchi III #25'],
-  'Wally Natareno': ['Sacatepéquez #31', 'Quiche Centro #32', 'Quiche Montaña Baja #33', 'Izabal I #34', 'Izabal II #35'],
-  'Erick Curley': ['Jutiapa I #41', 'Jutiapa II #42', 'Chimaltenango I #43', 'Chimaltenango II #44', 'Santa Rosa #45'],
-  'Estuardo Cordova': ['San Marcos Montaña Alta #51', 'Solola I #52', 'Solola II #53', 'Nebaj #54', 'Quiche Montaña Alta #55'],
-  'Karina Pineda': ['Chiquimula I #61', 'Jalapa #62', 'Chiquimula II #63', 'Capital S1 #64', 'Capital S2 #65'],
-  'Danny Perez': ['Huehuetenango Montaña Baja I #71', 'Huehuetenango Montaña Baja II #72', 'Peten I #73', 'Peten II #74'],
-  'Klissman Hernandez': ['Polochic #81', 'Zacapa #82', 'Huehuetenango Montaña Alta I #83', 'Huehuetenango Montaña Alta II #84'],
-  'Elio Caceros': ['Petapa #91', 'San Marcos I #92', 'San Marcos II #93', 'Capital S3 #94', 'Ixcán #95'],
-  'Josue Aguilar': ['Escuintla I #A1', 'Escuintla II #A2', 'Villa Nueva #A3', 'Huehuetenango Centro #A4', 'Municipios Norte #A5'],
-  'Elias Quiej': ['Peten III #B1', 'Peten IV #B2', 'Transversal I #B3', 'Transversal II #B4', 'Amatitlán #B5']
-};
-
-export default function LiquidacionRecibosForm() {
+export default function LiquidacionRecibosForm({ currentUser }) {
+  const isSuper = isSuperUser(currentUser);
   const [formData, setFormData, saveForm, lastSaved] = useFormPersistence('liquidacion-recibos', {
-    ejecutivo: '',
-    rutaCubierta: '',
+    ejecutivo: (!isSuper && currentUser?.name) ? currentUser.name : '',
+    rutaCubierta: (!isSuper && currentUser?.route) ? currentUser.route : '',
     semanaDesde: '',
     semanaHasta: '',
-    liquidadoPor: '',
+    liquidadoPor: (!isSuper && currentUser?.name) ? currentUser.name : '',
     cargoLiquidado: 'Ejecutivo de Ventas',
     revisadoPor: 'Creditos'
   });
@@ -117,14 +106,37 @@ export default function LiquidacionRecibosForm() {
   const [editingEjecutivoIndex, setEditingEjecutivoIndex] = useState(null);
   const [editingRutaIndex, setEditingRutaIndex] = useState(null);
 
-  // Filter routes based on selected executive
-  const availableRutas = (() => {
-    const selectedVendor = formData.ejecutivo;
-    if (selectedVendor && VENDOR_ROUTES[selectedVendor]) {
-      return rutas.filter(r => VENDOR_ROUTES[selectedVendor].includes(r));
+  // Filtrar rutas según permisos: Antonio Celada / Admin ven todas; vendedores regulares solo las suyas
+  const availableRutas = isSuper
+    ? ALL_ROUTES
+    : getPermittedRoutesForUser(currentUser, formData.ejecutivo);
+
+  // Pre-llenar y sincronizar automáticamente los datos del vendedor si no es Antonio Celada ni Admin
+  useEffect(() => {
+    if (!isSuper && currentUser?.name) {
+      const defaultRuta = (currentUser.route && availableRutas.includes(currentUser.route))
+        ? currentUser.route
+        : (availableRutas && availableRutas[0]) || '';
+
+      setFormData(prev => {
+        const targetRuta = (prev.rutaCubierta && availableRutas.includes(prev.rutaCubierta))
+          ? prev.rutaCubierta
+          : defaultRuta;
+
+        if (prev.ejecutivo === currentUser.name && prev.liquidadoPor === currentUser.name && prev.rutaCubierta === targetRuta) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          ejecutivo: currentUser.name,
+          liquidadoPor: currentUser.name,
+          rutaCubierta: targetRuta
+        };
+      });
     }
-    return rutas;
-  })();
+  }, [currentUser?.name, currentUser?.route, isSuper, availableRutas]);
+
 
   const [receipts, setReceipts] = useState(
     Array(MIN_ROWS).fill(null).map(() => ({
@@ -467,7 +479,7 @@ export default function LiquidacionRecibosForm() {
     const blueColor = '#1E3A8A';
     const darkBlueColor = '#1E40AF';
     
-    const logoUrl = '/logo.png';
+    const logoUrl = LOGO_DATA_URI;
     const LOGO_SIZE = '130pt';
 
     const rowsToExport = Math.max(receipts.length, MIN_ROWS);
@@ -763,76 +775,88 @@ export default function LiquidacionRecibosForm() {
             onExport={handleExport}
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 p-3 sm:p-4 border-2 border-blue-600 rounded-lg">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 p-4 border border-blue-900/20 rounded-2xl bg-blue-50/40 shadow-sm">
             <div>
-              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+              <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1 sm:mb-2">
                 Ejecutivo:
               </label>
-              <div className="flex gap-2">
-                <select
-                  value={formData.ejecutivo}
-                  onChange={(e) => handleFormChange('ejecutivo', e.target.value)}
-                  className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Seleccionar ejecutivo</option>
-                  {ejecutivos.map((exec) => (
-                    <option key={exec} value={exec}>{exec}</option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => setShowEjecutivosModal(true)}
-                  className="px-2 sm:px-3 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-              </div>
+              {isSuper ? (
+                <div className="flex gap-2">
+                  <select
+                    value={formData.ejecutivo}
+                    onChange={(e) => handleFormChange('ejecutivo', e.target.value)}
+                    className="flex-1 px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white"
+                  >
+                    <option value="">Seleccionar ejecutivo</option>
+                    {ejecutivos.map((exec) => (
+                      <option key={exec} value={exec}>{exec}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setShowEjecutivosModal(true)}
+                    className="px-3 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-950 transition-colors text-xs sm:text-sm"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="w-full border-b-2 border-blue-800 py-2 px-3 bg-blue-50 text-blue-950 font-bold text-sm rounded-t flex items-center justify-between">
+                  <span>{formData.ejecutivo || currentUser?.name || 'Vendedor'}</span>
+                  <span className="text-[10px] uppercase tracking-wider bg-blue-200 text-blue-900 px-2 py-0.5 rounded font-black">
+                    Asignado a ti
+                  </span>
+                </div>
+              )}
             </div>
 
             <div>
-              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+              <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1 sm:mb-2">
                 Ruta Cubierta:
               </label>
               <div className="flex gap-2">
                 <select
                   value={formData.rutaCubierta}
                   onChange={(e) => handleFormChange('rutaCubierta', e.target.value)}
-                  className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="flex-1 px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white"
                 >
                   <option value="">Seleccionar ruta</option>
                   {availableRutas.map((ruta) => (
                     <option key={ruta} value={ruta}>{ruta}</option>
                   ))}
                 </select>
-                <button
-                  onClick={() => setShowRutasModal(true)}
-                  className="px-2 sm:px-3 py-1.5 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
+                {isSuper && (
+                  <button
+                    type="button"
+                    onClick={() => setShowRutasModal(true)}
+                    className="px-3 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-950 transition-colors text-xs sm:text-sm"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
 
             <div>
-              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+              <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1 sm:mb-2">
                 Semana del:
               </label>
               <input
                 type="date"
                 value={formData.semanaDesde}
                 onChange={(e) => handleFormChange('semanaDesde', e.target.value)}
-                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white"
               />
             </div>
 
             <div>
-              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+              <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1 sm:mb-2">
                 Semana al:
               </label>
               <input
                 type="date"
                 value={formData.semanaHasta}
                 onChange={(e) => handleFormChange('semanaHasta', e.target.value)}
-                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white"
               />
             </div>
           </div>
@@ -848,87 +872,87 @@ export default function LiquidacionRecibosForm() {
           </div>
 
           <div className="overflow-x-auto mb-4 sm:mb-6">
-            <table className="w-full border-collapse border border-gray-300 text-xs sm:text-sm">
+            <table className="w-full border-collapse border border-blue-900/20 rounded-xl overflow-hidden shadow-sm text-xs sm:text-sm">
               <thead>
-                <tr className="bg-blue-700 text-white">
-                  <th className="border border-gray-300 px-2 py-2 text-center">Recibo</th>
-                  <th className="border border-gray-300 px-2 py-2 text-center">Código</th>
-                  <th className="border border-gray-300 px-2 py-2 text-center min-w-[250px]">Cliente</th>
-                  <th className="border border-gray-300 px-2 py-2 text-center">Boletas</th>
-                  <th className="border border-gray-300 px-2 py-2 text-center">Efectivo</th>
-                  <th className="border border-gray-300 px-2 py-2 text-center">Cheque</th>
-                  <th className="border border-gray-300 px-2 py-2 text-center">Observaciones</th>
-                  <th className="border border-gray-300 px-2 py-2 text-center w-16">Acción</th>
+                <tr className="bg-gradient-to-r from-blue-900 to-blue-950 text-white">
+                  <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Recibo</th>
+                  <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Código</th>
+                  <th className="border border-blue-800 px-2 py-2 text-center min-w-[250px] font-bold text-white">Cliente</th>
+                  <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Boletas</th>
+                  <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Efectivo</th>
+                  <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Cheque</th>
+                  <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Observaciones</th>
+                  <th className="border border-blue-800 px-2 py-2 text-center w-16 font-bold text-white">Acción</th>
                 </tr>
               </thead>
               <tbody>
                 {receipts.map((receipt, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="border border-gray-300 px-1 py-1">
+                  <tr key={index} className="hover:bg-blue-50/50 transition-colors">
+                    <td className="border border-blue-100 px-1 py-1">
                       <input
                         type="text"
                         value={receipt.recibo}
                         onChange={(e) => handleReceiptChange(index, 'recibo', e.target.value)}
                         onBlur={() => handleReciboBlur(index)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-blue-950 font-medium"
                       />
                     </td>
-                    <td className="border border-gray-300 px-1 py-1">
+                    <td className="border border-blue-100 px-1 py-1">
                       <input
                         type="text"
                         value={receipt.codigo}
                         onChange={(e) => handleReceiptChange(index, 'codigo', e.target.value)}
                         onBlur={() => lookupClientCode(receipt.codigo, index)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-blue-950 font-mono font-bold"
                       />
                     </td>
-                    <td className="border border-gray-300 px-1 py-1">
+                    <td className="border border-blue-100 px-1 py-1">
                       <input
                         type="text"
                         value={receipt.cliente}
                         onChange={(e) => handleReceiptChange(index, 'cliente', e.target.value)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-blue-950 font-semibold"
                       />
                     </td>
-                    <td className="border border-gray-300 px-1 py-1">
+                    <td className="border border-blue-100 px-1 py-1">
                       <input
                         type="number"
                         step="0.01"
                         value={receipt.boletas}
                         onChange={(e) => handleReceiptChange(index, 'boletas', e.target.value)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-500 text-right"
+                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-right text-blue-950 font-medium"
                       />
                     </td>
-                    <td className="border border-gray-300 px-1 py-1">
+                    <td className="border border-blue-100 px-1 py-1">
                       <input
                         type="number"
                         step="0.01"
                         value={receipt.efectivo}
                         onChange={(e) => handleReceiptChange(index, 'efectivo', e.target.value)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-500 text-right"
+                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-right text-blue-950 font-medium"
                       />
                     </td>
-                    <td className="border border-gray-300 px-1 py-1">
+                    <td className="border border-blue-100 px-1 py-1">
                       <input
                         type="number"
                         step="0.01"
                         value={receipt.cheque}
                         onChange={(e) => handleReceiptChange(index, 'cheque', e.target.value)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-500 text-right"
+                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-right text-blue-950 font-medium"
                       />
                     </td>
-                    <td className="border border-gray-300 px-1 py-1">
+                    <td className="border border-blue-100 px-1 py-1">
                       <input
                         type="text"
                         value={receipt.observaciones}
                         onChange={(e) => handleReceiptChange(index, 'observaciones', e.target.value)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-blue-950 font-medium"
                       />
                     </td>
-                    <td className="border border-gray-300 px-1 py-1 text-center">
+                    <td className="border border-blue-100 px-1 py-1 text-center">
                       <button
                         onClick={() => removeRow(index)}
-                        className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
+                        className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
                         title="Eliminar fila"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -938,23 +962,23 @@ export default function LiquidacionRecibosForm() {
                 ))}
               </tbody>
               <tfoot>
-                <tr className="bg-black text-white font-bold">
-                  <td colSpan="3" className="border border-gray-300 px-2 py-2 text-center text-xs sm:text-sm">
+                <tr className="bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-950 text-white font-black">
+                  <td colSpan="3" className="border border-blue-800 px-2 py-2.5 text-center text-xs sm:text-sm tracking-wide">
                     TOTALES:
                   </td>
-                  <td className="border border-gray-300 px-2 py-2 text-right text-xs sm:text-sm">
+                  <td className="border border-blue-800 px-2 py-2.5 text-right text-xs sm:text-sm text-blue-100">
                     {formatCurrency(totals.boletas)}
                   </td>
-                  <td className="border border-gray-300 px-2 py-2 text-right text-xs sm:text-sm">
+                  <td className="border border-blue-800 px-2 py-2.5 text-right text-xs sm:text-sm text-blue-100">
                     {formatCurrency(totals.efectivo)}
                   </td>
-                  <td className="border border-gray-300 px-2 py-2 text-right text-xs sm:text-sm">
+                  <td className="border border-blue-800 px-2 py-2.5 text-right text-xs sm:text-sm text-blue-100">
                     {formatCurrency(totals.cheque)}
                   </td>
-                  <td className="border border-gray-300 px-2 py-2 text-right text-xs sm:text-sm">
+                  <td className="border border-blue-800 px-2 py-2.5 text-right text-xs sm:text-sm text-amber-300 font-black">
                     {formatCurrency(totals.total)}
                   </td>
-                  <td className="border border-gray-300 px-2 py-2"></td>
+                  <td className="border border-blue-800 px-2 py-2.5"></td>
                 </tr>
               </tfoot>
             </table>
@@ -962,34 +986,34 @@ export default function LiquidacionRecibosForm() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mt-6">
             <div>
-              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+              <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1 sm:mb-2">
                 Liquidado Por:
               </label>
               <input
                 type="text"
                 value={formData.liquidadoPor}
                 onChange={(e) => handleFormChange('liquidadoPor', e.target.value)}
-                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white"
                 placeholder="Nombre"
               />
               <input
                 type="text"
                 value={formData.cargoLiquidado}
                 onChange={(e) => handleFormChange('cargoLiquidado', e.target.value)}
-                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent mt-2"
+                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white mt-2"
                 placeholder="Cargo"
               />
             </div>
 
             <div>
-              <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
+              <label className="block text-xs sm:text-sm font-bold text-blue-950 mb-1 sm:mb-2">
                 Revisado Por:
               </label>
               <input
                 type="text"
                 value={formData.revisadoPor}
                 onChange={(e) => handleFormChange('revisadoPor', e.target.value)}
-                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white"
                 placeholder="Departamento/Nombre"
               />
             </div>
@@ -1125,6 +1149,7 @@ export default function LiquidacionRecibosForm() {
           <LiquidacionRecibosHistory
             onClose={() => setShowHistory(false)}
             onEdit={handleEditFromHistory}
+            currentUser={currentUser}
           />
         )}
       </div>

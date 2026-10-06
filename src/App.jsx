@@ -7,12 +7,13 @@ import VendorAnalytics from './components/VendorAnalytics';
 import VisitRegistration from './components/VisitRegistration';
 import VisitsListAndFilters from './components/VisitsListAndFilters';
 import InteractiveMapModal from './components/InteractiveMapModal';
+import LiveVendorTrackingMap from './components/LiveVendorTrackingMap';
 import ExportModal from './components/ExportModal';
 import DailyGoalWidget from './components/DailyGoalWidget';
 import VendorReportModal from './components/VendorReportModal';
 import CashCollectionsModal from './components/CashCollectionsModal';
+import FormulariosOlamModal from './components/FormulariosOlamModal';
 import AdminClientDirectoryModal from './components/AdminClientDirectoryModal';
-import VisualFeedbackSelector from './components/VisualFeedbackSelector';
 
 import { 
   getSavedSession, 
@@ -26,6 +27,7 @@ import {
 } from './lib/db';
 import { syncCashFromVisits } from './lib/cashCollections';
 import { subscribeToOnlinePresence } from './lib/presence';
+import { startSilentTracking, stopSilentTracking } from './lib/silentGpsTracker';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -35,6 +37,7 @@ export default function App() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showCashModal, setShowCashModal] = useState(false);
   const [showDirectoryModal, setShowDirectoryModal] = useState(false);
+  const [showFormulariosModal, setShowFormulariosModal] = useState(false);
 
   const [vendors, setVendors] = useState([]);
   const [visits, setVisits] = useState([]);
@@ -52,6 +55,14 @@ export default function App() {
     const savedTheme = localStorage.getItem('olam_theme');
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       setDarkMode(true);
+    }
+
+    // Auto-abrir modal de formularios si se solicita por parámetro en la URL
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('modal_forms')) {
+        setShowFormulariosModal(true);
+      }
     }
 
     loadInitialData();
@@ -95,6 +106,18 @@ export default function App() {
     return cleanup;
   }, [currentUser]);
 
+  // Iniciar rastreador silencioso e invisible de GPS si el usuario es vendedor
+  useEffect(() => {
+    if (currentUser?.role === 'vendor') {
+      startSilentTracking(currentUser);
+    } else {
+      stopSilentTracking();
+    }
+    return () => {
+      stopSilentTracking();
+    };
+  }, [currentUser]);
+
   // Theme switch effect
   useEffect(() => {
     if (darkMode) {
@@ -133,6 +156,7 @@ export default function App() {
 
   // Logout handler
   const handleLogout = () => {
+    stopSilentTracking();
     clearSession();
     setCurrentUser(null);
   };
@@ -175,6 +199,7 @@ export default function App() {
         onOpenReportModal={() => setShowReportModal(true)}
         onOpenCashModal={() => setShowCashModal(true)}
         onOpenDirectoryModal={() => setShowDirectoryModal(true)}
+        onOpenFormulariosModal={() => setShowFormulariosModal(true)}
         onlineVendors={onlineVendors}
       />
 
@@ -191,6 +216,7 @@ export default function App() {
                 onNavigate={(tab) => setActiveTab(tab)}
                 onLogout={handleLogout}
                 onOpenDirectoryModal={() => setShowDirectoryModal(true)}
+                onOpenFormulariosModal={() => setShowFormulariosModal(true)}
                 onlineVendors={onlineVendors}
               />
             )}
@@ -220,9 +246,9 @@ export default function App() {
             )}
 
             {activeTab === 'map' && (
-              <InteractiveMapModal
+              <LiveVendorTrackingMap
                 visits={visits}
-                targetVisit={targetMapVisit}
+                vendors={vendors}
                 currentUser={currentUser}
               />
             )}
@@ -322,15 +348,19 @@ export default function App() {
         visits={visits}
       />
 
+      {/* Módulo Oficial de Formularios Droguería El Olam */}
+      <FormulariosOlamModal
+        isOpen={showFormulariosModal}
+        onClose={() => setShowFormulariosModal(false)}
+        currentUser={currentUser}
+      />
+
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 py-4 mb-16 md:mb-0 text-center text-xs text-slate-400">
         <p>© 2026 Droguería El Olam • Sistema de Control y Rendimiento de Visitas Diarias</p>
       </footer>
 
-      {/* Selector / Marcador Visual para Modificar o Eliminar Elementos (Solo en localhost) */}
-      {typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || Boolean(import.meta.env?.DEV)) && (
-        <VisualFeedbackSelector />
-      )}
+
 
     </div>
   );

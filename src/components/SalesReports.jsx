@@ -34,9 +34,10 @@ ChartJS.register(
 export const GeneralReport = ({ sales, totalSales, ticketAverage, productivityCount, salesByPerson, teamChartData, timelineChartData, productivityChartData, collectionsChartData }) => {
   return (
     <div className="space-y-8 p-8 max-w-[210mm] mx-auto bg-white text-black print:p-0">
-      <div className="text-center border-b pb-4">
-        <h1 className="text-3xl font-bold">Reporte General de Ventas</h1>
-        <p className="text-gray-500">Generado el: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
+      <div className="flex flex-col items-center justify-center text-center border-b pb-4">
+        <img src="/logo.png" alt="Droguería El Olam" className="h-16 w-auto object-contain mb-3" />
+        <h1 className="text-3xl font-bold text-slate-800">Reporte General de Ventas</h1>
+        <p className="text-gray-500 mt-1 text-sm">Generado el: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
       </div>
 
       {/* KPIs */}
@@ -142,10 +143,11 @@ export const VendorReport = ({ vendorName, vendorSales, vendorTotal, vendorGoal 
 
   return (
     <div className="space-y-8 p-8 max-w-[210mm] mx-auto bg-white text-black print:p-0">
-      <div className="text-center border-b pb-4">
-        <h1 className="text-3xl font-bold">Reporte Individual</h1>
-        <h2 className="text-2xl text-primary mt-2">{vendorName}</h2>
-        <p className="text-gray-500">Generado el: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
+      <div className="flex flex-col items-center justify-center text-center border-b pb-4">
+        <img src="/logo.png" alt="Droguería El Olam" className="h-16 w-auto object-contain mb-3" />
+        <h1 className="text-3xl font-bold text-slate-800">Reporte Individual de Ventas</h1>
+        <h2 className="text-2xl text-blue-700 font-bold mt-1">{vendorName}</h2>
+        <p className="text-gray-500 mt-1 text-sm">Generado el: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
       </div>
 
       {/* KPIs */}

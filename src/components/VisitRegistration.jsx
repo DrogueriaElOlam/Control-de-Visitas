@@ -162,7 +162,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
   // CAPTURA SILENCIOSA DE RESPALDO (Sin permisos, sin ventanas, ultrarrápida no bloqueante)
   const captureSilentIPLocation = async () => {
     try {
-      const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(900) });
+      const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(2200) });
       if (res.ok) {
         const d = await res.json();
         if (d.latitude && d.longitude) {
@@ -176,12 +176,13 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
             source: 'Red/IP (Silencioso)'
           };
           setLocation(loc);
+          try { sessionStorage.setItem('olam_last_known_loc', JSON.stringify(loc)); } catch (_) {}
           return loc;
         }
       }
     } catch (_) {
       try {
-        const res2 = await fetch('https://freeipapi.com/api/json', { signal: AbortSignal.timeout(900) });
+        const res2 = await fetch('https://freeipapi.com/api/json', { signal: AbortSignal.timeout(2200) });
         if (res2.ok) {
           const d2 = await res2.json();
           if (d2.latitude && d2.longitude) {
@@ -194,6 +195,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               source: 'Red/IP (Silencioso)'
             };
             setLocation(loc2);
+            try { sessionStorage.setItem('olam_last_known_loc', JSON.stringify(loc2)); } catch (_) {}
             return loc2;
           }
         }
@@ -202,10 +204,19 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     return null;
   };
 
-  // AUTO GPS CAPTURE CON RESPALDO SILENCIOSO
+  // AUTO GPS CAPTURE CON RESPALDO SILENCIOSO INMEDIATO
   const captureGPSLocation = () => {
     setLocating(true);
     setLocError('');
+
+    // Pre-cargar caché de sesión si existe para respuesta inmediata (0ms)
+    try {
+      const cached = sessionStorage.getItem('olam_last_known_loc');
+      if (cached && !location) {
+        setLocation(JSON.parse(cached));
+      }
+    } catch (_) {}
+
     if (!navigator.geolocation) {
       captureSilentIPLocation().finally(() => setLocating(false));
       return;
@@ -213,12 +224,14 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLocation({
+        const gpsLoc = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           accuracy: Math.round(pos.coords.accuracy),
           source: 'GPS Satelital'
-        });
+        };
+        setLocation(gpsLoc);
+        try { sessionStorage.setItem('olam_last_known_loc', JSON.stringify(gpsLoc)); } catch (_) {}
         setLocating(false);
       },
       async (_err) => {
@@ -226,7 +239,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
         await captureSilentIPLocation();
         setLocating(false);
       },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 }
     );
   };
 
@@ -565,9 +578,15 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     let finalLocation = location;
     if (!finalLocation) {
       try {
+        const cached = sessionStorage.getItem('olam_last_known_loc');
+        if (cached) finalLocation = JSON.parse(cached);
+      } catch (_) {}
+    }
+    if (!finalLocation) {
+      try {
         finalLocation = await Promise.race([
           captureSilentIPLocation(),
-          new Promise(resolve => setTimeout(() => resolve(null), 400))
+          new Promise(resolve => setTimeout(() => resolve(null), 1500))
         ]);
       } catch (_) {
         finalLocation = null;

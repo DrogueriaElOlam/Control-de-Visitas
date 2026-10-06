@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Edit2, Eye, Printer, Trash2, Filter, Share2 } from 'lucide-react';
+import { X, Edit2, Eye, Printer, Trash2, Filter, Share2, ShieldCheck, UserCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { isSuperUser, matchesVendorUser } from '../lib/formsPermissions';
+import { LOGO_DATA_URI } from '../lib/logo';
 
-export default function AperturaCodigoHistory({ onClose, onEdit }) {
+export default function AperturaCodigoHistory({ onClose, onEdit, currentUser }) {
+  const isSuper = isSuperUser(currentUser);
   const [loading, setLoading] = useState(true);
   const [historyData, setHistoryData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
@@ -48,6 +51,18 @@ export default function AperturaCodigoHistory({ onClose, onEdit }) {
   const applyFilters = () => {
     let filtered = [...historyData];
 
+    // Restricción por permisos: Si no es Antonio Celada ni Admin, solo ver sus propios registros
+    if (!isSuper && currentUser?.name) {
+      filtered = filtered.filter(record => 
+        matchesVendorUser(record.datos?.ejecutivoVentas, currentUser.name)
+      );
+    } else if (ejecutivoFilter) {
+      filtered = filtered.filter(record => 
+        record.datos?.ejecutivoVentas && 
+        record.datos.ejecutivoVentas.toLowerCase().includes(ejecutivoFilter.toLowerCase())
+      );
+    }
+
     if (fechaInicio || fechaFin) {
       filtered = filtered.filter(record => {
         const recordDate = new Date(record.fecha_creacion);
@@ -55,13 +70,6 @@ export default function AperturaCodigoHistory({ onClose, onEdit }) {
         if (fechaFin && recordDate > new Date(fechaFin + 'T23:59:59')) return false;
         return true;
       });
-    }
-    
-    if (ejecutivoFilter) {
-      filtered = filtered.filter(record => 
-        record.datos.ejecutivoVentas && 
-        record.datos.ejecutivoVentas.toLowerCase().includes(ejecutivoFilter.toLowerCase())
-      );
     }
 
     setFilteredData(filtered);
@@ -220,7 +228,7 @@ export default function AperturaCodigoHistory({ onClose, onEdit }) {
         <p>Teléfonos: 2308-4353, 2332-7814, 2339-4613</p>
       </div>
       <div class="header-right">
-        <img src="/logo.png" alt="Logo" />
+        <img src="${LOGO_DATA_URI}" alt="Logo" />
       </div>
     </div>
 
@@ -481,15 +489,22 @@ export default function AperturaCodigoHistory({ onClose, onEdit }) {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ejecutivo:
+                  Ejecutivo Asignado:
                 </label>
-                <input
-                  type="text"
-                  value={ejecutivoFilter}
-                  onChange={(e) => setEjecutivoFilter(e.target.value)}
-                  placeholder="Buscar por nombre..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-                />
+                {isSuper ? (
+                  <input
+                    type="text"
+                    value={ejecutivoFilter}
+                    onChange={(e) => setEjecutivoFilter(e.target.value)}
+                    placeholder="Filtrar por cualquier ejecutivo..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                ) : (
+                  <div className="w-full px-3 py-2 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-sm font-semibold flex items-center gap-1.5">
+                    <UserCheck size={15} className="text-emerald-600 shrink-0" />
+                    <span>{currentUser?.name || 'Vendedor'} (Tus registros)</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

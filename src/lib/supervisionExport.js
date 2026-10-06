@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
+import { LOGO_DATA_URI } from './logo';
 
 /**
  * Format date for display
@@ -23,6 +24,14 @@ export function exportRecibosToPDF(record) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPosition = 20;
+
+  if (LOGO_DATA_URI) {
+    try {
+      doc.addImage(LOGO_DATA_URI, 'PNG', 14, 10, 22, 22);
+    } catch (err) {
+      console.warn('Error agregando logo al PDF:', err);
+    }
+  }
 
   // Title
   doc.setFontSize(16);
@@ -133,11 +142,19 @@ export function exportEvaluacionesToPDF(record) {
 
       let y = margin;
 
-      // 1. Encabezado
-      // Logo (Texto)
+      // 1. Encabezado con Logo oficial
+      if (LOGO_DATA_URI) {
+        try {
+          doc.addImage(LOGO_DATA_URI, 'PNG', margin, y - 6, 26, 22);
+        } catch (err) {
+          console.warn('Error agregando logo al PDF:', err);
+        }
+      }
+
+      // Nombre Droguería
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.text('DROGUERÍA El Olam', margin, y + 8);
+      doc.setFontSize(15);
+      doc.text('DROGUERÍA EL OLAM', margin + 28, y + 6);
 
       // Título con fondo azul claro
       doc.setFillColor(219, 234, 254); // bg-blue-100 equivalent (RGB)
@@ -449,6 +466,14 @@ export function exportVisitasToPDF(record) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPosition = 20;
+
+  if (LOGO_DATA_URI) {
+    try {
+      doc.addImage(LOGO_DATA_URI, 'PNG', 14, 10, 22, 22);
+    } catch (err) {
+      console.warn('Error agregando logo al PDF:', err);
+    }
+  }
 
   // Title
   doc.setFontSize(16);

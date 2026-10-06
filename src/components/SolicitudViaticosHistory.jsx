@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Edit2, Eye, Printer, Trash2, Filter, Share2 } from 'lucide-react';
+import { X, Edit2, Eye, Printer, Trash2, Filter, Share2, ShieldCheck, UserCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { isSuperUser, matchesVendorUser } from '../lib/formsPermissions';
+import { LOGO_DATA_URI } from '../lib/logo';
 
-export default function SolicitudViaticosHistory({ onClose, onEdit }) {
+export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser }) {
+  const isSuper = isSuperUser(currentUser);
   const [loading, setLoading] = useState(true);
   const [historyData, setHistoryData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
@@ -10,6 +13,7 @@ export default function SolicitudViaticosHistory({ onClose, onEdit }) {
   const [fechaFin, setFechaFin] = useState('');
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [vendedorFilter, setVendedorFilter] = useState('');
 
   useEffect(() => {
     loadHistory();
@@ -17,7 +21,7 @@ export default function SolicitudViaticosHistory({ onClose, onEdit }) {
 
   useEffect(() => {
     applyFilters();
-  }, [historyData, fechaInicio, fechaFin]);
+  }, [historyData, fechaInicio, fechaFin, vendedorFilter]);
 
   const loadHistory = async () => {
     console.log('Cargando historial de viáticos...');
@@ -47,8 +51,20 @@ export default function SolicitudViaticosHistory({ onClose, onEdit }) {
   const applyFilters = () => {
     let filtered = [...historyData];
 
+    // Restricción por permisos: Si no es Antonio Celada ni Admin, solo ver sus propias solicitudes
+    if (!isSuper && currentUser?.name) {
+      filtered = filtered.filter(record => 
+        matchesVendorUser(record.datos?.vendedor, currentUser.name)
+      );
+    } else if (vendedorFilter) {
+      filtered = filtered.filter(record => 
+        record.datos?.vendedor && 
+        record.datos.vendedor.toLowerCase().includes(vendedorFilter.toLowerCase())
+      );
+    }
+
     if (fechaInicio || fechaFin) {
-      filtered = historyData.filter(record => {
+      filtered = filtered.filter(record => {
         const recordDate = new Date(record.fecha_creacion);
         if (fechaInicio && recordDate < new Date(fechaInicio)) return false;
         if (fechaFin && recordDate > new Date(fechaFin + 'T23:59:59')) return false;
@@ -155,13 +171,13 @@ export default function SolicitudViaticosHistory({ onClose, onEdit }) {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, sans-serif; padding: 0; }
     .container { width: 6in; height: 8in; margin: 0 auto; border: 4px solid #000; padding: 0.3in; box-sizing: border-box; position: relative; }
-    .fecha-solicitud { position: absolute; top: 0.3in; right: 0.3in; font-size: 11px; font-weight: bold; }
-    .header-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; margin-top: 20px; }
-    .header-left { width: 70%; vertical-align: top; padding-right: 10px; }
-    .header-right { width: 30%; text-align: right; vertical-align: top; }
+    .header-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; margin-top: 2px; }
+    .header-left { width: 60%; vertical-align: top; padding-right: 10px; }
+    .header-right { width: 40%; text-align: right; vertical-align: top; }
+    .header-left img { width: 95px; height: auto; display: block; margin-bottom: 4px; }
     .header-left h2 { font-size: 9px; margin-bottom: 2px; font-weight: bold; }
-    .header-left p { font-size: 7px; color: #666; margin: 1px 0; line-height: 1.3; }
-    .header-right img { width: 100px; height: auto; display: block; }
+    .header-left p { font-size: 7px; color: #555; margin: 1px 0; line-height: 1.3; }
+    .fecha-solicitud { font-size: 10px; font-weight: bold; text-align: right; margin-bottom: 4px; }
     .title { font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 8px; }
     .header-section { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
     .header-field { display: flex; align-items: center; gap: 5px; }
@@ -193,16 +209,30 @@ export default function SolicitudViaticosHistory({ onClose, onEdit }) {
 </head>
 <body>
   <div class="container">
-    <div class="fecha-solicitud"><strong>Fecha de Solicitud:</strong> ${fechaSolicitud}</div>
-    
     <table class="header-table">
       <tr>
         <td class="header-left">
+          <img src="${LOGO_DATA_URI}" style="width: 95px; height: auto; display: block; margin-bottom: 4px;">
           <h2>DISTRIBUIDORA COMERCIAL EL OLAM S.A.</h2>
           <p>7a. Avenida "A" 17-67 Zona 13, Guatemala<br>Teléfonos: 2308-4353, 2332-7814, 2339-4613</p>
         </td>
         <td class="header-right">
-          <img src="/logo.png" style="width: 100px; height: auto; display: block;">
+          <div class="fecha-solicitud"><strong>Fecha de Solicitud:</strong> ${fechaSolicitud}</div>
+          <table style="width: 100%; max-width: 180px; margin-left: auto; border: 1.5px solid #000; border-collapse: collapse; font-size: 8px; text-align: left; margin-top: 4px;">
+            <tr>
+              <th colspan="2" style="border-bottom: 1.5px solid #000; background-color: #f2f2f2; text-align: center; font-size: 8px; font-weight: bold; padding: 2px 4px; letter-spacing: 0.5px;">
+                PARA USO INTERNO
+              </th>
+            </tr>
+            <tr>
+              <td style="padding: 3px 4px 2px 4px; font-weight: bold; width: 48%; white-space: nowrap; font-size: 8px;">No. De Cheque:</td>
+              <td style="padding: 3px 4px 2px 4px; border-bottom: 1px solid #000; width: 52%; font-size: 8px;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td style="padding: 3px 4px 3px 4px; font-weight: bold; width: 48%; white-space: nowrap; font-size: 8px;">Banco:</td>
+              <td style="padding: 3px 4px 3px 4px; border-bottom: 1px solid #000; width: 52%; font-size: 8px;">&nbsp;</td>
+            </tr>
+          </table>
         </td>
       </tr>
     </table>
@@ -446,7 +476,7 @@ export default function SolicitudViaticosHistory({ onClose, onEdit }) {
               <Filter className="w-5 h-5" />
               Filtros
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Fecha Inicio:
@@ -455,7 +485,7 @@ export default function SolicitudViaticosHistory({ onClose, onEdit }) {
                   type="date"
                   value={fechaInicio}
                   onChange={(e) => setFechaInicio(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                 />
               </div>
               <div>
@@ -466,8 +496,27 @@ export default function SolicitudViaticosHistory({ onClose, onEdit }) {
                   type="date"
                   value={fechaFin}
                   onChange={(e) => setFechaFin(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Vendedor:
+                </label>
+                {isSuper ? (
+                  <input
+                    type="text"
+                    value={vendedorFilter}
+                    onChange={(e) => setVendedorFilter(e.target.value)}
+                    placeholder="Filtrar por cualquier vendedor..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                  />
+                ) : (
+                  <div className="w-full px-3 py-2 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-sm font-semibold flex items-center gap-1.5">
+                    <UserCheck size={15} className="text-emerald-600 shrink-0" />
+                    <span>{currentUser?.name || 'Vendedor'} (Tus viáticos)</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>

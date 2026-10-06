@@ -1,19 +1,19 @@
-export default function Logo({ size = "medium" }) {
+export default function Logo({ size = "medium", className = "" }) {
   const sizeStyles = {
-    small: { width: '80px', height: 'auto', maxHeight: '40px' },
-    medium: { width: '100px', height: 'auto', maxHeight: '50px' },
-    large: { width: '120px', height: 'auto', maxHeight: '60px' }
+    small: 'h-10 w-auto max-w-[100px]',
+    medium: 'h-14 w-auto max-w-[140px]',
+    large: 'h-20 w-auto max-w-[200px]'
   };
 
   return (
-    <div style={{ display: 'inline-block', textAlign: 'right' }}>
+    <div className={`inline-flex items-center justify-end ${className}`}>
       <img 
         src="/logo.png" 
         alt="Droguería El Olam" 
-        style={{
-          ...sizeStyles[size],
-          objectFit: 'contain',
-          display: 'block'
+        className={`${sizeStyles[size] || sizeStyles.medium} object-contain`}
+        onError={(e) => {
+          e.target.onerror = null;
+          e.target.src = '/logo.jpg';
         }}
       />
     </div>
