@@ -33,3 +33,6 @@ dist-ssr
 tmp_*.txt
 *.tmp
 .agents/
+.gradle/
+.gradle
+android/.gradle/
