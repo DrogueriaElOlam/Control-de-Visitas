@@ -54,15 +54,33 @@ export async function saveGpsPoint(pointData) {
     console.warn('[Tracking] Error al guardar punto en almacenamiento local:', e);
   }
 
-  // 2. Intentar guardar en Supabase (tabla vendor_gps_tracking)
+  // 2. Persistir en Supabase:
+  // Se guarda en 'daily_supervision_history' con formato { date, datos: { tipo: 'gps_ping', ... } }
   let savedInSupabase = false;
+  try {
+    const supervisionEntry = {
+      date: todayStr,
+      datos: {
+        tipo: 'gps_ping',
+        ...record
+      }
+    };
+    const { error: supErr } = await supabase.from('daily_supervision_history').insert([supervisionEntry]);
+    if (!supErr) {
+      savedInSupabase = true;
+    }
+  } catch (err) {
+    console.warn('[Tracking] Error guardando ping en daily_supervision_history:', err);
+  }
+
+  // Intentar también en 'vendor_gps_tracking' por redundancia si la tabla existe
   try {
     const { error } = await supabase.from('vendor_gps_tracking').insert([record]);
     if (!error) {
       savedInSupabase = true;
     }
   } catch (err) {
-    // Si la tabla no existe en Supabase aún, no romper la ejecución
+    // Silencioso
   }
 
   // 3. Emitir por Broadcast en tiempo real (Supabase Channel) para el panel del jefe
@@ -82,15 +100,42 @@ export async function saveGpsPoint(pointData) {
 
 /**
  * Obtiene los puntos de seguimiento de una fecha específica y opcionalmente filtrados por vendedor.
+ * Consulta tanto Supabase (daily_supervision_history y vendor_gps_tracking) como almacenamiento local.
  * @param {string} dateStr - Fecha en formato YYYY-MM-DD.
  * @param {string} vendorName - (Opcional) Nombre del vendedor. Si es 'all' o null, trae de todos.
  * @returns {Promise<Array>} Lista de puntos ordenados cronológicamente.
  */
 export async function getDailyTrackingPoints(dateStr, vendorName = null) {
   const targetDate = dateStr || getLocalDateString();
-  let points = [];
+  const pointsMap = new Map();
 
-  // 1. Intentar consultar en Supabase
+  // 1. Consultar en Supabase: daily_supervision_history
+  try {
+    const { data: supData, error: supError } = await supabase
+      .from('daily_supervision_history')
+      .select('*')
+      .eq('date', targetDate)
+      .order('created_at', { ascending: true });
+
+    if (!supError && Array.isArray(supData)) {
+      supData.forEach(row => {
+        if (row.datos && row.datos.tipo === 'gps_ping' && row.datos.latitude && row.datos.longitude) {
+          const norm = normalizePointRecord({
+            ...row.datos,
+            created_at: row.created_at || row.datos.created_at || row.datos.createdAt
+          });
+          if (!vendorName || vendorName === 'all' || norm.vendorName === vendorName) {
+            const key = norm.id || `${norm.vendorName}_${norm.latitude}_${norm.longitude}_${norm.createdAt}`;
+            pointsMap.set(key, norm);
+          }
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('[Tracking] Error consultando daily_supervision_history:', e);
+  }
+
+  // 2. Consultar en Supabase: vendor_gps_tracking (por redundancia si estuviese creada)
   try {
     let query = supabase
       .from('vendor_gps_tracking')
@@ -103,26 +148,38 @@ export async function getDailyTrackingPoints(dateStr, vendorName = null) {
     }
 
     const { data, error } = await query;
-    if (!error && Array.isArray(data) && data.length > 0) {
-      points = data.map(normalizePointRecord);
-      return points;
+    if (!error && Array.isArray(data)) {
+      data.forEach(p => {
+        const norm = normalizePointRecord(p);
+        const key = norm.id || `${norm.vendorName}_${norm.latitude}_${norm.longitude}_${norm.createdAt}`;
+        pointsMap.set(key, norm);
+      });
     }
   } catch (e) {
-    console.warn('[Tracking] Fallback a datos locales para fecha:', targetDate);
+    // Silencioso
   }
 
-  // 2. Fallback: Leer de almacenamiento local
+  // 3. Fallback / Complemento: Leer de almacenamiento local
   try {
     const storageKey = `${LOCAL_STORAGE_PREFIX}${targetDate}`;
     const localData = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    let filtered = localData;
-    if (vendorName && vendorName !== 'all') {
-      filtered = filtered.filter(p => p.vendor_name === vendorName);
-    }
-    points = filtered.map(normalizePointRecord);
+    localData.forEach(p => {
+      const norm = normalizePointRecord(p);
+      if (!vendorName || vendorName === 'all' || norm.vendorName === vendorName) {
+        const key = norm.id || `${norm.vendorName}_${norm.latitude}_${norm.longitude}_${norm.createdAt}`;
+        if (!pointsMap.has(key)) {
+          pointsMap.set(key, norm);
+        }
+      }
+    });
   } catch (e) {
     console.warn('[Tracking] Error leyendo datos locales:', e);
   }
+
+  // Convertir a lista y ordenar cronológicamente
+  const points = Array.from(pointsMap.values()).sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
 
   return points;
 }
@@ -132,9 +189,9 @@ export async function getDailyTrackingPoints(dateStr, vendorName = null) {
  */
 function normalizePointRecord(p) {
   return {
-    id: p.id,
-    vendorId: p.vendor_id || p.vendorId,
-    vendorName: p.vendor_name || p.vendorName,
+    id: p.id || `pt_${p.latitude}_${p.longitude}_${p.created_at || p.createdAt}`,
+    vendorId: p.vendor_id || p.vendorId || '',
+    vendorName: p.vendor_name || p.vendorName || 'Vendedor',
     route: p.route || '',
     latitude: Number(p.latitude || p.lat),
     longitude: Number(p.longitude || p.lng),
@@ -142,7 +199,7 @@ function normalizePointRecord(p) {
     speed: p.speed ? Number(p.speed) : 0,
     batteryLevel: p.battery_level !== undefined ? Number(p.battery_level) : (p.batteryLevel !== undefined ? Number(p.batteryLevel) : null),
     isMocked: Boolean(p.is_mocked || p.isMocked),
-    trackingDate: p.tracking_date || p.trackingDate,
+    trackingDate: p.tracking_date || p.trackingDate || (p.created_at ? p.created_at.substring(0, 10) : ''),
     createdAt: p.created_at || p.createdAt || new Date().toISOString()
   };
 }
@@ -164,7 +221,16 @@ export function subscribeToLiveTracking(onNewPoint) {
     }
   });
 
-  // Escuchar por Postgres Changes si la tabla está habilitada para Realtime
+  // Escuchar por Postgres Changes en daily_supervision_history y vendor_gps_tracking
+  channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'daily_supervision_history' }, (payload) => {
+    if (payload?.new?.datos?.tipo === 'gps_ping') {
+      onNewPoint(normalizePointRecord({
+        ...payload.new.datos,
+        created_at: payload.new.created_at || payload.new.datos.created_at
+      }));
+    }
+  });
+
   channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'vendor_gps_tracking' }, (payload) => {
     if (payload?.new) {
       onNewPoint(normalizePointRecord(payload.new));

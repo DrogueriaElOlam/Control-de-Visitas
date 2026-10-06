@@ -47,13 +47,13 @@ public class LocationService extends Service implements LocationListener {
     private static final String CHANNEL_ID = "el_olam_location_channel";
     private static final int NOTIFICATION_ID = 2001;
 
-    // Configuración de conexión directa a Supabase
-    private static final String SUPABASE_URL = "https://zqwjhmiavxhswgbgejzx.supabase.co/rest/v1/vendor_gps_tracking";
+    // Configuración de conexión directa a Supabase (tabla activa en la nube)
+    private static final String SUPABASE_URL = "https://zqwjhmiavxhswgbgejzx.supabase.co/rest/v1/daily_supervision_history";
     private static final String SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpxd2pobWlhdnhoc3dnYmdlanp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNzQ5MTEsImV4cCI6MjA3OTg1MDkxMX0.-FdEjQyGmuM6DVt58ciFmQoTzMKdvYW6prXHRp57UsQ";
 
-    // Intervalo de captura: 2 minutos y 40 metros de desplazamiento
-    private static final long MIN_TIME_MS = 120000;
-    private static final float MIN_DISTANCE_M = 40.0f;
+    // Intervalo de captura en movimiento: 1 minuto y 15 metros de desplazamiento
+    private static final long MIN_TIME_MS = 60000;
+    private static final float MIN_DISTANCE_M = 15.0f;
 
     private LocationManager locationManager;
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
@@ -169,7 +169,8 @@ public class LocationService extends Service implements LocationListener {
             String todayStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
 
             String jsonPayload = String.format(Locale.US,
-                    "{\"vendor_name\":\"%s\",\"route\":\"%s\",\"latitude\":%f,\"longitude\":%f,\"accuracy\":%f,\"speed\":%d,\"battery_level\":%d,\"tracking_date\":\"%s\"}",
+                    "{\"date\":\"%s\",\"datos\":{\"tipo\":\"gps_ping\",\"vendor_name\":\"%s\",\"route\":\"%s\",\"latitude\":%f,\"longitude\":%f,\"accuracy\":%f,\"speed\":%d,\"battery_level\":%d,\"tracking_date\":\"%s\"}}",
+                    todayStr,
                     escapeJson(vendorName),
                     escapeJson(vendorRoute),
                     lat,

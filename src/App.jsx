@@ -14,6 +14,7 @@ import VendorReportModal from './components/VendorReportModal';
 import CashCollectionsModal from './components/CashCollectionsModal';
 import FormulariosOlamModal from './components/FormulariosOlamModal';
 import AdminClientDirectoryModal from './components/AdminClientDirectoryModal';
+import SupervisorLogoutModal from './components/SupervisorLogoutModal';
 
 import { 
   getSavedSession, 
@@ -43,6 +44,8 @@ export default function App() {
   const [visits, setVisits] = useState([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [onlineVendors, setOnlineVendors] = useState({});
+
+  const [showLogoutSupervisorModal, setShowLogoutSupervisorModal] = useState(false);
 
   // Initialize session and theme
   useEffect(() => {
@@ -156,6 +159,17 @@ export default function App() {
 
   // Logout handler
   const handleLogout = () => {
+    // Si es un vendedor en campo, bloquear la salida con contraseña de supervisor (0l@m_2025$)
+    if (currentUser?.role === 'vendor') {
+      setShowLogoutSupervisorModal(true);
+      return;
+    }
+    // Si es administrador, cerrar directamente
+    executeLogout();
+  };
+
+  const executeLogout = () => {
+    setShowLogoutSupervisorModal(false);
     stopSilentTracking();
     clearSession();
     setCurrentUser(null);
@@ -353,6 +367,14 @@ export default function App() {
         isOpen={showFormulariosModal}
         onClose={() => setShowFormulariosModal(false)}
         currentUser={currentUser}
+      />
+
+      {/* Modal de Bloqueo de Salida con Contraseña de Supervisor (0l@m_2025$) */}
+      <SupervisorLogoutModal
+        isOpen={showLogoutSupervisorModal}
+        onClose={() => setShowLogoutSupervisorModal(false)}
+        onConfirmLogout={executeLogout}
+        vendorName={currentUser?.name}
       />
 
       {/* Footer */}

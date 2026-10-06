@@ -24,6 +24,7 @@ import { ALL_ROUTES, addVisitRecord, getRoutesForVendor } from '../lib/db';
 import { fetchClientCodes, fetchPharmacyDirectory, saveClientRecord, searchClientLive } from '../lib/catalog';
 import { addCashRecordFromVisit } from '../lib/cashCollections';
 import { getLocalDateString } from '../lib/dateUtils';
+import { captureAndReportLocation } from '../lib/silentGpsTracker';
 
 export default function VisitRegistration({ currentUser, onVisitAdded, allVisits = [], onLogout, onNavigate }) {
   const isAdmin = currentUser?.role === 'admin';
@@ -622,6 +623,11 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
     try {
       const saved = await addVisitRecord(visitPayload);
+
+      // Emitir reporte satelital fresco al instante para marcar el punto en tiempo real
+      try {
+        captureAndReportLocation(currentUser);
+      } catch (_) {}
 
       // Persistir detalles del cliente y directorio en segundo plano sin bloquear
       try {

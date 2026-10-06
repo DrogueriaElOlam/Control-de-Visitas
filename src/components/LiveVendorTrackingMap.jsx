@@ -221,6 +221,32 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
     return () => cleanup();
   }, [selectedDate, todayStr]);
 
+  // 2.1 Polling periódico automático cada 25 segundos para asegurar actualización constante desde Supabase
+  useEffect(() => {
+    if (selectedDate !== todayStr) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const fresh = await getDailyTrackingPoints(todayStr, null);
+        if (Array.isArray(fresh) && fresh.length > 0) {
+          setTrackingPoints(prev => {
+            const map = new Map(prev.map(p => [p.id, p]));
+            let hasNew = false;
+            fresh.forEach(p => {
+              if (!map.has(p.id)) {
+                map.set(p.id, p);
+                hasNew = true;
+              }
+            });
+            return hasNew ? Array.from(map.values()) : prev;
+          });
+        }
+      } catch (e) {}
+    }, 25000);
+
+    return () => clearInterval(interval);
+  }, [selectedDate, todayStr]);
+
   // 3. Inicializar Leaflet Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -271,30 +297,66 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
     }
   }, [mapType]);
 
-  // 5. Agrupar puntos por vendedor
+  // Visitas del día seleccionado
+  const visitsForDate = useMemo(() => {
+    return visits.filter(v => v.visitDate === selectedDate && v.location?.lat && v.location?.lng);
+  }, [visits, selectedDate]);
+
+  // 5. Agrupar puntos por vendedor: Combina pings de GPS continuos y visitas comerciales registradas
   const pointsByVendor = useMemo(() => {
     const map = {};
+
+    // A. Agregar pings de rastreo continuo
     trackingPoints.forEach(p => {
+      if (!p.vendorName) return;
       if (!map[p.vendorName]) {
         map[p.vendorName] = [];
       }
       map[p.vendorName].push(p);
     });
 
+    // B. Integrar visitas del día con GPS como puntos clave del recorrido
+    visitsForDate.forEach(v => {
+      if (!v.vendorName || !v.location?.lat || !v.location?.lng) return;
+      if (!map[v.vendorName]) {
+        map[v.vendorName] = [];
+      }
+      const visitTimeISO = v.createdAt || (v.visitTime ? `${selectedDate}T${v.visitTime}:00` : `${selectedDate}T12:00:00`);
+      
+      // Evitar duplicar si ya existe un punto en esas coordenadas exactas
+      const alreadyHas = map[v.vendorName].some(p => 
+        Math.abs(p.latitude - v.location.lat) < 0.0001 && Math.abs(p.longitude - v.location.lng) < 0.0001
+      );
+
+      if (!alreadyHas) {
+        map[v.vendorName].push({
+          id: `visit_${v.id || Math.random()}`,
+          vendorId: v.vendorId || '',
+          vendorName: v.vendorName,
+          route: v.route || v.sector || '',
+          latitude: Number(v.location.lat),
+          longitude: Number(v.location.lng),
+          accuracy: v.location.accuracy ? Number(v.location.accuracy) : null,
+          speed: 0,
+          batteryLevel: null,
+          isMocked: false,
+          isVisit: true,
+          clientName: v.clientName,
+          trackingDate: selectedDate,
+          createdAt: visitTimeISO
+        });
+      }
+    });
+
     // Ordenar cronológicamente cada lista
     Object.keys(map).forEach(v => {
-      map[v].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      map[v].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     });
 
     return map;
-  }, [trackingPoints]);
+  }, [trackingPoints, visitsForDate, selectedDate]);
 
   const activeVendorsToday = Object.keys(pointsByVendor);
-
-  // Visitas del día seleccionado
-  const visitsForDate = useMemo(() => {
-    return visits.filter(v => v.visitDate === selectedDate && v.location?.lat && v.location?.lng);
-  }, [visits, selectedDate]);
 
   // 6. Dibujar recorridos, pines y visitas en el mapa
   useEffect(() => {
@@ -351,6 +413,7 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
               <div style="font-weight: 800; color: ${color}; font-size: 13px; margin-bottom: 4px;">
                 Parada #${idx + 1} • ${vName}
               </div>
+              ${pt.isVisit ? `<div style="background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; padding: 2px 6px; border-radius: 6px; font-weight: bold; margin-bottom: 4px;">🏪 Visita: ${pt.clientName}</div>` : ''}
               <div style="color: #475569; margin-bottom: 2px;">
                 🕒 Hora: <b>${time}</b>
               </div>

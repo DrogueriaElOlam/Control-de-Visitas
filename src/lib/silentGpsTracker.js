@@ -19,10 +19,10 @@ let lastRecordedCoord = null;
 let lastRecordedTime = 0;
 let isTrackingActive = false;
 
-// Intervalo entre pings de rastreo: 2.5 minutos (150,000 ms)
-const PING_INTERVAL_MS = 150000;
-// Distancia mínima en metros para registrar un nuevo punto antes del intervalo
-const MIN_DISTANCE_METERS = 40;
+// Intervalo entre pings de rastreo en reposo: 45 segundos (45,000 ms)
+const PING_INTERVAL_MS = 45000;
+// Distancia mínima en metros para registrar un nuevo punto en movimiento: 15 metros
+const MIN_DISTANCE_METERS = 15;
 
 /**
  * Inicia el rastreador GPS silencioso para el vendedor actual.
@@ -59,8 +59,8 @@ export function startSilentTracking(currentUser) {
       () => {}, // Error callback silencioso, sin avisos al usuario
       {
         enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 30000
+        timeout: 15000,
+        maximumAge: 0 // Garantizar coordenadas satelitales frescas en tiempo real
       }
     );
   } catch (e) {
@@ -116,9 +116,9 @@ export function stopSilentTracking() {
 }
 
 /**
- * Captura la ubicación actual vía getCurrentPosition y la envía.
+ * Captura la ubicación actual vía getCurrentPosition y la envía de inmediato.
  */
-async function captureAndReportLocation(currentUser) {
+export async function captureAndReportLocation(currentUser) {
   if (!navigator.geolocation || !currentUser) return;
 
   navigator.geolocation.getCurrentPosition(
@@ -127,7 +127,7 @@ async function captureAndReportLocation(currentUser) {
     {
       enableHighAccuracy: true,
       timeout: 15000,
-      maximumAge: 10000
+      maximumAge: 0
     }
   );
 }
