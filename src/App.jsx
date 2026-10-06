@@ -134,6 +134,35 @@ export default function App() {
 
   async function loadInitialData() {
     try {
+      // Depuración automática de visitas y puntos de prueba huérfanos de Josué y Elio en almacenamiento local
+      try {
+        const storedVisitsKey = 'drogueriaElOlamVisits_v129';
+        const rawVisits = localStorage.getItem(storedVisitsKey);
+        if (rawVisits) {
+          const parsed = JSON.parse(rawVisits);
+          const cleaned = parsed.filter(v => {
+            const n = v.vendorName || '';
+            return !n.includes('Josue') && !n.includes('Josué') && !n.includes('Elio');
+          });
+          if (cleaned.length !== parsed.length) {
+            localStorage.setItem(storedVisitsKey, JSON.stringify(cleaned));
+          }
+        }
+        Object.keys(localStorage).forEach(k => {
+          if (k.startsWith('olam_gps_tracking_')) {
+            const rawPts = localStorage.getItem(k);
+            if (rawPts) {
+              const pts = JSON.parse(rawPts);
+              const cleanedPts = pts.filter(p => {
+                const n = p.vendorName || p.vendor_name || '';
+                return !n.includes('Josue') && !n.includes('Josué') && !n.includes('Elio');
+              });
+              localStorage.setItem(k, JSON.stringify(cleanedPts));
+            }
+          }
+        });
+      } catch (_) {}
+
       // Sync any offline/retry visits first
       await syncPendingVisits();
       

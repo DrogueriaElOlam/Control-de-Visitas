@@ -693,8 +693,12 @@ export async function getVisitsList(vendorFilter = null) {
         synced: true
       }));
 
-      // Deduplicación estricta y segura combinando nube y local
-      const fullList = deduplicateVisitsList([...normalizedCloud, ...localVisits]);
+      // Deduplicación estricta y sincronizada con la nube:
+      // Si la nube responde con éxito, se respetan las visitas eliminadas en Supabase
+      // y únicamente se conservan del almacenamiento local los borradores pendientes de sincronizar
+      const cloudIds = new Set(normalizedCloud.map(c => String(c.id)));
+      const onlyUnsyncedLocal = localVisits.filter(l => !l.synced && !cloudIds.has(String(l.id)));
+      const fullList = deduplicateVisitsList([...normalizedCloud, ...onlyUnsyncedLocal]);
       localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(fullList));
       return vendorFilter ? fullList.filter((v) => v.vendorName === vendorFilter) : fullList;
     }

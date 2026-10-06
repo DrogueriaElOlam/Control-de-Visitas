@@ -73,16 +73,6 @@ export async function saveGpsPoint(pointData) {
     console.warn('[Tracking] Error guardando ping en daily_supervision_history:', err);
   }
 
-  // Intentar también en 'vendor_gps_tracking' por redundancia si la tabla existe
-  try {
-    const { error } = await supabase.from('vendor_gps_tracking').insert([record]);
-    if (!error) {
-      savedInSupabase = true;
-    }
-  } catch (err) {
-    // Silencioso
-  }
-
   // 3. Emitir por Broadcast en tiempo real (Supabase Channel) para el panel del jefe
   try {
     const channel = supabase.channel('olam_gps_live_channel');
@@ -135,31 +125,7 @@ export async function getDailyTrackingPoints(dateStr, vendorName = null) {
     console.warn('[Tracking] Error consultando daily_supervision_history:', e);
   }
 
-  // 2. Consultar en Supabase: vendor_gps_tracking (por redundancia si estuviese creada)
-  try {
-    let query = supabase
-      .from('vendor_gps_tracking')
-      .select('*')
-      .eq('tracking_date', targetDate)
-      .order('created_at', { ascending: true });
-
-    if (vendorName && vendorName !== 'all') {
-      query = query.eq('vendor_name', vendorName);
-    }
-
-    const { data, error } = await query;
-    if (!error && Array.isArray(data)) {
-      data.forEach(p => {
-        const norm = normalizePointRecord(p);
-        const key = norm.id || `${norm.vendorName}_${norm.latitude}_${norm.longitude}_${norm.createdAt}`;
-        pointsMap.set(key, norm);
-      });
-    }
-  } catch (e) {
-    // Silencioso
-  }
-
-  // 3. Fallback / Complemento: Leer de almacenamiento local
+  // 2. Fallback / Complemento: Leer de almacenamiento local
   try {
     const storageKey = `${LOCAL_STORAGE_PREFIX}${targetDate}`;
     const localData = JSON.parse(localStorage.getItem(storageKey) || '[]');
@@ -231,12 +197,6 @@ export function subscribeToLiveTracking(onNewPoint) {
     }
   });
 
-  channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'vendor_gps_tracking' }, (payload) => {
-    if (payload?.new) {
-      onNewPoint(normalizePointRecord(payload.new));
-    }
-  });
-
   channel.subscribe();
 
   // Escuchar también BroadcastChannel local del navegador
@@ -276,3 +236,22 @@ export function broadcastLocalGpsPoint(point) {
     }
   } catch (e) {}
 }
+
+/**
+ * Limpia los puntos de rastreo almacenados en el localStorage del navegador.
+ */
+export function clearLocalTrackingPoints(dateStr = null) {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    if (dateStr) {
+      localStorage.removeItem(`${LOCAL_STORAGE_PREFIX}${dateStr}`);
+    } else {
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(LOCAL_STORAGE_PREFIX)) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+  } catch (e) {}
+}
+

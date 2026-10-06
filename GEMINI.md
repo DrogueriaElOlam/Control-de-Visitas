@@ -23,6 +23,7 @@
   3. **Seguridad y Accesos:** Clave maestra de administrador (`0l@m_2025$`), sistema de claves desechables de un solo uso (OTP) descargables en Excel, y control de baja laboral que conserva el historial de visitas.
   4. **Autonomía del Administrador:** Confirmado que las operaciones de crear, editar, dar de baja o reactivar vendedores surten efecto inmediato directamente en Supabase sin necesidad de intervención manual de código.
   5. **Depuración y Puntos de Prueba Limpios:** Eliminadas visitas y recorridos de prueba de Josué Aguilar y Elio Caceros de Supabase; verificado protocolo de cierre de sesión en app móvil (`0l@m_2025$`) y limpieza de memoria en el dispositivo para transmisión satelital limpia al instalar en teléfonos definitivos.
+  6. **Auto-Purga de Memoria Local y Resolución de 404:** Implementada limpieza automática al iniciar la app que erradica visitas y pings de prueba huérfanos de `localStorage`, sincronización estricta con Supabase que no revive datos eliminados de la nube, remoción de consultas a tablas inexistentes (eliminando el error 404) y botón interactivo 'Limpiar Pruebas' en la barra de control del mapa.
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
   - Mantener la bitácora viva para que la IA retome exactamente en el punto donde se suspendió la sesión previa.

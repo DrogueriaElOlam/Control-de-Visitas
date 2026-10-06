@@ -20,9 +20,10 @@ import {
   Radio, 
   ChevronRight,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
-import { getDailyTrackingPoints, subscribeToLiveTracking } from '../lib/trackingDb';
+import { getDailyTrackingPoints, subscribeToLiveTracking, clearLocalTrackingPoints } from '../lib/trackingDb';
 import { getLocalDateString, getLocalYesterdayString } from '../lib/dateUtils';
 import { DEFAULT_VENDORS, normalizeVendorName } from '../lib/db';
 
@@ -666,6 +667,19 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
             title="Recargar datos de la fecha"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+
+          {/* Botón para vaciar puntos y recorridos residuales de prueba */}
+          <button
+            onClick={() => {
+              clearLocalTrackingPoints(selectedDate);
+              setTrackingPoints([]);
+            }}
+            className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800 transition-all shadow-sm flex items-center gap-1"
+            title="Limpiar puntos satelitales de prueba guardados en este navegador"
+          >
+            <Trash2 size={13} />
+            <span className="hidden sm:inline">Limpiar Pruebas</span>
           </button>
         </div>
 
