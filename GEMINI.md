@@ -22,6 +22,7 @@
   2. **Deduplicación de Vendedores:** Normalización canónica de nombres (`Ana Lucia Marroquin` sin tildes, `Dany Peres` con 's') en base de datos, filtros de vista grupal y todos los formularios del sistema.
   3. **Seguridad y Accesos:** Clave maestra de administrador (`0l@m_2025$`), sistema de claves desechables de un solo uso (OTP) descargables en Excel, y control de baja laboral que conserva el historial de visitas.
   4. **Autonomía del Administrador:** Confirmado que las operaciones de crear, editar, dar de baja o reactivar vendedores surten efecto inmediato directamente en Supabase sin necesidad de intervención manual de código.
+  5. **Depuración y Puntos de Prueba Limpios:** Eliminadas visitas y recorridos de prueba de Josué Aguilar y Elio Caceros de Supabase; verificado protocolo de cierre de sesión en app móvil (`0l@m_2025$`) y limpieza de memoria en el dispositivo para transmisión satelital limpia al instalar en teléfonos definitivos.
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
   - Mantener la bitácora viva para que la IA retome exactamente en el punto donde se suspendió la sesión previa.
