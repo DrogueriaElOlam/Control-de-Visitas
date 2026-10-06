@@ -79,6 +79,13 @@ export function startSilentTracking(currentUser) {
         }
       }, currentUser);
     };
+
+    // Sincronizar el nombre y ruta del vendedor al almacenamiento nativo de Android
+    if (window.AndroidBridge && window.AndroidBridge.saveVendorSession) {
+      try {
+        window.AndroidBridge.saveVendorSession(currentUser.name || '', currentUser.route || '');
+      } catch (e) {}
+    }
   }
 }
 
@@ -88,6 +95,11 @@ export function startSilentTracking(currentUser) {
 export function stopSilentTracking() {
   if (typeof window !== 'undefined') {
     window.onNativeGpsPing = null;
+    if (window.AndroidBridge && window.AndroidBridge.saveVendorSession) {
+      try {
+        window.AndroidBridge.saveVendorSession('', '');
+      } catch (e) {}
+    }
   }
   if (trackerInterval) {
     clearInterval(trackerInterval);

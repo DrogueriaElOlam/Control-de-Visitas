@@ -86,6 +86,7 @@ public class MainActivity extends AppCompatActivity {
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
 
         webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+        webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -194,5 +195,16 @@ public class MainActivity extends AppCompatActivity {
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         webView.saveState(outState);
+    }
+
+    public class WebAppInterface {
+        @android.webkit.JavascriptInterface
+        public void saveVendorSession(String vendorName, String route) {
+            getSharedPreferences("olam_tracking_prefs", MODE_PRIVATE)
+                    .edit()
+                    .putString("vendor_name", vendorName)
+                    .putString("vendor_route", route)
+                    .apply();
+        }
     }
 }
