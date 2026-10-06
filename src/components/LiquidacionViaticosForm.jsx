@@ -62,7 +62,7 @@ export default function LiquidacionViaticosForm({ currentUser }) {
   const [liquidadores, setLiquidadores] = useState([
     'Ana Lucia Marroquin',
     'Antonio Celada',
-    'Dany Perez',
+    'Dany Peres',
     'Elias Quiej',
     'Elio Caceros',
     'Erick Curley',

@@ -59,7 +59,7 @@ export default function SolicitudViaticosForm({ currentUser }) {
     return [
       'Ana Lucia Marroquin',
       'Antonio Celada',
-      'Dany Perez',
+      'Dany Peres',
       'Elias Quiej',
       'Elio Caceros',
       'Erick Curley',
@@ -178,6 +178,7 @@ export default function SolicitudViaticosForm({ currentUser }) {
       'Erick Curley': ['Jutiapa I #41', 'Jutiapa II #42', 'Chimaltenango I #43', 'Chimaltenango II #44', 'Santa Rosa #45', 'Oficina'],
       'Estuardo Cordova': ['San Marcos Montaña Alta #51', 'Solola I #52', 'Solola II #53', 'Nebaj #54', 'Quiche Montaña Alta #55', 'Oficina'],
       'Karina Pineda': ['Chiquimula I #61', 'Jalapa #62', 'Chiquimula II #63', 'Capital S1 #64', 'Capital S2 #65', 'Oficina'],
+      'Dany Peres': ['Huehuetenango Montaña Baja I #71', 'Huehuetenango Montaña Baja II #72', 'Peten I #73', 'Peten II #74', 'Oficina'],
       'Dany Perez': ['Huehuetenango Montaña Baja I #71', 'Huehuetenango Montaña Baja II #72', 'Peten I #73', 'Peten II #74', 'Oficina'],
       'Danny Perez': ['Huehuetenango Montaña Baja I #71', 'Huehuetenango Montaña Baja II #72', 'Peten I #73', 'Peten II #74', 'Oficina'],
       'Klissman Hernandez': ['Polochic #81', 'Zacapa #82', 'Huehuetenango Montaña Alta I #83', 'Huehuetenango Montaña Alta II #84', 'Oficina'],

@@ -44,12 +44,33 @@ export const DEFAULT_VENDORS = [
   { id: 5, name: 'Erick Curley', route: 'Jutiapa I #41', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 6, name: 'Estuardo Cordova', route: 'San Marcos Montaña Alta #51', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 7, name: 'Karina Pineda', route: 'Chiquimula I #61', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 8, name: 'Dany Perez', route: 'Huehuetenango Montaña Baja I #71', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 8, name: 'Dany Peres', route: 'Huehuetenango Montaña Baja I #71', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 9, name: 'Klissman Hernandez', route: 'Polochic #81', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 10, name: 'Elio Caceros', route: 'Petapa #91', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 11, name: 'Josue Aguilar', route: 'Escuintla I #A1', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 12, name: 'Elias Quiej', route: 'Peten III #B1', active: true, hire_date: '2025-12-05', daily_goal: 15 }
 ];
+
+/**
+ * Normaliza y unifica de manera canónica los nombres de vendedores para evitar duplicados
+ * provocados por tildes, variaciones ortográficas (ej: Peres / Perez) o espacios extras.
+ */
+export function normalizeVendorName(name) {
+  if (!name || typeof name !== 'string') return '';
+  const clean = name.trim().replace(/\s+/g, ' ');
+  const simple = clean
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (simple === 'ana lucia marroquin' || (simple.includes('ana lucia') && simple.includes('marroquin'))) {
+    return 'Ana Lucia Marroquin';
+  }
+  if (simple === 'dany peres' || simple === 'dany perez' || (simple.includes('dany') && (simple.includes('peres') || simple.includes('perez')))) {
+    return 'Dany Peres';
+  }
+  return clean;
+}
 
 export const ALL_ROUTES = [
   'Coban #13',
@@ -258,18 +279,19 @@ export async function getVendorsList() {
       // Merge with credentials & route information stored locally or in cloud
       const creds = getStoredCredentials();
       const merged = data.map((v) => {
+        const canonicalName = normalizeVendorName(v.name);
         const c = creds[v.id] || {};
-        const localMatch = local.find((l) => l.name === v.name || (l.id === v.id && l.name === v.name));
+        const localMatch = local.find((l) => normalizeVendorName(l.name) === canonicalName || l.id === v.id);
         return {
           id: v.id,
-          name: v.name,
+          name: canonicalName,
           active: v.active !== false,
           created_at: v.created_at || v.hire_date || '2025-12-05',
           hire_date: c.hire_date || localMatch?.hire_date || (v.created_at ? v.created_at.split('T')[0] : '2025-12-05'),
           termination_date: c.termination_date || localMatch?.termination_date || null,
-          route: c.route || localMatch?.route || DEFAULT_VENDORS.find((d) => d.name === v.name)?.route || 'Ruta General',
+          route: c.route || localMatch?.route || DEFAULT_VENDORS.find((d) => d.name === canonicalName)?.route || 'Ruta General',
           daily_goal: c.daily_goal || localMatch?.daily_goal || 15,
-          username: c.username || generateUsername(v.name),
+          username: c.username || generateUsername(canonicalName),
           password: c.password ? (c.password.length === 64 ? c.password : hashPassword(c.password)) : DEFAULT_VENDOR_HASH,
           phone: c.phone || localMatch?.phone || ''
         };

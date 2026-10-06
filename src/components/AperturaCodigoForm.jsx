@@ -78,7 +78,7 @@ export default function AperturaCodigoForm({ currentUser }) {
   const [ejecutivos, setEjecutivos] = useState([
     'Ana Lucia Marroquin',
     'Antonio Celada',
-    'Dany Perez',
+    'Dany Peres',
     'Elio Caceros',
     'Elias Quiej',
     'Erick Curley',

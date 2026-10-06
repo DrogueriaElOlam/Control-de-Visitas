@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { getDailyTrackingPoints, subscribeToLiveTracking } from '../lib/trackingDb';
 import { getLocalDateString, getLocalYesterdayString } from '../lib/dateUtils';
-import { DEFAULT_VENDORS } from '../lib/db';
+import { DEFAULT_VENDORS, normalizeVendorName } from '../lib/db';
 
 // Fix leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -156,10 +156,10 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
     const list = [];
     const seen = new Set();
 
-    const addVendor = (id, name, route) => {
-      if (!name || typeof name !== 'string' || seen.has(name.trim())) return;
-      const cleanName = name.trim();
-      seen.add(cleanName);
+    const addVendor = (id, rawName, route) => {
+      const cleanName = normalizeVendorName(rawName);
+      if (!cleanName || seen.has(cleanName.toLowerCase())) return;
+      seen.add(cleanName.toLowerCase());
       list.push({ id: id || cleanName, name: cleanName, route: route || '' });
     };
 
@@ -308,31 +308,36 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
 
     // A. Agregar pings de rastreo continuo
     trackingPoints.forEach(p => {
-      if (!p.vendorName) return;
-      if (!map[p.vendorName]) {
-        map[p.vendorName] = [];
+      const normName = normalizeVendorName(p.vendorName);
+      if (!normName) return;
+      if (!map[normName]) {
+        map[normName] = [];
       }
-      map[p.vendorName].push(p);
+      map[normName].push({
+        ...p,
+        vendorName: normName
+      });
     });
 
     // B. Integrar visitas del día con GPS como puntos clave del recorrido
     visitsForDate.forEach(v => {
-      if (!v.vendorName || !v.location?.lat || !v.location?.lng) return;
-      if (!map[v.vendorName]) {
-        map[v.vendorName] = [];
+      const normName = normalizeVendorName(v.vendorName);
+      if (!normName || !v.location?.lat || !v.location?.lng) return;
+      if (!map[normName]) {
+        map[normName] = [];
       }
       const visitTimeISO = v.createdAt || (v.visitTime ? `${selectedDate}T${v.visitTime}:00` : `${selectedDate}T12:00:00`);
       
       // Evitar duplicar si ya existe un punto en esas coordenadas exactas
-      const alreadyHas = map[v.vendorName].some(p => 
+      const alreadyHas = map[normName].some(p => 
         Math.abs(p.latitude - v.location.lat) < 0.0001 && Math.abs(p.longitude - v.location.lng) < 0.0001
       );
 
       if (!alreadyHas) {
-        map[v.vendorName].push({
+        map[normName].push({
           id: `visit_${v.id || Math.random()}`,
           vendorId: v.vendorId || '',
-          vendorName: v.vendorName,
+          vendorName: normName,
           route: v.route || v.sector || '',
           latitude: Number(v.location.lat),
           longitude: Number(v.location.lng),
@@ -466,7 +471,7 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
     if (showVisitsPins) {
       const displayVisits = selectedVendor === 'all'
         ? visitsForDate
-        : visitsForDate.filter(v => v.vendorName === selectedVendor);
+        : visitsForDate.filter(v => normalizeVendorName(v.vendorName) === selectedVendor);
 
       displayVisits.forEach(v => {
         const visitHtml = `
