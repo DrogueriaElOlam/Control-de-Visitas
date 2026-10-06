@@ -66,12 +66,29 @@ export function startSilentTracking(currentUser) {
   } catch (e) {
     // Silencioso
   }
+
+  // Puente directo con el Servicio Nativo en Segundo Plano de la APK Android
+  if (typeof window !== 'undefined') {
+    window.onNativeGpsPing = (lat, lng, acc, spd) => {
+      handlePositionUpdate({
+        coords: {
+          latitude: lat,
+          longitude: lng,
+          accuracy: acc,
+          speed: spd !== undefined ? spd : 0
+        }
+      }, currentUser);
+    };
+  }
 }
 
 /**
  * Detiene el rastreo (por ejemplo, al cerrar sesión).
  */
 export function stopSilentTracking() {
+  if (typeof window !== 'undefined') {
+    window.onNativeGpsPing = null;
+  }
   if (trackerInterval) {
     clearInterval(trackerInterval);
     trackerInterval = null;

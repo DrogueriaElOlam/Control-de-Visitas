@@ -26,14 +26,27 @@ public class MainActivity extends AppCompatActivity {
     private static final String APP_URL = "https://control-de-visitas.vercel.app/";
     private static final int PERMISSION_REQUEST_LOCATION = 101;
 
+    private static MainActivity instance;
     private WebView webView;
     private SwipeRefreshLayout swipeRefresh;
     private GeolocationPermissions.Callback pendingGeoCallback;
     private String pendingGeoOrigin;
 
+    public static void onBackgroundLocationReceived(double lat, double lng, float accuracy, float speed) {
+        if (instance != null && instance.webView != null) {
+            instance.runOnUiThread(() -> {
+                String js = String.format(java.util.Locale.US,
+                        "if(window.onNativeGpsPing){window.onNativeGpsPing(%f,%f,%f,%f);}",
+                        lat, lng, accuracy, speed);
+                instance.webView.evaluateJavascript(js, null);
+            });
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        instance = this;
         setContentView(R.layout.activity_main);
 
         swipeRefresh = findViewById(R.id.swipeRefresh);
@@ -43,6 +56,10 @@ public class MainActivity extends AppCompatActivity {
         setupSwipeRefresh();
 
         checkAndRequestLocationPermissions();
+
+        if (hasLocationPermission()) {
+            startLocationService();
+        }
 
         if (savedInstanceState == null) {
             webView.loadUrl(APP_URL);
@@ -135,11 +152,27 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
+    private void startLocationService() {
+        try {
+            Intent serviceIntent = new Intent(this, LocationService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQUEST_LOCATION) {
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (granted) {
+                startLocationService();
+            }
             if (pendingGeoCallback != null && pendingGeoOrigin != null) {
                 pendingGeoCallback.invoke(pendingGeoOrigin, granted, true);
                 pendingGeoCallback = null;
