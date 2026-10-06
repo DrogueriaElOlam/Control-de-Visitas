@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { getDailyTrackingPoints, subscribeToLiveTracking } from '../lib/trackingDb';
 import { getLocalDateString, getLocalYesterdayString } from '../lib/dateUtils';
+import { DEFAULT_VENDORS } from '../lib/db';
 
 // Fix leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -150,19 +151,41 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
   const [playbackIndex, setPlaybackIndex] = useState(0);
   const playbackTimerRef = useRef(null);
 
+  // Lista unificada y completa de todos los vendedores de Droguería El Olam
+  const allVendorsList = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+
+    const addVendor = (id, name, route) => {
+      if (!name || typeof name !== 'string' || seen.has(name.trim())) return;
+      const cleanName = name.trim();
+      seen.add(cleanName);
+      list.push({ id: id || cleanName, name: cleanName, route: route || '' });
+    };
+
+    // 1. Vendedores provistos por BD/props
+    (vendors || []).forEach(v => addVendor(v.id, v.name, v.route));
+
+    // 2. Vendedores oficiales por defecto de Droguería El Olam
+    (DEFAULT_VENDORS || []).forEach(v => addVendor(v.id, v.name, v.route));
+
+    // 3. Vendedores con puntos de rastreo registrados
+    trackingPoints.forEach(p => addVendor(p.vendorId || p.vendorName, p.vendorName, p.route));
+
+    // 4. Vendedores con visitas registradas
+    visits.forEach(v => addVendor(v.vendorId || v.vendorName, v.vendorName, v.route || v.sector));
+
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [vendors, trackingPoints, visits]);
+
   // Mapa de color asignado a cada vendedor de forma determinista
   const vendorColors = useMemo(() => {
     const map = {};
-    const vendorNames = Array.from(new Set([
-      ...vendors.map(v => v.name),
-      ...trackingPoints.map(p => p.vendorName)
-    ])).filter(Boolean);
-
-    vendorNames.forEach((name, i) => {
-      map[name] = VENDOR_COLOR_PALETTE[i % VENDOR_COLOR_PALETTE.length];
+    allVendorsList.forEach((v, i) => {
+      map[v.name] = VENDOR_COLOR_PALETTE[i % VENDOR_COLOR_PALETTE.length];
     });
     return map;
-  }, [vendors, trackingPoints]);
+  }, [allVendorsList]);
 
   // 1. Cargar puntos de la fecha seleccionada (reinicio diario automático)
   const loadPointsForDate = async (dateToLoad) => {
@@ -604,7 +627,7 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
             <span>Todos los Vendedores ({activeVendorsToday.length})</span>
           </button>
 
-          {/* Dropdown de Vendedores Activos hoy */}
+          {/* Dropdown de Todos los Vendedores Oficiales */}
           <div className="flex items-center gap-1">
             <select
               value={selectedVendor}
@@ -613,17 +636,19 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
                 setIsPlaying(false);
                 setPlaybackIndex(0);
               }}
-              className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
             >
-              <option value="all">🌐 Vista Grupal General</option>
-              {activeVendorsToday.map(vName => (
-                <option key={vName} value={vName}>
-                  👤 {vName} ({pointsByVendor[vName]?.length || 0} pings)
-                </option>
-              ))}
-              {activeVendorsToday.length === 0 && (
-                <option disabled>Sin actividad registrada en esta fecha</option>
-              )}
+              <option value="all">🌐 Vista Grupal General (Todos los Vendedores)</option>
+              <optgroup label="─── Vendedores Droguería El Olam ───">
+                {allVendorsList.map(v => {
+                  const pingsCount = pointsByVendor[v.name]?.length || 0;
+                  return (
+                    <option key={v.name} value={v.name}>
+                      {pingsCount > 0 ? '🟢' : '⚪'} {v.name} {v.route ? `• ${v.route}` : ''} ({pingsCount > 0 ? `${pingsCount} pts hoy` : 'Sin señal'})
+                    </option>
+                  );
+                })}
+              </optgroup>
             </select>
           </div>
         </div>
@@ -676,6 +701,78 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
 
         </div>
 
+      </div>
+
+      {/* SECCIÓN DE VENDEDORES: DEBAJO DE VISTA GRUPAL GENERAL */}
+      <div className="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-md space-y-3">
+        {/* Fila 1: Botón Principal Vista Grupal General */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/60">
+          <button
+            onClick={() => {
+              setSelectedVendor('all');
+              setIsPlaying(false);
+            }}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2.5 shadow-md cursor-pointer ${
+              selectedVendor === 'all'
+                ? 'bg-blue-600 text-white shadow-blue-500/30 ring-4 ring-blue-400/30 scale-[1.02]'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600'
+            }`}
+          >
+            <Users size={16} />
+            <span className="text-sm">🌐 Vista Grupal General (Todos los Vendedores)</span>
+            <span className="ml-1 px-2 py-0.5 rounded-full text-xs bg-white/20 font-black">
+              {activeVendorsToday.length} con señal hoy
+            </span>
+          </button>
+
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+            {allVendorsList.length} vendedores en catálogo • Toca cualquiera abajo para aislar su recorrido:
+          </span>
+        </div>
+
+        {/* Fila 2: Lista Completa de Vendedores Directamente DEBAJO de Vista Grupal General */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 pt-1">
+          {allVendorsList.map(v => {
+            const pingsCount = pointsByVendor[v.name]?.length || 0;
+            const isSelected = selectedVendor === v.name;
+            const color = vendorColors[v.name] || '#2563EB';
+            const hasActivity = pingsCount > 0;
+
+            return (
+              <button
+                key={v.name}
+                onClick={() => {
+                  setSelectedVendor(v.name);
+                  setIsPlaying(false);
+                  setPlaybackIndex(0);
+                }}
+                className={`p-2.5 rounded-2xl text-left transition-all border flex flex-col justify-between gap-1 shadow-sm cursor-pointer ${
+                  isSelected
+                    ? 'bg-slate-900 dark:bg-blue-600 text-white border-slate-900 dark:border-blue-500 shadow-lg ring-2 ring-blue-400 scale-[1.02]'
+                    : 'bg-slate-50 dark:bg-slate-900/60 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="font-extrabold text-xs truncate">{v.name}</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] opacity-75 mt-0.5">
+                  <span className="truncate">{v.route ? v.route.replace(/#.*/, '').trim() : 'Ruta'}</span>
+                  {hasActivity ? (
+                    <span className="font-black text-emerald-600 dark:text-emerald-300">
+                      ● {pingsCount} pts
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">Sin señal</span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* PANEL DE MÉTRICAS DEL VENDEDOR SELECCIONADO (Si está en modo individual) */}

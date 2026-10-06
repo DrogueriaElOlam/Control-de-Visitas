@@ -36,7 +36,7 @@ const STORAGE_KEYS = {
 };
 
 // Initial default Droguería El Olam vendors
-const DEFAULT_VENDORS = [
+export const DEFAULT_VENDORS = [
   { id: 1, name: 'Antonio Celada', route: 'Quetzaltenango #11', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 2, name: 'Ana Lucia Marroquin', route: 'Salama #14', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 3, name: 'Jessica Noriega', route: 'Suchi I #21', active: true, hire_date: '2025-12-05', daily_goal: 15 },
