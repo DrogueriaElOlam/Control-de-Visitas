@@ -3,6 +3,13 @@ import { FileText, CreditCard, Plane, Briefcase, Receipt, Image, DollarSign, Pac
 export default function FormIndex({ onSelectForm }) {
   const forms = [
     {
+      id: 'supervision-central',
+      title: 'Panel Central de Supervisión',
+      description: 'Compromisos de venta diaria, alcance individual y grupal, registros y KPIs en vivo',
+      icon: Shield,
+      color: 'bg-purple-700 hover:bg-purple-800'
+    },
+    {
       id: 'supervision-diaria',
       title: 'Supervisión Diaria',
       description: 'Control diario de ventas, cobros y metas por equipo',

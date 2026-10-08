@@ -254,7 +254,7 @@ export default function FormulariosOlamModal({ isOpen, onClose, currentUser }) {
               {/* 0. Panel Central de Supervisión (Primero de todos) */}
               {activeForm === 'supervision-central' && (
                 <div className="animate-in fade-in duration-150">
-                  <CentralSupervisionView isEmbedded={true} />
+                  <CentralSupervisionView isEmbedded={true} onClose={onClose} />
                 </div>
               )}
 
