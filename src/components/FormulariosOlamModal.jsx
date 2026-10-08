@@ -10,11 +10,13 @@ import {
   UserCheck, 
   ExternalLink,
   ChevronRight,
-  Maximize2
+  Maximize2,
+  Shield
 } from 'lucide-react';
 import { isSuperUser } from '../lib/formsPermissions';
 
 // Formularios
+import { CentralSupervisionView } from './CentralSupervisionModal';
 import AperturaCodigoForm from './AperturaCodigoForm';
 import SolicitudViaticosForm from './SolicitudViaticosForm';
 import LiquidacionViaticosForm from './LiquidacionViaticosForm';
@@ -60,12 +62,21 @@ class FormsErrorBoundary extends React.Component {
 }
 
 export default function FormulariosOlamModal({ isOpen, onClose, currentUser }) {
-  const [activeForm, setActiveForm] = useState('apertura');
+  const [activeForm, setActiveForm] = useState('supervision-central');
   const isSuper = isSuperUser(currentUser);
 
   if (!isOpen) return null;
 
   const formsList = [
+    {
+      id: 'supervision-central',
+      name: 'Panel Central de Supervisión',
+      shortName: 'Panel Supervisión',
+      desc: 'Compromisos de venta diaria, metas, gráficas de ventas y cobros en vivo',
+      icon: Shield,
+      color: 'from-purple-700 to-indigo-700',
+      activeColor: 'bg-purple-700 text-white shadow-purple-500/30'
+    },
     {
       id: 'apertura',
       name: 'Apertura de Código',
@@ -240,6 +251,13 @@ export default function FormulariosOlamModal({ isOpen, onClose, currentUser }) {
 
             {/* Contenedor Protegido con Error Boundary */}
             <FormsErrorBoundary key={activeForm}>
+              {/* 0. Panel Central de Supervisión (Primero de todos) */}
+              {activeForm === 'supervision-central' && (
+                <div className="animate-in fade-in duration-150">
+                  <CentralSupervisionView isEmbedded={true} />
+                </div>
+              )}
+
               {/* 1. Apertura de Código */}
               {activeForm === 'apertura' && (
                 <div className="animate-in fade-in duration-150">

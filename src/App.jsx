@@ -15,6 +15,8 @@ import CashCollectionsModal from './components/CashCollectionsModal';
 import FormulariosOlamModal from './components/FormulariosOlamModal';
 import AdminClientDirectoryModal from './components/AdminClientDirectoryModal';
 import SupervisorLogoutModal from './components/SupervisorLogoutModal';
+import CentralSupervisionModal from './components/CentralSupervisionModal';
+import AjustesSistemaModal from './components/AjustesSistemaModal';
 
 import { 
   getSavedSession, 
@@ -39,6 +41,8 @@ export default function App() {
   const [showCashModal, setShowCashModal] = useState(false);
   const [showDirectoryModal, setShowDirectoryModal] = useState(false);
   const [showFormulariosModal, setShowFormulariosModal] = useState(false);
+  const [showSupervisionModal, setShowSupervisionModal] = useState(false);
+  const [showAjustesModal, setShowAjustesModal] = useState(false);
 
   const [vendors, setVendors] = useState([]);
   const [visits, setVisits] = useState([]);
@@ -243,6 +247,8 @@ export default function App() {
         onOpenCashModal={() => setShowCashModal(true)}
         onOpenDirectoryModal={() => setShowDirectoryModal(true)}
         onOpenFormulariosModal={() => setShowFormulariosModal(true)}
+        onOpenSupervisionModal={() => setShowSupervisionModal(true)}
+        onOpenAjustesModal={() => setShowAjustesModal(true)}
         onlineVendors={onlineVendors}
       />
 
@@ -260,6 +266,8 @@ export default function App() {
                 onLogout={handleLogout}
                 onOpenDirectoryModal={() => setShowDirectoryModal(true)}
                 onOpenFormulariosModal={() => setShowFormulariosModal(true)}
+                onOpenSupervisionModal={() => setShowSupervisionModal(true)}
+                onOpenAjustesModal={() => setShowAjustesModal(true)}
                 onlineVendors={onlineVendors}
               />
             )}
@@ -404,6 +412,18 @@ export default function App() {
         onClose={() => setShowLogoutSupervisorModal(false)}
         onConfirmLogout={executeLogout}
         vendorName={currentUser?.name}
+      />
+
+      {/* Modal Oficial: Panel Central de Supervisión (Compromisos, Ventas y Cobros) */}
+      <CentralSupervisionModal
+        isOpen={showSupervisionModal}
+        onClose={() => setShowSupervisionModal(false)}
+      />
+
+      {/* Modal: Ajustes del Sistema (Configuración de Vendedores, Equipos y Metas) */}
+      <AjustesSistemaModal
+        isOpen={showAjustesModal}
+        onClose={() => setShowAjustesModal(false)}
       />
 
       {/* Footer */}

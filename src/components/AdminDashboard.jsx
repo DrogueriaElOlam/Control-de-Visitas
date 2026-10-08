@@ -14,7 +14,9 @@ import {
   Award,
   LogOut,
   Building2,
-  FileText
+  FileText,
+  Shield,
+  Settings
 } from 'lucide-react';
 import { getLocalDateString, getLocalYesterdayString } from '../lib/dateUtils';
 
@@ -25,6 +27,8 @@ export default function AdminDashboard({
   onLogout,
   onOpenDirectoryModal,
   onOpenFormulariosModal,
+  onOpenSupervisionModal,
+  onOpenAjustesModal,
   onlineVendors = {}
 }) {
   const todayStr = getLocalDateString();

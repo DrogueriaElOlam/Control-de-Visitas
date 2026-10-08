@@ -15,7 +15,9 @@ import {
   FileText,
   Banknote,
   CheckCircle2,
-  Database
+  Database,
+  Shield,
+  Settings
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -30,6 +32,8 @@ export default function Navbar({
   onOpenCashModal,
   onOpenDirectoryModal,
   onOpenFormulariosModal,
+  onOpenSupervisionModal,
+  onOpenAjustesModal,
   onlineVendors = {}
 }) {
   const isAdmin = currentUser?.role === 'admin';

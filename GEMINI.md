@@ -14,7 +14,7 @@
 - **Regla de Auto-Actualización:** La IA debe actualizar esta sección en `GEMINI.md` cada vez que se culmine una tarea importante, se tome una decisión arquitectónica o cambie el rumbo del trabajo.
 
 ## 4. Bitácora Activa del Proyecto y Estado Actual
-- **Última Actualización:** 06 de Octubre de 2026.
+- **Última Actualización:** 07 de Octubre de 2026.
 - **Rama Git Actual:** `main` (sincronizada con GitHub: `https://github.com/DrogueriaElOlam/Control-de-Visitas.git`).
 - **Pila Tecnológica:** React + Vite, Supabase (`zqwjhmiavxhswgbgejzx.supabase.co`), Vercel, Tailwind / Vanilla CSS, APK Android para rastreo GPS en segundo plano.
 - **Últimos Avances Implementados:**
@@ -24,6 +24,7 @@
   4. **Autonomía del Administrador:** Confirmado que las operaciones de crear, editar, dar de baja o reactivar vendedores surten efecto inmediato directamente en Supabase sin necesidad de intervención manual de código.
   5. **Depuración y Puntos de Prueba Limpios:** Eliminadas visitas y recorridos de prueba de Josué Aguilar y Elio Caceros de Supabase; verificado protocolo de cierre de sesión en app móvil (`0l@m_2025$`) y limpieza de memoria en el dispositivo para transmisión satelital limpia al instalar en teléfonos definitivos.
   6. **Auto-Purga de Memoria Local y Resolución de 404:** Implementada limpieza automática al iniciar la app que erradica visitas y pings de prueba huérfanos de `localStorage`, sincronización estricta con Supabase que no revive datos eliminados de la nube, remoción de consultas a tablas inexistentes (eliminando el error 404) y botón interactivo 'Limpiar Pruebas' en la barra de control del mapa.
+  7. **Panel Central de Supervisión en Formularios:** Integrado el componente oficial 'Panel Central de Supervisión' (Compromisos de Venta Diaria de 11 vendedores con total acumulado Q17,773,042.50, Gráfica General de Ventas y Gráfica General de Cobros, pestañas de KPIs y Registros, y exportación HTML) ubicado de primero en el módulo oficial de Formularios de Droguería El Olam, y retirado del panel de control general para mantener la interfaz limpia.
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
   - Mantener la bitácora viva para que la IA retome exactamente en el punto donde se suspendió la sesión previa.
