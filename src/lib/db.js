@@ -37,7 +37,7 @@ export {
 const STORAGE_KEYS = {
   VENDORS: 'olam_vendors_db_v3',
   VISITS: 'olam_visits_db_v2',
-  AUTH: 'olam_current_auth_v2',
+  AUTH: 'olam_current_auth_v4_forced_logout',
   VENDOR_CREDS: 'olam_vendor_credentials_v3',
   ADMIN_PASS: 'olam_admin_password_v2',
   CONFIG_UUID: 'a0000000-0000-0000-0000-000000000001',
@@ -1061,22 +1061,44 @@ export async function updateVisitSalesAndCollections(visitId, updates) {
   return updatedVisit;
 }
 
-// AUTH MANAGEMENT
+// AUTH MANAGEMENT - REVOCACIÓN GLOBAL DE SESIONES ACTIVAS
+export const GLOBAL_REVOCATION_VERSION = 'olam_sec_v4_20261008';
+
 export function getSavedSession() {
   try {
+    // Purgar y anular inmediatamente cualquier sesión anterior
+    localStorage.removeItem('olam_current_auth_v2');
+    localStorage.removeItem('drogueriaElOlamAuthSession_v129');
+    localStorage.removeItem('olam_current_auth_v3');
+
     const raw = localStorage.getItem(STORAGE_KEYS.AUTH);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.securityVersion !== GLOBAL_REVOCATION_VERSION) {
+      // Sesión de versión anterior: expulsar de inmediato
+      localStorage.removeItem(STORAGE_KEYS.AUTH);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
 }
 
 export function saveSession(session) {
-  localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(session));
+  const secureSession = {
+    ...session,
+    securityVersion: GLOBAL_REVOCATION_VERSION,
+    sessionTimestamp: new Date().toISOString()
+  };
+  localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(secureSession));
 }
 
 export function clearSession() {
   localStorage.removeItem(STORAGE_KEYS.AUTH);
+  localStorage.removeItem('olam_current_auth_v2');
+  localStorage.removeItem('drogueriaElOlamAuthSession_v129');
 }
 
 // Authenticate user with Secure Hashing & One-Time Keys (OTP)

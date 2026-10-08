@@ -23,7 +23,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String APP_URL = "https://control-de-visitas.vercel.app/";
+    private static final String APP_URL = "https://control-de-visitas-pi.vercel.app/";
     private static final int PERMISSION_REQUEST_LOCATION = 101;
 
     private static MainActivity instance;

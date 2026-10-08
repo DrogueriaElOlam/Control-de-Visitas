@@ -57,6 +57,8 @@ export default function App() {
     if (saved) {
       setCurrentUser(saved);
       setActiveTab(saved.role === 'admin' ? 'dashboard' : 'register');
+    } else {
+      setCurrentUser(null);
     }
 
     const savedTheme = localStorage.getItem('olam_theme');
