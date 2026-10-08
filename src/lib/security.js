@@ -5,10 +5,12 @@
  */
 
 import initialOtpKeys from './initialOtpKeys.json';
+import initialLogoutOtpKeys from './initialLogoutOtpKeys.json';
 import { getLocalDateString } from './dateUtils';
 import { supabase } from './supabase';
 
 const OTP_STORAGE_KEY = 'olam_otp_keys_vault_v2';
+const LOGOUT_OTP_STORAGE_KEY = 'olam_logout_otp_keys_vault_v2';
 const APP_SALT = 'olam_sec_salt_2026_@dmin_v!sit@s';
 
 /**
@@ -242,6 +244,124 @@ export function verifyAndConsumeOtpKey(inputKey, userContext = {}) {
  */
 export function getOtpKeysStats() {
   const vault = getOtpKeysVault();
+  const total = vault.length;
+  const used = vault.filter((k) => k.used).length;
+  const available = total - used;
+  return {
+    total,
+    used,
+    available,
+    percentageAvailable: total > 0 ? Math.round((available / total) * 100) : 0
+  };
+}
+
+/**
+ * Gestión de la Bóveda de 50 Claves de Un Solo Toque para Cierre de Sesión (Logout OTP)
+ */
+export function getLogoutOtpKeysVault() {
+  try {
+    const raw = localStorage.getItem(LOGOUT_OTP_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Error al leer bóveda de claves OTP de cierre de sesión:', e);
+  }
+
+  // Si no existe, inicializar con las 50 claves de cierre de sesión generadas
+  const initial = initialLogoutOtpKeys.map((item) => ({
+    ...item,
+    hash: hashPassword(item.key)
+  }));
+  saveLogoutOtpKeysVault(initial);
+  return initial;
+}
+
+export function saveLogoutOtpKeysVault(vault) {
+  try {
+    localStorage.setItem(LOGOUT_OTP_STORAGE_KEY, JSON.stringify(vault));
+  } catch (e) {
+    console.error('Error al guardar bóveda de claves OTP de cierre de sesión:', e);
+  }
+}
+
+/**
+ * Detecta si una cadena tiene el formato de clave de cierre de sesión: "OLAM-OUT-XXXX-XXXX"
+ */
+export function isLogoutOtpKeyFormat(str) {
+  if (!str || typeof str !== 'string') return false;
+  const clean = str.trim().toUpperCase();
+  return /^OLAM-OUT-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(clean);
+}
+
+/**
+ * Verifica y quema (invalida) una clave de un solo toque exclusiva para cierre de sesión.
+ */
+export function verifyAndConsumeLogoutOtpKey(inputKey, userContext = {}) {
+  if (!inputKey || typeof inputKey !== 'string') {
+    return { valid: false, message: 'Clave de cierre no proporcionada' };
+  }
+
+  const cleanKey = inputKey.trim().toUpperCase();
+  const vault = getLogoutOtpKeysVault();
+
+  const keyIndex = vault.findIndex(
+    (item) => item.key.toUpperCase() === cleanKey
+  );
+
+  if (keyIndex === -1) {
+    return {
+      valid: false,
+      isOtp: false,
+      message: 'Clave de cierre de sesión no encontrada en la base de datos de claves autorizadas.'
+    };
+  }
+
+  const targetKey = vault[keyIndex];
+
+  // 1. Si la clave YA fue consumida previamente: RECHAZAR y advertir
+  if (targetKey.used) {
+    const usedDate = targetKey.usedAt || 'fecha anterior';
+    const usedBy = targetKey.usedBy || 'otro usuario';
+    return {
+      valid: false,
+      isOtp: true,
+      alreadyUsed: true,
+      message: `⛔ ACCESO DENEGADO: Esta clave de cierre de sesión (${targetKey.key}) ya fue utilizada el ${usedDate} para autorizar la salida de "${usedBy}" y fue invalidada permanentemente.`
+    };
+  }
+
+  // 2. La clave está DISPONIBLE: MARCARLA COMO CONSUMIDA INMEDIATAMENTE
+  const now = new Date();
+  const dateStr = getLocalDateString(now);
+  const timeStr = now.toLocaleTimeString('es-GT', { hour12: false });
+  const consumedTimestamp = `${dateStr} ${timeStr}`;
+
+  targetKey.used = true;
+  targetKey.usedAt = consumedTimestamp;
+  targetKey.usedBy = userContext.name || userContext.username || 'Vendedor en Campo';
+  targetKey.usedRole = 'supervisor_logout';
+
+  vault[keyIndex] = targetKey;
+  saveLogoutOtpKeysVault(vault);
+
+  return {
+    valid: true,
+    isOtp: true,
+    consumed: true,
+    keyData: targetKey,
+    message: `✅ Clave de cierre de sesión autorizada con éxito. Ha sido invalidada de forma permanente.`
+  };
+}
+
+/**
+ * Resumen de estadísticas de las 50 claves de cierre de sesión
+ */
+export function getLogoutOtpKeysStats() {
+  const vault = getLogoutOtpKeysVault();
   const total = vault.length;
   const used = vault.filter((k) => k.used).length;
   const available = total - used;

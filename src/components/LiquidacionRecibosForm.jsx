@@ -12,7 +12,7 @@ const MIN_ROWS = 15;
 
 const EJECUTIVOS = [
   'Ana Lucia Marroquin',
-  'Dany Peres',
+  'Danny Perez',
   'Elio Caceros',
   'Elias Quiej',
   'Erick Curley',

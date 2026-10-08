@@ -11,7 +11,7 @@ const targetVendors = [
   'Erick Curley',
   'Estuardo Cordova',
   'Karina Pineda',
-  'Dany Peres',
+  'Danny Perez',
   'Klissman Hernandez',
   'Elio Caceros',
   'Josue Aguilar',

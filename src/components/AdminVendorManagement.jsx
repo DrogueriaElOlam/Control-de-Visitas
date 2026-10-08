@@ -23,7 +23,8 @@ import {
   Copy,
   FileSpreadsheet,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  LogOut
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -37,6 +38,8 @@ import {
   setAdminPassword,
   getOtpKeysVault,
   getOtpKeysStats,
+  getLogoutOtpKeysVault,
+  getLogoutOtpKeysStats,
   verifyPassword,
   ALL_ROUTES 
 } from '../lib/db';
@@ -60,6 +63,14 @@ export default function AdminVendorManagement({
   const [otpSearch, setOtpSearch] = useState('');
   const [otpFilter, setOtpFilter] = useState('all'); // all, available, used
   const [copiedKey, setCopiedKey] = useState('');
+
+  // Claves de Cierre de Sesión (Logout OTP)
+  const [showLogoutOtpModal, setShowLogoutOtpModal] = useState(false);
+  const [logoutOtpKeysList, setLogoutOtpKeysList] = useState([]);
+  const [logoutOtpSearch, setLogoutOtpSearch] = useState('');
+  const [logoutOtpFilter, setLogoutOtpFilter] = useState('all'); // all, available, used
+  const [copiedLogoutKey, setCopiedLogoutKey] = useState('');
+
   const [selectedVendor, setSelectedVendor] = useState(null);
 
   // New vendor form
@@ -144,6 +155,46 @@ export default function AdminVendorManagement({
       XLSX.utils.book_append_sheet(wb, ws, 'Claves 2.0');
       XLSX.writeFile(wb, 'claves 2.0.xlsx');
       showNotification('Archivo "claves 2.0.xlsx" generado y descargado.');
+    }
+  };
+
+  const handleCopyLogoutKey = (key) => {
+    navigator.clipboard.writeText(key);
+    setCopiedLogoutKey(key);
+    setTimeout(() => setCopiedLogoutKey(''), 2500);
+    showNotification(`Clave de cierre "${key}" copiada al portapapeles.`);
+  };
+
+  const handleDownloadExcelLogoutClaves = () => {
+    try {
+      const vault = getLogoutOtpKeysVault();
+      const rows = vault.map(k => ({
+        'No.': k.id,
+        'Clave de Cierre de Sesión (OTP)': k.key,
+        'Tipo': 'Autorización de Salida en Dispositivo (1 Solo Uso)',
+        'Estado': k.used ? 'QUEMADA / USADA' : 'DISPONIBLE',
+        'Consumida Por': k.usedBy || '-',
+        'Fecha de Uso': k.usedAt || '-',
+        'Instrucciones': 'Válida exactamente para 1 autorización de salida en teléfono o dispositivo. Al autorizar la salida queda invalidada automáticamente de forma permanente.'
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 8 },
+        { wch: 30 },
+        { wch: 38 },
+        { wch: 22 },
+        { wch: 26 },
+        { wch: 24 },
+        { wch: 90 }
+      ];
+      XLSX.utils.book_append_sheet(wb, ws, 'Claves Cierre Sesión');
+      XLSX.writeFile(wb, 'claves cierre sesion 2.0.xlsx');
+      showNotification('Archivo "claves cierre sesion 2.0.xlsx" generado y descargado.');
+    } catch (e) {
+      console.error(e);
+      showNotification('Error al generar Excel de claves de cierre', true);
     }
   };
 
@@ -348,11 +399,28 @@ export default function AdminVendorManagement({
               setOtpKeysList(getOtpKeysVault());
               setShowOtpModal(true);
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-bold text-xs sm:text-sm transition-all shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-bold text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
+            title="50 claves de un solo toque para inicio de sesión de vendedores o administradores"
           >
             <Key size={16} className="text-amber-500" />
             <span>Claves 2.0 (OTP)</span>
             <span className="bg-amber-500 text-white text-[11px] px-1.5 py-0.5 rounded-full font-bold ml-1">
+              50
+            </span>
+          </button>
+
+          {/* Botón Bóveda Claves Cierre Sesión (OTP) */}
+          <button
+            onClick={() => {
+              setLogoutOtpKeysList(getLogoutOtpKeysVault());
+              setShowLogoutOtpModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
+            title="50 contraseñas de un toque para autorizar el cierre de sesión en dispositivos"
+          >
+            <LogOut size={16} className="text-rose-500" />
+            <span>Claves Cierre Sesión (OTP)</span>
+            <span className="bg-rose-500 text-white text-[11px] px-1.5 py-0.5 rounded-full font-bold ml-1">
               50
             </span>
           </button>
@@ -824,15 +892,18 @@ export default function AdminVendorManagement({
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-700 dark:text-slate-300 mb-1">
-                  Nueva Contraseña de Acceso
+                  Nueva Contraseña de Acceso (Opcional)
                 </label>
                 <input
                   type="text"
+                  placeholder="Dejar en blanco para conservar actual, o escribir nueva clave..."
                   value={editFormData.password}
                   onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-mono font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
-                  required
                 />
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  💡 Al asignar una nueva contraseña, se cifrará y sincronizará en la nube de Supabase para aplicarse de inmediato en el teléfono del vendedor.
+                </p>
               </div>
 
               <div>
@@ -1174,6 +1245,217 @@ export default function AdminVendorManagement({
                 type="button"
                 onClick={() => setShowOtpModal(false)}
                 className="w-full sm:w-auto px-5 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl text-xs hover:opacity-90 transition-opacity"
+              >
+                Cerrar Bóveda
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* BÓVEDA DE CLAVES DE CIERRE DE SESIÓN (LOGOUT OTP) MODAL */}
+      {showLogoutOtpModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 sm:p-7 w-full max-w-4xl shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-[92vh]">
+            
+            {/* Modal Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-2xl border border-rose-500/20">
+                  <LogOut size={26} />
+                </div>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Bóveda de Claves de Cierre de Sesión (OTP)</span>
+                    <span className="text-[11px] bg-rose-600 text-white font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      Cierre Sesión / 1 Uso
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    50 claves de un solo toque para autorizar salida o cierre de sesión en teléfonos y dispositivos. Al usarse quedan <strong>quemadas/invalidadas</strong> permanentemente.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={handleDownloadExcelLogoutClaves}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-lg shadow-rose-600/20 transition-all cursor-pointer"
+                  title="Descargar archivo Excel oficial de claves de cierre de sesión"
+                >
+                  <FileSpreadsheet size={16} />
+                  <span>Descargar "claves cierre sesion 2.0.xlsx"</span>
+                  <Download size={14} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutOtpModal(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* KPI Cards for Logout OTP Vault */}
+            {(() => {
+              const stats = getLogoutOtpKeysStats();
+              return (
+                <div className="grid grid-cols-3 gap-3 my-4">
+                  <div className="bg-slate-50 dark:bg-slate-900/60 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Generadas</span>
+                    <div className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{stats.total}</div>
+                  </div>
+                  <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-3 sm:p-4 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/60">
+                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Disponibles</span>
+                    <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{stats.available}</div>
+                  </div>
+                  <div className="bg-rose-50/60 dark:bg-rose-950/30 p-3 sm:p-4 rounded-2xl border border-rose-200/60 dark:border-rose-800/60">
+                    <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Quemadas / Usadas</span>
+                    <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-0.5">{stats.used}</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Filters & Search */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-3">
+              <div className="relative w-full sm:w-72">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar clave de cierre..."
+                  value={logoutOtpSearch}
+                  onChange={(e) => setLogoutOtpSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 self-end sm:self-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setLogoutOtpFilter('all')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    logoutOtpFilter === 'all' ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  Todas (50)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLogoutOtpFilter('available')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    logoutOtpFilter === 'available' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  Disponibles
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLogoutOtpFilter('used')}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    logoutOtpFilter === 'used' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  Quemadas
+                </button>
+              </div>
+            </div>
+
+            {/* Keys Table Container */}
+            <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+              <table className="w-full text-left text-xs sm:text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800/80 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-slate-500 uppercase tracking-wider text-[11px] font-bold">
+                  <tr>
+                    <th className="py-2.5 px-3">No.</th>
+                    <th className="py-2.5 px-3">Clave de Cierre (OTP)</th>
+                    <th className="py-2.5 px-3">Estado</th>
+                    <th className="py-2.5 px-3">Consumida Por</th>
+                    <th className="py-2.5 px-3">Fecha de Uso</th>
+                    <th className="py-2.5 px-3 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                  {logoutOtpKeysList
+                    .filter((item) => {
+                      if (logoutOtpFilter === 'available') return !item.used;
+                      if (logoutOtpFilter === 'used') return item.used;
+                      return true;
+                    })
+                    .filter((item) => {
+                      if (!logoutOtpSearch.trim()) return true;
+                      const q = logoutOtpSearch.toLowerCase();
+                      return (
+                        item.key.toLowerCase().includes(q) ||
+                        (item.usedBy && item.usedBy.toLowerCase().includes(q))
+                      );
+                    })
+                    .map((item) => (
+                      <tr 
+                        key={item.id} 
+                        className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${
+                          item.used ? 'opacity-50 bg-slate-50/50 dark:bg-slate-900/30' : ''
+                        }`}
+                      >
+                        <td className="py-2 px-3 text-slate-400 font-bold">{item.id}</td>
+                        <td className="py-2 px-3 font-mono font-black text-rose-700 dark:text-rose-400 tracking-wider">
+                          {item.key}
+                        </td>
+                        <td className="py-2 px-3">
+                          {item.used ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                              QUEMADA
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                              DISPONIBLE
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
+                          {item.usedBy || '-'}
+                        </td>
+                        <td className="py-2 px-3 text-slate-400 text-xs">
+                          {item.usedAt || '-'}
+                        </td>
+                        <td className="py-2 px-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLogoutKey(item.key)}
+                            disabled={item.used}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              copiedLogoutKey === item.key
+                                ? 'bg-emerald-600 text-white'
+                                : item.used
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                                : 'bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                            }`}
+                          >
+                            <Copy size={12} />
+                            <span>{copiedLogoutKey === item.key ? 'Copiada' : 'Copiar'}</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Footer / Instructions */}
+            <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={16} className="text-rose-600 shrink-0" />
+                <span>
+                  Protección de salida: cada clave permite exactamente una autorización de cierre de sesión en campo y se invalida para siempre.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLogoutOtpModal(false)}
+                className="w-full sm:w-auto px-5 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl text-xs hover:opacity-90 transition-opacity cursor-pointer"
               >
                 Cerrar Bóveda
               </button>

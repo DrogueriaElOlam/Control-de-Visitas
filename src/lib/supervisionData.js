@@ -4,7 +4,7 @@ import { normalizeVendorName, getVisitsList } from './db.js';
 
 // Lista de los 11 vendedores oficiales canónicos de Droguería El Olam
 export const OFFICIAL_VENDORS = [
-  { id: 1, name: 'Danny Pérez', canonicalName: 'Dany Peres', defaultCompromiso: 2040500.00, route: 'Coatepeque #24' },
+  { id: 1, name: 'Danny Pérez', canonicalName: 'Danny Perez', defaultCompromiso: 2040500.00, route: 'Coatepeque #24' },
   { id: 2, name: 'Jessica Noriega', canonicalName: 'Jessica Noriega', defaultCompromiso: 2012001.00, route: 'Suchi I #21' },
   { id: 3, name: 'Wally Natareno', canonicalName: 'Wally Natareno', defaultCompromiso: 1988000.00, route: 'Peten I #73' },
   { id: 4, name: 'Ana Lucía Marroquín', canonicalName: 'Ana Lucia Marroquin', defaultCompromiso: 1968000.00, route: 'Escuintla I #A1' },

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ShieldAlert, Lock, Eye, EyeOff, AlertCircle, X, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Lock, Eye, EyeOff, AlertCircle, X, CheckCircle2, KeyRound } from 'lucide-react';
+import { verifyAndConsumeLogoutOtpKey, isLogoutOtpKeyFormat } from '../lib/security';
 
 const SUPERVISOR_LOGOUT_PASSWORD = '0l@m_2025$';
 
@@ -12,12 +13,29 @@ export default function SupervisorLogoutModal({ isOpen, onClose, onConfirmLogout
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (password === SUPERVISOR_LOGOUT_PASSWORD) {
+    const clean = password.trim();
+
+    // 1. Clave de un solo toque para cierre de sesión (OLAM-OUT-XXXX-XXXX)
+    if (isLogoutOtpKeyFormat(clean)) {
+      const otpRes = verifyAndConsumeLogoutOtpKey(clean, { name: vendorName, role: 'supervisor_logout' });
+      if (otpRes.valid) {
+        setErrorMsg('');
+        setPassword('');
+        onConfirmLogout();
+        return;
+      } else {
+        setErrorMsg(otpRes.message);
+        return;
+      }
+    }
+
+    // 2. Contraseña fija de supervisor
+    if (clean === SUPERVISOR_LOGOUT_PASSWORD) {
       setErrorMsg('');
       setPassword('');
       onConfirmLogout();
     } else {
-      setErrorMsg('Contraseña incorrecta. Se requiere autorización de un supervisor para cerrar la sesión durante la jornada.');
+      setErrorMsg('Contraseña o clave de un solo toque incorrecta. Se requiere autorización de un supervisor para cerrar la sesión.');
     }
   };
 
@@ -68,7 +86,7 @@ export default function SupervisorLogoutModal({ isOpen, onClose, onConfirmLogout
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-              Contraseña de Autorización:
+              Contraseña de Supervisor o Clave de Cierre (OTP):
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -82,7 +100,7 @@ export default function SupervisorLogoutModal({ isOpen, onClose, onConfirmLogout
                   setPassword(e.target.value);
                   if (errorMsg) setErrorMsg('');
                 }}
-                placeholder="Ingrese contraseña de supervisor..."
+                placeholder="Contraseña o clave OLAM-OUT-XXXX-XXXX..."
                 className="w-full pl-9 pr-10 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
               />
               <button

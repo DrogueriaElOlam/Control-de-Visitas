@@ -8,6 +8,11 @@ import {
   verifyAndConsumeOtpKey, 
   isOtpKeyFormat, 
   getOtpKeysStats,
+  getLogoutOtpKeysVault,
+  saveLogoutOtpKeysVault,
+  verifyAndConsumeLogoutOtpKey,
+  isLogoutOtpKeyFormat,
+  getLogoutOtpKeysStats,
   DEFAULT_VENDOR_HASH
 } from './security.js';
 
@@ -21,7 +26,12 @@ export {
   saveOtpKeysVault,
   verifyAndConsumeOtpKey,
   isOtpKeyFormat,
-  getOtpKeysStats
+  getOtpKeysStats,
+  getLogoutOtpKeysVault,
+  saveLogoutOtpKeysVault,
+  verifyAndConsumeLogoutOtpKey,
+  isLogoutOtpKeyFormat,
+  getLogoutOtpKeysStats
 };
 
 const STORAGE_KEYS = {
@@ -44,7 +54,7 @@ export const DEFAULT_VENDORS = [
   { id: 5, name: 'Erick Curley', route: 'Jutiapa I #41', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 6, name: 'Estuardo Cordova', route: 'San Marcos Montaña Alta #51', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 7, name: 'Karina Pineda', route: 'Chiquimula I #61', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 8, name: 'Dany Peres', route: 'Huehuetenango Montaña Baja I #71', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 8, name: 'Danny Perez', route: 'Huehuetenango Montaña Baja I #71', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 9, name: 'Klissman Hernandez', route: 'Polochic #81', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 10, name: 'Elio Caceros', route: 'Petapa #91', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 11, name: 'Josue Aguilar', route: 'Escuintla I #A1', active: true, hire_date: '2025-12-05', daily_goal: 15 },
@@ -53,7 +63,7 @@ export const DEFAULT_VENDORS = [
 
 /**
  * Normaliza y unifica de manera canónica los nombres de vendedores para evitar duplicados
- * provocados por tildes, variaciones ortográficas (ej: Peres / Perez) o espacios extras.
+ * provocados por tildes, variaciones ortográficas (ej: Peres / Perez / Dany / Danny) o espacios extras.
  */
 export function normalizeVendorName(name) {
   if (!name || typeof name !== 'string') return '';
@@ -66,8 +76,8 @@ export function normalizeVendorName(name) {
   if (simple === 'ana lucia marroquin' || (simple.includes('ana lucia') && simple.includes('marroquin'))) {
     return 'Ana Lucia Marroquin';
   }
-  if (simple === 'dany peres' || simple === 'dany perez' || (simple.includes('dany') && (simple.includes('peres') || simple.includes('perez')))) {
-    return 'Dany Peres';
+  if (simple === 'dany peres' || simple === 'dany perez' || simple === 'danny peres' || simple === 'danny perez' || ((simple.includes('dany') || simple.includes('danny')) && (simple.includes('peres') || simple.includes('perez')))) {
+    return 'Danny Perez';
   }
   return clean;
 }
@@ -282,6 +292,14 @@ export async function getVendorsList() {
         const canonicalName = normalizeVendorName(v.name);
         const c = creds[v.id] || {};
         const localMatch = local.find((l) => normalizeVendorName(l.name) === canonicalName || l.id === v.id);
+        
+        // Prioridad de contraseña:
+        // 1) Hash guardado en la nube en Supabase (columna last_name)
+        // 2) Hash almacenado en credenciales locales
+        // 3) Hash por defecto
+        const cloudPasswordHash = (v.last_name && v.last_name.length === 64) ? v.last_name : null;
+        const effectivePassword = cloudPasswordHash || (c.password ? (c.password.length === 64 ? c.password : hashPassword(c.password)) : DEFAULT_VENDOR_HASH);
+
         return {
           id: v.id,
           name: canonicalName,
@@ -292,7 +310,7 @@ export async function getVendorsList() {
           route: c.route || localMatch?.route || DEFAULT_VENDORS.find((d) => d.name === canonicalName)?.route || 'Ruta General',
           daily_goal: c.daily_goal || localMatch?.daily_goal || 15,
           username: c.username || generateUsername(canonicalName),
-          password: c.password ? (c.password.length === 64 ? c.password : hashPassword(c.password)) : DEFAULT_VENDOR_HASH,
+          password: effectivePassword,
           phone: c.phone || localMatch?.phone || ''
         };
       });
@@ -352,10 +370,11 @@ export async function createVendor({ name, username, password, route, daily_goal
 
   // Try creating in Supabase
   let createdSupabaseId = null;
+  const hash = password ? hashPassword(password) : DEFAULT_VENDOR_HASH;
   try {
     const { data, error } = await supabase
       .from('vendors')
-      .insert([{ name, active: true }])
+      .insert([{ name, active: true, last_name: hash }])
       .select();
     if (!error && data && data[0]?.id) {
       createdSupabaseId = data[0].id;
@@ -509,12 +528,17 @@ export async function updateVendorCredentials(vendorId, { password, route, daily
   };
   saveStoredCredentials(creds);
 
-  if (name) {
-    try {
-      await supabase.from('vendors').update({ name }).eq('id', vendorId);
-    } catch (e) {
-      console.warn('Supabase update name fallback:', e);
+  // Sincronizar nombre y contraseña cifrada directamente en Supabase para que aplique en cualquier dispositivo
+  try {
+    const patchPayload = {};
+    if (name) patchPayload.name = name;
+    if (hashedPassword) patchPayload.last_name = hashedPassword;
+
+    if (Object.keys(patchPayload).length > 0) {
+      await supabase.from('vendors').update(patchPayload).eq('id', vendorId);
     }
+  } catch (e) {
+    console.warn('Supabase update vendor credentials fallback:', e);
   }
 
   return updated;

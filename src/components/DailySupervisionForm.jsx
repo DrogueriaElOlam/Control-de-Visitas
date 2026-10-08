@@ -18,7 +18,7 @@ import { verifyPassword } from '../lib/security';
 
 const DEFAULT_VENDEDORES = [
   'Ana Lucia Marroquin',
-  'Dany Peres',
+  'Danny Perez',
   'Elias Quiej',
   'Elio Caceros',
   'Erick Curley',
@@ -32,7 +32,7 @@ const DEFAULT_VENDEDORES = [
 
 const DEFAULT_EQUIPOS = [
   { id: 1, name: 'Equipo 1', meta: 61842, members: ['Elias Quiej', 'Elba Guerra', 'Elio Caceros'] },
-  { id: 2, name: 'Equipo 2', meta: 56579, members: ['Karina Pineda', 'Dany Peres', 'Katherine Cardona'] },
+  { id: 2, name: 'Equipo 2', meta: 56579, members: ['Karina Pineda', 'Danny Perez', 'Katherine Cardona'] },
   { id: 3, name: 'Equipo 3', meta: 59211, members: ['Ana Lucia Marroquin', 'Klissman Hernandez', 'Patty Mendez'] },
   { id: 4, name: 'Equipo 4', meta: 59211, members: ['Damaris Cartagena', 'Erick Curley', 'Estuardo Cordova', 'Josue Aguilar'] },
   { id: 5, name: 'Equipo 5', meta: 59211, members: ['Wally Natareno', 'Yosmin Perez', 'Jessica Noriega'] }

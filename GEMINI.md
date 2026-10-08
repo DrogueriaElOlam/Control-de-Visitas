@@ -1,4 +1,4 @@
-﻿# Instrucciones del Proyecto Droguería El Olam
+# Instrucciones del Proyecto Droguería El Olam
 
 ## 1. Idioma Obligatorio
 - **Todas las comunicaciones, respuestas, explicaciones y preguntas interactivas (incluyendo las ventanas modales de selección múltiple o confirmación) deben ser formuladas 100% en español.**
@@ -48,6 +48,11 @@
       - **Regla de Negocio de Droguería El Olam:** Se estableció que el único identificador irrepetible en toda la base de datos es el **Código de Cliente**. Farmacias con el mismo nombre comercial (ej. 'Farmacia La Bendición') pero con diferente código son clientes totalmente independientes y válidos.
       - **Indexación Blindada por Código:** Se corrigió etchPharmacyDirectory, deduplicateClientsList, saveClientRecord y updateClientInDirectory para que las claves de los registros se basen exclusivamente en el código (code:xxx) y no colisionen por nombre.
       - **Carga Masiva y Filtros Sin Pérdidas:** Al subir plantillas de Excel, el sistema no fusiona farmacias con el mismo nombre si sus códigos son diferentes; se cargan y conservan todas en el directorio maestro. La detección de duplicados opera estrictamente sobre el código de cliente.
+  18. **Corrección de Nombre Danny Perez, Sincronización en la Nube de Contraseñas y 50 Claves OTP de Cierre de Sesión:**
+      - **Normalización Canónica a Danny Perez:** Actualizado de 'Dany Peres' a 'Danny Perez' en la base de datos oficial de Supabase (`vendors` id: 8), en `DEFAULT_VENDORS`, en la función `normalizeVendorName()`, y en los formularios de supervisión, apertura de código, liquidación de recibos y viáticos.
+      - **Persistencia y Aplicación Real de Contraseñas de Vendedores:** Identificada la causa por la cual las contraseñas asignadas no surtían efecto: la tabla `vendors` en Supabase no persistía el hash de la clave, por lo que los teléfonos móviles de los vendedores recurrían a la clave por defecto al consultar la nube. Se resolvió almacenando el hash SHA-256 en la nube (columna `last_name` de `vendors`), asegurando que cualquier cambio de contraseña hecho por el administrador se aplique inmediatamente en cualquier dispositivo móvil o navegador.
+      - **Bóveda de 50 Claves de Un Solo Toque para Cierre de Sesión (Logout OTP):** Generadas 50 claves exclusivas de salida con formato `OLAM-OUT-XXXX-XXXX`. Se agregó el botón interactivo **'Claves Cierre Sesión (OTP)'** a la par de **'Claves 2.0 (OTP)'** en el panel de administración, con modal dedicado, filtros de disponibles/quemadas, trazabilidad (quién la usó y cuándo) y exportación a Excel (`claves cierre sesion 2.0.xlsx`).
+      - **Autorización Directa en Modal de Salida:** `SupervisorLogoutModal` ahora valida y quema inmediatamente cualquier clave `OLAM-OUT-...`, garantizando que cada clave solo pueda ser utilizada una única vez para cerrar sesión en campo.
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
   - Mantener la bitácora viva para que la IA retome exactamente en el punto donde se suspendió la sesión previa.

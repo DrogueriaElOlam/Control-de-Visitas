@@ -59,7 +59,7 @@ export default function SolicitudViaticosForm({ currentUser }) {
     return [
       'Ana Lucia Marroquin',
       'Antonio Celada',
-      'Dany Peres',
+      'Danny Perez',
       'Elias Quiej',
       'Elio Caceros',
       'Erick Curley',

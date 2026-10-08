@@ -41,7 +41,7 @@ export default function SupervisionForm() {
   const [vendedores, setVendedores] = useState([
     'Ana Lucia Marroquin',
     'Antonio Celada',
-    'Dany Peres',
+    'Danny Perez',
     'Elias Quiej',
     'Elio Caceros',
     'Erick Curley',

@@ -1,0 +1,452 @@
+﻿[
+    {
+        "id":  1,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-ANTA-2GWC",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  2,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-6U4B-SNXD",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  3,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-BFGF-P8M5",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  4,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-RDJV-GLCF",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  5,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-G6Q3-5F8B",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  6,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-SKLZ-AQ3D",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  7,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-T9HN-LPSC",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  8,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-AYTW-7B6T",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  9,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-RW4W-75H5",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  10,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-HFXE-WW5B",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  11,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-KFCG-DY53",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  12,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-MN3F-WKER",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  13,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-N2HM-VFFX",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  14,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-ZMFF-2NQM",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  15,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-5RLZ-9XQ3",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  16,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-3BJT-BCH7",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  17,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-AGZ5-NSPE",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  18,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-ANQ2-SXB9",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  19,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-8PLE-9NRZ",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  20,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-LPTT-7VVX",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  21,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-EJET-WU8M",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  22,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-CGYU-HXKD",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  23,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-AKVW-2C7V",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  24,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-YAT9-86HP",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  25,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-23WJ-SRLM",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  26,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-Q9C2-X6SW",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  27,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-EQSV-A96B",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  28,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-LT5V-A9PF",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  29,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-9K4P-BBUT",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  30,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-8HF3-9F73",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  31,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-S64R-MVN3",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  32,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-6U79-VZMQ",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  33,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-U63N-CCVD",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  34,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-59X2-3DBF",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  35,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-VBCE-F74N",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  36,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-6ASQ-DU7H",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  37,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-6ZHC-NTZQ",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  38,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-KZWN-8WA3",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  39,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-S2NU-WHKW",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  40,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-CNRC-TF9J",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  41,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-BQ6C-692B",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  42,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-LW4P-KPQJ",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  43,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-AZ7M-FMUX",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  44,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-PUA9-BX6D",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  45,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-2MLR-Z76T",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  46,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-9MH9-N5MW",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  47,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-8HB4-HVCY",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  48,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-5HWL-839X",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  49,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-2ZX8-D8TC",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    },
+    {
+        "id":  50,
+        "usedAt":  null,
+        "used":  false,
+        "purpose":  "Cierre de Sesión en Dispositivo",
+        "key":  "OLAM-OUT-5MN4-DUKT",
+        "role":  "supervisor_logout",
+        "usedBy":  null
+    }
+]
