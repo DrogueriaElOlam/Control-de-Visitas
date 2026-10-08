@@ -66,6 +66,45 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
   const [hasSale, setHasSale] = useState(false);
   const [saleType, setSaleType] = useState('presencial');
   const [saleAmount, setSaleAmount] = useState('');
+  const [cartItems, setCartItems] = useState([]);
+
+  // Reset completo y garantizado del formulario para el siguiente registro
+  const resetFormComplete = () => {
+    try {
+      setClientName('');
+      setClientCode('');
+      setPhone('');
+      setSecondaryPhone('');
+      setShowSecondaryPhone(false);
+      setClientType('propio');
+      setHasSale(false);
+      setSaleType('presencial');
+      setSaleAmount('');
+      setCartItems([]);
+      setHasCollection(false);
+      setCollectionAmounts({
+        efectivo: '',
+        transferencia: '',
+        cheque: '',
+        boleta: ''
+      });
+      setObservations('');
+      setVisitDate(getLocalDateString());
+      setDayPeriod('mañana');
+      setVisitType('presencial');
+      setShowCodeSuggestions(false);
+      setShowNameSuggestions(false);
+      setAutofillNotice('');
+      
+      const defaultRoute = (assignedVendorRoutes && assignedVendorRoutes.length > 0) ? assignedVendorRoutes[0] : (currentUser?.route || 'Coban #13');
+      setRoute(defaultRoute);
+      setSector(defaultRoute);
+
+      captureGPSLocation();
+    } catch (e) {
+      console.warn('Error en resetFormComplete:', e);
+    }
+  };
 
   // Collections
   const [hasCollection, setHasCollection] = useState(false);
@@ -674,38 +713,14 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
         } catch (_) {}
       }
 
-      // Resetear formulario inmediatamente para el próximo cliente
-      setClientName('');
-      setClientCode('');
-      setPhone('');
-      setSecondaryPhone('');
-      setShowSecondaryPhone(false);
-      setHasSale(false);
-      setSaleAmount('');
-      setCartItems([]);
-      setHasCollection(false);
-      setCollectionAmounts({ efectivo: '', transferencia: '', cheque: '', boleta: '' });
-      setObservations('');
-      setVisitDate(getLocalDateString());
-      captureGPSLocation();
+      // Resetear formulario inmediatamente sin datos para el próximo cliente
+      resetFormComplete();
     } catch (err) {
       console.warn('Visita procesada y guardada:', err);
       // Garantizar que el usuario nunca vea una ventana modal molesta
       setSuccessNotif(true);
       setTimeout(() => setSuccessNotif(false), 3500);
-      setClientName('');
-      setClientCode('');
-      setPhone('');
-      setSecondaryPhone('');
-      setShowSecondaryPhone(false);
-      setHasSale(false);
-      setSaleAmount('');
-      setCartItems([]);
-      setHasCollection(false);
-      setCollectionAmounts({ efectivo: '', transferencia: '', cheque: '', boleta: '' });
-      setObservations('');
-      setVisitDate(getLocalDateString());
-      captureGPSLocation();
+      resetFormComplete();
     } finally {
       setSubmitting(false);
     }

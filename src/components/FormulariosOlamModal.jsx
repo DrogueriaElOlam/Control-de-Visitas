@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   FileText, 
@@ -62,13 +62,21 @@ class FormsErrorBoundary extends React.Component {
 }
 
 export default function FormulariosOlamModal({ isOpen, onClose, currentUser }) {
-  const [activeForm, setActiveForm] = useState('supervision-central');
   const isSuper = isSuperUser(currentUser);
+  const isAdmin = currentUser?.role === 'admin' || isSuper;
+  const [activeForm, setActiveForm] = useState(isAdmin ? 'supervision-central' : 'apertura');
+
+  // Asegurar que si un vendedor abre el modal, nunca quede en 'supervision-central'
+  useEffect(() => {
+    if (!isAdmin && activeForm === 'supervision-central') {
+      setActiveForm('apertura');
+    }
+  }, [isAdmin, activeForm]);
 
   if (!isOpen) return null;
 
   const formsList = [
-    {
+    ...(isAdmin ? [{
       id: 'supervision-central',
       name: 'Panel Central de Supervisión',
       shortName: 'Panel Supervisión',
@@ -76,7 +84,7 @@ export default function FormulariosOlamModal({ isOpen, onClose, currentUser }) {
       icon: Shield,
       color: 'from-purple-700 to-indigo-700',
       activeColor: 'bg-purple-700 text-white shadow-purple-500/30'
-    },
+    }] : []),
     {
       id: 'apertura',
       name: 'Apertura de Código',
@@ -251,8 +259,8 @@ export default function FormulariosOlamModal({ isOpen, onClose, currentUser }) {
 
             {/* Contenedor Protegido con Error Boundary */}
             <FormsErrorBoundary key={activeForm}>
-              {/* 0. Panel Central de Supervisión (Primero de todos) */}
-              {activeForm === 'supervision-central' && (
+              {/* 0. Panel Central de Supervisión (Solo Administrador) */}
+              {isAdmin && activeForm === 'supervision-central' && (
                 <div className="animate-in fade-in duration-150">
                   <CentralSupervisionView isEmbedded={true} onClose={onClose} />
                 </div>

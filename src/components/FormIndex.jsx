@@ -1,14 +1,16 @@
 import { FileText, CreditCard, Plane, Briefcase, Receipt, Image, DollarSign, Package, Shield, Bell, TrendingUp, Target } from 'lucide-react';
+import { isSuperUser } from '../lib/formsPermissions';
 
-export default function FormIndex({ onSelectForm }) {
+export default function FormIndex({ onSelectForm, currentUser }) {
+  const isAdmin = currentUser?.role === 'admin' || isSuperUser(currentUser);
   const forms = [
-    {
+    ...(isAdmin ? [{
       id: 'supervision-central',
       title: 'Panel Central de Supervisión',
       description: 'Compromisos de venta diaria, alcance individual y grupal, registros y KPIs en vivo',
       icon: Shield,
       color: 'bg-purple-700 hover:bg-purple-800'
-    },
+    }] : []),
     {
       id: 'supervision-diaria',
       title: 'Supervisión Diaria',
