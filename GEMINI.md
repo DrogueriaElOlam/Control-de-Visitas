@@ -1,4 +1,4 @@
-# Instrucciones del Proyecto Droguería El Olam
+﻿# Instrucciones del Proyecto Droguería El Olam
 
 ## 1. Idioma Obligatorio
 - **Todas las comunicaciones, respuestas, explicaciones y preguntas interactivas (incluyendo las ventanas modales de selección múltiple o confirmación) deben ser formuladas 100% en español.**
@@ -38,6 +38,12 @@
       - **Filtrado Exclusivo por Rutas Asignadas del Vendedor:** Al iniciar sesión un vendedor (ej. Ana Lucía Marroquín con Cobán #13, Salamá #14, etc.), las sugerencias y el autollenado se restringen estrictamente a las farmacias pertenecientes a sus rutas oficiales, evitando contaminar la búsqueda con clientes de otros departamentos.
       - **Autollenado Integral de Teléfonos:** Al seleccionar un cliente con segundo teléfono, el sistema despliega automáticamente el campo de segundo teléfono sin que el vendedor deba hacer clics adicionales.
       - **Regla de Validación Estricta con Viñetas para el Directorio:** Si se ingresan datos manualmente o se envía el formulario y falta algún campo obligatorio para mantener la calidad del directorio maestro (Código de cliente, Nombre de farmacia ≥3 caracteres, Teléfono de 8 dígitos, Ruta asignada o Sector Visitado), el envío se detiene y se despliega una tarjeta de advertencia destacada que detalla con viñetas exactas qué campos le faltó llenar para actualizar el directorio de forma limpia.
+  16. **Protección Total, Rescate y Unificación del Directorio Maestro de Clientes (1,286 registros):**
+      - **Causa Raíz Identificada:** Al realizar una carga masiva de Excel (342 clientes), saveBulkClientsToDirectory y AdminClientDirectoryModal dependían de localStorage (olam_pharmacy_directory_v2). Al existir registros en caché local, el modal no ejecutaba la consulta a la nube, provocando que solo se vieran los 342 importados y ocultando los 944 registros históricos previos.
+      - **Integridad Confirmada al 100%:** Se comprobó directamente en la base de datos de Supabase que los 944 clientes previos (creados entre enero y febrero de 2026) están totalmente intactos y a salvo en client_codes, junto a los 342 recién subidos hoy, sumando 1,286 registros activos.
+      - **Paginación Ilimitada en Supabase:** Se implementó fetchAllClientCodesFromSupabase() con paginación transparente en lotes de 1,000 registros, superando la limitación de PostgREST y garantizando la descarga de todos los registros sin pérdidas ni topes.
+      - **Unificación Obligatoria sin Sobrescrituras:** fetchPharmacyDirectory y saveBulkClientsToDirectory ahora traen siempre la totalidad de clientes de Supabase antes de mezclar con el almacenamiento local y las visitas históricas, actualizando localStorage de forma unificada.
+      - **Botón 'Sincronizar Nube':** Añadido botón interactivo en la barra del directorio para que el administrador pueda forzar la recarga manual desde Supabase en cualquier momento.
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
   - Mantener la bitácora viva para que la IA retome exactamente en el punto donde se suspendió la sesión previa.

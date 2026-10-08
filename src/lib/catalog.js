@@ -34,33 +34,63 @@ export async function fetchProductsCatalog() {
   return DEFAULT_PRODUCTS;
 }
 
-export async function fetchClientCodes() {
-  // 1. Caché local para carga en 0 milisegundos
-  try {
-    const cached = localStorage.getItem('olam_client_codes_cache');
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // Refrescar en segundo plano sin bloquear la UI
-        supabase.from('client_codes').select('*').then(({ data }) => {
-          if (data && data.length > 0) {
-            const mapped = data.map(c => ({ code: c.code, name: c.client_name }));
-            try { localStorage.setItem('olam_client_codes_cache', JSON.stringify(mapped)); } catch (_) {}
-          }
-        }).catch(() => {});
-        return parsed;
-      }
-    }
-  } catch (_) {}
+// Helper para descargar TODOS los códigos de cliente desde Supabase mediante paginación transparente
+export async function fetchAllClientCodesFromSupabase() {
+  const allRows = [];
+  let from = 0;
+  const pageSize = 1000;
+  let hasMore = true;
 
-  // 2. Consulta a Supabase si no hay caché
+  while (hasMore) {
+    try {
+      const { data, error } = await supabase
+        .from('client_codes')
+        .select('code, client_name')
+        .range(from, from + pageSize - 1)
+        .order('code', { ascending: true });
+
+      if (error || !data || data.length === 0) {
+        break;
+      }
+      allRows.push(...data);
+      if (data.length < pageSize) {
+        hasMore = false;
+      } else {
+        from += pageSize;
+      }
+    } catch (e) {
+      console.warn('Error fetching client codes chunk from Supabase:', e);
+      break;
+    }
+  }
+
+  return allRows.map(c => ({ code: c.code, name: c.client_name }));
+}
+
+export async function fetchClientCodes(forceRefresh = false) {
+  // 1. Caché local para carga en 0 milisegundos si no se fuerza recarga
+  if (!forceRefresh) {
+    try {
+      const cached = localStorage.getItem('olam_client_codes_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Refrescar en segundo plano sin bloquear la UI
+          fetchAllClientCodesFromSupabase().then((mapped) => {
+            if (mapped && mapped.length > 0) {
+              try { localStorage.setItem('olam_client_codes_cache', JSON.stringify(mapped)); } catch (_) {}
+            }
+          }).catch(() => {});
+          return parsed;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 2. Consulta paginada a Supabase para recuperar todos los registros sin tope
   try {
-    const { data, error } = await supabase.from('client_codes').select('*');
-    if (!error && data && data.length > 0) {
-      const mapped = data.map(c => ({
-        code: c.code,
-        name: c.client_name
-      }));
+    const mapped = await fetchAllClientCodesFromSupabase();
+    if (mapped && mapped.length > 0) {
       try { localStorage.setItem('olam_client_codes_cache', JSON.stringify(mapped)); } catch (_) {}
       return mapped;
     }
@@ -158,8 +188,8 @@ export function getStoredPharmacyDirectory() {
 }
 
 // Fetch complete pharmacy directory combining Supabase, LocalStorage and historical visits
-export async function fetchPharmacyDirectory(allVisits = []) {
-  const codes = await fetchClientCodes();
+export async function fetchPharmacyDirectory(allVisits = [], forceRefresh = false) {
+  const codes = await fetchClientCodes(forceRefresh);
   const stored = getStoredPharmacyDirectory();
 
   // Create unified dictionary keyed by normalized name and code
@@ -167,18 +197,20 @@ export async function fetchPharmacyDirectory(allVisits = []) {
 
   // 1. Seed with predefined client codes
   codes.forEach(c => {
-    const key = (c.code || '').trim().toLowerCase();
-    if (key) {
-      map.set(key, {
-        code: c.code,
-        name: c.name || '',
-        sector: '',
-        route: '',
-        phone: '',
-        lastVisitDate: '',
-        totalVisits: 0
-      });
-    }
+    const codeKey = (c.code || '').trim().toLowerCase();
+    const nameKey = (c.name || '').trim().toLowerCase();
+    const item = {
+      code: c.code,
+      name: c.name || '',
+      sector: '',
+      route: '',
+      phone: '',
+      secondaryPhone: '',
+      lastVisitDate: '',
+      totalVisits: 0
+    };
+    if (codeKey) map.set(codeKey, item);
+    if (nameKey) map.set(nameKey, item);
   });
 
   // 2. Merge with all historical visits
@@ -197,6 +229,7 @@ export async function fetchPharmacyDirectory(allVisits = []) {
         sector: v.sector || v.route || existing.sector || '',
         route: v.route || v.sector || existing.route || '',
         phone: v.phone || existing.phone || '',
+        secondaryPhone: existing.secondaryPhone || '',
         lastVisitDate: visitDate || existing.lastVisitDate || '',
         totalVisits: (existing.totalVisits || 0) + 1
       };
@@ -217,6 +250,7 @@ export async function fetchPharmacyDirectory(allVisits = []) {
       sector: s.sector || s.route || existing.sector || '',
       route: s.route || s.sector || existing.route || '',
       phone: s.phone || existing.phone || '',
+      secondaryPhone: s.secondaryPhone || existing.secondaryPhone || '',
       lastVisitDate: s.last_visit_date || s.lastVisitDate || existing.lastVisitDate || '',
       totalVisits: (s.total_visits !== undefined ? s.total_visits : existing.totalVisits) || 0
     };
@@ -227,6 +261,11 @@ export async function fetchPharmacyDirectory(allVisits = []) {
   // Deduplicate prioritizing records with all necessary fields
   const rawList = Array.from(map.values());
   const result = deduplicateClientsList(rawList);
+
+  // Mantener actualizado olam_pharmacy_directory_v2 para coherencia total
+  try {
+    localStorage.setItem('olam_pharmacy_directory_v2', JSON.stringify(result));
+  } catch (e) {}
 
   return result;
 }
@@ -606,7 +645,8 @@ export function deduplicateClientsList(list = []) {
 export async function saveBulkClientsToDirectory(clientsList = []) {
   if (!Array.isArray(clientsList) || clientsList.length === 0) return { success: false, count: 0, duplicatesResolved: 0 };
 
-  const currentList = getStoredPharmacyDirectory();
+  // Siempre obtener el directorio completo unificado (Supabase + localStorage + visitas) para no perder jamás clientes
+  const currentList = await fetchPharmacyDirectory();
 
   // Deduplicar la lista entrante primero para asegurar que en el archivo no haya conflictos
   const cleanIncoming = deduplicateClientsList(clientsList);

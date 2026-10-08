@@ -76,14 +76,19 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Load directory
-  const loadDirectory = async () => {
+  const loadDirectory = async (forceCloud = false) => {
     setLoading(true);
     try {
-      const stored = getStoredPharmacyDirectory();
-      if (stored && stored.length > 0) {
-        setClients(stored);
-      } else {
-        const dir = await fetchPharmacyDirectory(visits);
+      // 1. Mostrar de inmediato la caché local si existe para respuesta instantánea
+      if (!forceCloud) {
+        const stored = getStoredPharmacyDirectory();
+        if (stored && stored.length > 0) {
+          setClients(stored);
+        }
+      }
+      // 2. Traer la unificación completa con Supabase (los 1,286+ clientes) y visitas históricas
+      const dir = await fetchPharmacyDirectory(visits, forceCloud);
+      if (dir && dir.length > 0) {
         setClients(dir);
       }
     } catch (e) {
@@ -517,16 +522,35 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
             </button>
           </div>
 
-          {/* Quick template download button */}
-          <button
-            type="button"
-            onClick={downloadClientsTemplateExcel}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 transition-all cursor-pointer mb-2"
-            title="Descargar plantilla de Excel modelo con las columnas requeridas"
-          >
-            <Download size={13} />
-            <span className="hidden sm:inline">Descargar Plantilla Excel</span>
-          </button>
+          <div className="flex items-center gap-2 mb-2">
+            {/* Quick cloud refresh button */}
+            <button
+              type="button"
+              onClick={() => {
+                setStatusMsg({ type: 'info', text: 'Sincronizando directorio completo con la nube de Supabase...' });
+                loadDirectory(true).then(() => {
+                  setStatusMsg({ type: 'success', text: 'Directorio completamente sincronizado con Supabase.' });
+                });
+              }}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-bold border border-blue-300 dark:border-blue-800 hover:bg-blue-100 transition-all cursor-pointer disabled:opacity-50"
+              title="Sincronizar y recargar todos los clientes almacenados en la nube de Supabase"
+            >
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">Sincronizar Nube</span>
+            </button>
+
+            {/* Quick template download button */}
+            <button
+              type="button"
+              onClick={downloadClientsTemplateExcel}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100 transition-all cursor-pointer"
+              title="Descargar plantilla de Excel modelo con las columnas requeridas"
+            >
+              <Download size={13} />
+              <span className="hidden sm:inline">Descargar Plantilla Excel</span>
+            </button>
+          </div>
         </div>
 
         {/* Notifications */}
