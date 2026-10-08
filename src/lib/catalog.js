@@ -351,7 +351,7 @@ export async function saveClientRecord({ code, name, sector, route, visitDate, p
   }
 }
 
-// Update an existing client in the directory (supports changing code, name, phone, route/sector)
+// Update an existing client in the directory (supports changing code, name, phone, route, sector)
 export async function updateClientInDirectory({ originalCode, originalName, code, name, phone, sector, route }) {
   const currentList = getStoredPharmacyDirectory();
   const origC = (originalCode || '').trim().toLowerCase();
@@ -359,7 +359,8 @@ export async function updateClientInDirectory({ originalCode, originalName, code
   const newC = (code || '').trim();
   const newN = (name || '').trim();
   const newPhone = (phone || '').trim();
-  const newRoute = (route || sector || '').trim();
+  const newRoute = (route || '').trim();
+  const newSector = (sector || '').trim();
 
   // Find index of item in stored directory
   const idx = currentList.findIndex(item => {
@@ -372,8 +373,8 @@ export async function updateClientInDirectory({ originalCode, originalName, code
     code: newC || originalCode || '0000',
     name: newN || originalName || 'Cliente Farmacia',
     phone: newPhone,
-    sector: newRoute,
-    route: newRoute,
+    route: newRoute || (idx !== -1 ? (currentList[idx].route || '') : ''),
+    sector: newSector || (idx !== -1 ? (currentList[idx].sector || '') : ''),
     total_visits: idx !== -1 ? (currentList[idx].total_visits || 0) : 0,
     last_visit_date: idx !== -1 ? (currentList[idx].last_visit_date || '') : '',
     updated_at: new Date().toISOString()
@@ -417,26 +418,29 @@ export async function updateClientInDirectory({ originalCode, originalName, code
 
 // Helper: Calcular nivel de completitud de campos de un cliente
 export function calculateClientCompleteness(client) {
-  if (!client) return { score: 0, percent: 0, missingFields: ['Código', 'Nombre', 'Teléfono', 'Ruta'], isComplete: false };
+  if (!client) return { score: 0, percent: 0, missingFields: ['Código', 'Nombre', 'Teléfono', 'Ruta', 'Sector'], isComplete: false };
   
   const hasCode = !!(client.code && String(client.code).trim() && String(client.code).trim() !== '0000');
   const hasName = !!(client.name && String(client.name).trim() && String(client.name).trim().toLowerCase() !== 'cliente farmacia');
   const hasPhone = !!(client.phone && String(client.phone).trim().replace(/\D/g, '').length >= 7);
-  const hasRoute = !!((client.sector && String(client.sector).trim()) || (client.route && String(client.route).trim()));
+  const hasRoute = !!(client.route && String(client.route).trim());
+  const hasSector = !!(client.sector && String(client.sector).trim());
 
   const missingFields = [];
   if (!hasCode) missingFields.push('Código');
   if (!hasName) missingFields.push('Nombre');
   if (!hasPhone) missingFields.push('Teléfono');
   if (!hasRoute) missingFields.push('Ruta');
+  if (!hasSector) missingFields.push('Sector Visitado');
 
   let score = 0;
   if (hasCode) score += 1;
   if (hasName) score += 1;
   if (hasPhone) score += 1;
   if (hasRoute) score += 1;
+  if (hasSector) score += 1;
 
-  const percent = Math.round((score / 4) * 100);
+  const percent = Math.round((score / 5) * 100);
   return {
     score,
     percent,
@@ -444,8 +448,9 @@ export function calculateClientCompleteness(client) {
     hasName,
     hasPhone,
     hasRoute,
+    hasSector,
     missingFields,
-    isComplete: score === 4
+    isComplete: score === 5 || (score === 4 && hasCode && hasName && hasPhone && hasRoute)
   };
 }
 
@@ -467,17 +472,21 @@ export function mergeClientRecords(base = {}, incoming = {}) {
   const p2 = clean(incoming.phone);
   const phone = (p2 && p2.replace(/\D/g, '').length >= 7) ? p2 : (p1 || p2);
 
-  // Ruta / sector más completo
-  const r1 = clean(base.route || base.sector);
-  const r2 = clean(incoming.route || incoming.sector);
+  // Ruta y Sector Visitado independientes
+  const r1 = clean(base.route);
+  const r2 = clean(incoming.route);
   const route = r2 || r1 || '';
+
+  const s1 = clean(base.sector);
+  const s2 = clean(incoming.sector);
+  const sector = s2 || s1 || '';
 
   return {
     code,
     name,
     phone,
-    sector: route,
     route,
+    sector,
     lastVisitDate: incoming.lastVisitDate || base.lastVisitDate || incoming.last_visit_date || base.last_visit_date || '',
     totalVisits: Math.max(Number(base.totalVisits || base.total_visits || 0), Number(incoming.totalVisits || incoming.total_visits || 0)),
     updated_at: new Date().toISOString()
@@ -683,31 +692,36 @@ export async function downloadClientsTemplateExcel() {
       'Código de Cliente': '0014',
       'Nombre de la Farmacia': 'Farmacia Santa María',
       'Teléfono': '79512345',
-      'Ruta o Sector': 'Salama #14'
+      'Ruta': 'Salama #14',
+      'Sector Visitado': 'Zona 1 Central'
     },
     {
       'Código de Cliente': '0022',
       'Nombre de la Farmacia': 'Farmacia La Esperanza',
       'Teléfono': '77651234',
-      'Ruta o Sector': 'Retalhuleu #22'
+      'Ruta': 'Retalhuleu #22',
+      'Sector Visitado': 'San Sebastián'
     },
     {
       'Código de Cliente': '0031',
       'Nombre de la Farmacia': 'Droguería y Farmacia El Ahorro',
       'Teléfono': '78329876',
-      'Ruta o Sector': 'Sacatepéquez #31'
+      'Ruta': 'Sacatepéquez #31',
+      'Sector Visitado': 'Antigua Guatemala'
     },
     {
       'Código de Cliente': '0043',
       'Nombre de la Farmacia': 'Farmacia Central Chimal',
       'Teléfono': '78394567',
-      'Ruta o Sector': 'Chimaltenango I #43'
+      'Ruta': 'Chimaltenango I #43',
+      'Sector Visitado': 'El Tejar'
     },
     {
       'Código de Cliente': '0063',
       'Nombre de la Farmacia': 'Farmacia San José',
       'Teléfono': '79423456',
-      'Ruta o Sector': 'Chiquimula II #63'
+      'Ruta': 'Chiquimula II #63',
+      'Sector Visitado': 'Esquipulas Centro'
     }
   ];
 
@@ -715,10 +729,11 @@ export async function downloadClientsTemplateExcel() {
   const ws = XLSX.utils.json_to_sheet(sampleData);
 
   ws['!cols'] = [
-    { wch: 20 }, // Código de Cliente
+    { wch: 18 }, // Código de Cliente
     { wch: 35 }, // Nombre de la Farmacia
-    { wch: 18 }, // Teléfono
-    { wch: 30 }  // Ruta o Sector
+    { wch: 16 }, // Teléfono
+    { wch: 25 }, // Ruta
+    { wch: 25 }  // Sector Visitado
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Directorio_Clientes');

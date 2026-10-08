@@ -43,21 +43,17 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     const list = getRoutesForVendor(currentUser?.name);
     return list[0] || 'Coban #13';
   });
-  const [sector, setSector] = useState(() => {
-    const list = getRoutesForVendor(currentUser?.name);
-    return list[0] || 'Coban #13';
-  });
+  const [sector, setSector] = useState('');
   const [dayPeriod, setDayPeriod] = useState('mañana');
   const [visitType, setVisitType] = useState('presencial');
   const [visitDate, setVisitDate] = useState(() => getLocalDateString());
 
-  // Sync route and sector when currentUser changes
+  // Sync route when currentUser changes
   useEffect(() => {
     const list = getRoutesForVendor(currentUser?.name);
     if (list && list.length > 0) {
       if (!route || !list.includes(route)) {
         setRoute(list[0]);
-        setSector(list[0]);
       }
     }
   }, [currentUser?.name]);
@@ -98,7 +94,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       
       const defaultRoute = (assignedVendorRoutes && assignedVendorRoutes.length > 0) ? assignedVendorRoutes[0] : (currentUser?.route || 'Coban #13');
       setRoute(defaultRoute);
-      setSector(defaultRoute);
+      setSector('');
 
       captureGPSLocation();
     } catch (e) {
@@ -293,10 +289,13 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       setSecondaryPhone(client.secondaryPhone);
       setShowSecondaryPhone(true);
     }
-    const targetSector = client.sector || client.route || '';
-    if (targetSector) {
-      setSector(targetSector);
-      setRoute(client.route || targetSector);
+    if (client.route) {
+      setRoute(client.route);
+    }
+    if (client.sector) {
+      setSector(client.sector);
+    } else if (!client.route && client.sector) {
+      setRoute(client.sector);
     }
     if (client.code && client.code !== '0000') {
       setClientType('propio');
@@ -640,7 +639,9 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       secondaryPhone: p2,
       visitType,
       clientType,
-      sector: sector || route || 'Coban #13',
+      route: route || currentUser?.route || 'Coban #13',
+      sector: sector.trim(),
+      sectorVisitado: sector.trim(),
       dayPeriod,
       hasSale,
       saleType: hasSale ? saleType : null,
@@ -654,7 +655,6 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       observations: observations.trim(),
       location: finalLocation || location,
       vendorName: currentUser?.name || 'Vendedor El Olam',
-      route: route || currentUser?.route || 'Coban #13',
       visitDate: visitDate || getLocalDateString(),
       recordedDate: getLocalDateString(),
       recordedAt: new Date().toISOString()
@@ -1218,8 +1218,8 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                   </div>
                   <button
                     type="button"
-                    onClick={() => selectClient(matchedClient)}
-                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all active:scale-95 shadow-sm"
+                    onClick={() => applyClientSelection(matchedClient)}
+                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all active:scale-95 shadow-sm cursor-pointer"
                   >
                     Confirmar Autollenado
                   </button>
@@ -1227,23 +1227,36 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               );
             })()}
 
-            {/* Route & Visit Type */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Route, Sector Visitado & Modalidad */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Ruta / Sector Visitado (Autollenado inteligente)
+                  Ruta *
                 </label>
                 <select
-                  value={sector}
-                  onChange={(e) => { setSector(e.target.value); setRoute(e.target.value); }}
+                  value={route}
+                  onChange={(e) => setRoute(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
                 >
-                  {Array.from(new Set([...assignedVendorRoutes, sector, route].filter(Boolean))).map(r => (
+                  {Array.from(new Set([...assignedVendorRoutes, route].filter(Boolean))).map(r => (
                     <option key={r} value={r}>
                       {r === 'Oficina' ? '🏢 Oficina' : `📍 ${r}`}
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Sector Visitado
+                </label>
+                <input
+                  type="text"
+                  value={sector}
+                  onChange={(e) => setSector(e.target.value)}
+                  placeholder="Ej: Zona 1, Aldea San Antonio, Centro..."
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                />
               </div>
 
               <div>

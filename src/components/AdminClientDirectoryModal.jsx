@@ -60,6 +60,7 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
   const [manualName, setManualName] = useState('');
   const [manualPhone, setManualPhone] = useState('');
   const [manualRoute, setManualRoute] = useState('');
+  const [manualSector, setManualSector] = useState('');
   const [savingManual, setSavingManual] = useState(false);
 
   // Edit existing client state
@@ -68,6 +69,7 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editRoute, setEditRoute] = useState('');
+  const [editSector, setEditSector] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Load directory
@@ -134,6 +136,7 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
           let code = '';
           let name = '';
           let phone = '';
+          let route = '';
           let sector = '';
 
           for (const key of Object.keys(row)) {
@@ -146,9 +149,17 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
               name = val;
             } else if (k.includes('tel') || k.includes('cel') || k.includes('phone') || k.includes('contacto')) {
               phone = val;
-            } else if (k.includes('ruta') || k.includes('sector') || k.includes('gira') || k.includes('zona')) {
+            } else if (k.includes('sector') || k.includes('visitado') || k.includes('aldea') || k.includes('zona') || k.includes('comunidad') || k.includes('barrio')) {
               sector = val;
+            } else if (k.includes('ruta') || k.includes('gira')) {
+              route = val;
             }
+          }
+
+          // Compatibilidad: si el excel trae solo una columna con ambas
+          if (!route && sector && (ALL_ROUTES.includes(sector) || sector.includes('#'))) {
+            route = sector;
+            sector = '';
           }
 
           return {
@@ -156,15 +167,15 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
             code,
             name,
             phone,
-            sector,
-            route: sector
+            route,
+            sector
           };
         }).filter(r => r.code || r.name);
 
         if (mapped.length === 0) {
           setStatusMsg({ 
             type: 'error', 
-            text: 'No se encontraron columnas reconocibles. Asegúrate de incluir columnas como "Código", "Nombre de la Farmacia", "Teléfono", "Ruta o Sector".' 
+            text: 'No se encontraron columnas reconocibles. Asegúrate de incluir columnas como "Código", "Nombre de la Farmacia", "Teléfono", "Ruta" y "Sector Visitado".' 
           });
           setParsedRows([]);
           return;
@@ -224,13 +235,14 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
         code: manualCode.trim(),
         name: manualName.trim(),
         phone: manualPhone.trim(),
-        sector: manualRoute.trim(),
-        route: manualRoute.trim()
+        route: manualRoute.trim(),
+        sector: manualSector.trim()
       });
       setManualCode('');
       setManualName('');
       setManualPhone('');
       setManualRoute('');
+      setManualSector('');
       setStatusMsg({ type: 'success', text: '¡Cliente agregado al directorio exitosamente!' });
       setTimeout(() => setStatusMsg({ type: '', text: '' }), 3500);
       setActiveSubTab('list');
@@ -248,7 +260,8 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
     setEditCode(client.code || '');
     setEditName(client.name || '');
     setEditPhone(client.phone || '');
-    setEditRoute(client.sector || client.route || '');
+    setEditRoute(client.route || '');
+    setEditSector(client.sector || '');
   };
 
   // Cancel editing
@@ -258,6 +271,7 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
     setEditName('');
     setEditPhone('');
     setEditRoute('');
+    setEditSector('');
   };
 
   // Save edited client
@@ -275,8 +289,8 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
         code: editCode.trim(),
         name: editName.trim(),
         phone: editPhone.trim(),
-        sector: editRoute.trim(),
-        route: editRoute.trim()
+        route: editRoute.trim(),
+        sector: editSector.trim()
       });
       setStatusMsg({
         type: 'success',
@@ -529,10 +543,10 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                     ¿Cómo funciona la precarga de clientes para los vendedores?
                   </p>
                   <p>
-                    Sube tu archivo de Excel con las columnas: <strong>Código de Cliente</strong>, <strong>Nombre de la Farmacia</strong>, <strong>Teléfono</strong> y <strong>Ruta o Sector</strong>.
+                    Sube tu archivo de Excel con las columnas: <strong>Código de Cliente</strong>, <strong>Nombre de la Farmacia</strong>, <strong>Teléfono</strong>, <strong>Ruta</strong> y <strong>Sector Visitado</strong>.
                   </p>
                   <p className="text-slate-500 dark:text-slate-400">
-                    Al momento en que los vendedores ingresen el código en la pantalla de registro, el sistema <strong>autocompletará inmediatamente</strong> el nombre de la farmacia, el teléfono y la ruta asignada.
+                    Al momento en que los vendedores ingresen el código en la pantalla de registro, el sistema <strong>autocompletará inmediatamente</strong> el nombre de la farmacia, el teléfono, la ruta y el sector visitado.
                   </p>
                 </div>
               </div>
@@ -614,7 +628,8 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                           <th className="p-2.5">Código</th>
                           <th className="p-2.5">Nombre de la Farmacia</th>
                           <th className="p-2.5">Teléfono</th>
-                          <th className="p-2.5">Ruta o Sector</th>
+                          <th className="p-2.5">Ruta</th>
+                          <th className="p-2.5">Sector Visitado</th>
                           <th className="p-2.5 text-center">Campos</th>
                         </tr>
                       </thead>
@@ -637,15 +652,16 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                               </td>
                               <td className="p-2.5 font-medium text-slate-900 dark:text-slate-100">{r.name}</td>
                               <td className="p-2.5 text-slate-600 dark:text-slate-400 font-mono">{r.phone || '—'}</td>
-                              <td className="p-2.5 text-slate-700 dark:text-slate-300 font-medium">{r.sector || r.route || '—'}</td>
+                              <td className="p-2.5 text-slate-700 dark:text-slate-300 font-medium">{r.route || '—'}</td>
+                              <td className="p-2.5 text-slate-700 dark:text-slate-300 font-medium">{r.sector || '—'}</td>
                               <td className="p-2.5 text-center">
                                 {comp.isComplete ? (
                                   <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 rounded font-bold text-[10px]">
-                                    ✓ Completo
+                                    ✓ Completo ({comp.score}/5)
                                   </span>
                                 ) : (
                                   <span className="px-2 py-0.5 bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 rounded font-bold text-[10px]" title={`Falta: ${comp.missingFields.join(', ')}`}>
-                                    ⚠️ Incompleto ({comp.score}/4)
+                                    ⚠️ Incompleto ({comp.score}/5)
                                   </span>
                                 )}
                               </td>
@@ -779,7 +795,8 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                         <th className="p-3">Código</th>
                         <th className="p-3">Nombre de la Farmacia</th>
                         <th className="p-3">Teléfono</th>
-                        <th className="p-3">Ruta / Sector</th>
+                        <th className="p-3">Ruta</th>
+                        <th className="p-3">Sector Visitado</th>
                         <th className="p-3 text-center">Estado de Campos</th>
                         <th className="p-3 text-center">Acciones</th>
                       </tr>
@@ -787,11 +804,11 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {loading ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-400">Cargando directorio de farmacias...</td>
+                          <td colSpan={8} className="p-8 text-center text-slate-400">Cargando directorio de farmacias...</td>
                         </tr>
                       ) : filteredClients.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-400">
+                          <td colSpan={8} className="p-8 text-center text-slate-400">
                             {listFilter === 'duplicates'
                               ? '✓ No se detectaron códigos duplicados en el directorio. Todos los códigos son únicos.'
                               : searchQuery 
@@ -826,17 +843,24 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                               </td>
                               <td className="p-3 text-slate-600 dark:text-slate-400 font-mono">{c.phone || '—'}</td>
                               <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
-                                {c.sector || c.route ? (
-                                  <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                                {c.route ? (
+                                  <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md font-semibold text-slate-800 dark:text-slate-200">
                                     <MapPin size={11} className="text-blue-500" />
-                                    {c.sector || c.route}
+                                    {c.route}
+                                  </span>
+                                ) : '—'}
+                              </td>
+                              <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
+                                {c.sector ? (
+                                  <span className="inline-flex items-center gap-1 bg-blue-50/60 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-md font-medium">
+                                    📍 {c.sector}
                                   </span>
                                 ) : '—'}
                               </td>
                               <td className="p-3 text-center">
                                 {comp.isComplete ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                                    <CheckCircle2 size={11} /> Completo (4/4)
+                                    <CheckCircle2 size={11} /> Completo ({comp.score}/5)
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800" title={`Falta: ${comp.missingFields.join(', ')}`}>
@@ -931,7 +955,7 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                           <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                             Teléfono
@@ -950,7 +974,7 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
 
                         <div>
                           <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                            Ruta o Sector
+                            Ruta
                           </label>
                           <div className="relative">
                             <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -968,6 +992,19 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                               ))}
                             </datalist>
                           </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            Sector Visitado
+                          </label>
+                          <input
+                            type="text"
+                            value={editSector}
+                            onChange={(e) => setEditSector(e.target.value)}
+                            placeholder="Ej: Zona 1, Aldea..."
+                            className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          />
                         </div>
                       </div>
 
@@ -1045,7 +1082,7 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Teléfono
@@ -1061,7 +1098,7 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Ruta o Sector
+                    Ruta
                   </label>
                   <input
                     type="text"
@@ -1076,6 +1113,19 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                       <option key={r} value={r} />
                     ))}
                   </datalist>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Sector Visitado
+                  </label>
+                  <input
+                    type="text"
+                    value={manualSector}
+                    onChange={(e) => setManualSector(e.target.value)}
+                    placeholder="Ej: Zona 1, Aldea..."
+                    className="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
                 </div>
               </div>
 
