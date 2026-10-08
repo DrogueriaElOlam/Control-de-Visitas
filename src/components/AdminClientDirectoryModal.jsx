@@ -1,3 +1,5 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { 
   Building2, 
   Upload, 
