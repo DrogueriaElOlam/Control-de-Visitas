@@ -16,6 +16,7 @@
 ## 4. Bitácora Activa del Proyecto y Estado Actual
 - **Última Actualización:** 07 de Octubre de 2026.
 - **Rama Git Actual:** `main` (sincronizada con GitHub: `https://github.com/DrogueriaElOlam/Control-de-Visitas.git`).
+- **URL Oficial de Producción en Vercel:** `https://control-de-visitas-pi.vercel.app/`
 - **Pila Tecnológica:** React + Vite, Supabase (`zqwjhmiavxhswgbgejzx.supabase.co`), Vercel, Tailwind / Vanilla CSS, APK Android para rastreo GPS en segundo plano.
 - **Últimos Avances Implementados:**
   1. **Rastreo GPS en Tiempo Real:** Transmisión directa desde la app móvil a Supabase (`vendor_locations`), autoinicio con `BootReceiver` y `AlarmManager` para resistir cierres del sistema Android.
