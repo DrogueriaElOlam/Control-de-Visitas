@@ -589,7 +589,14 @@ export default function SolicitudViaticosForm({ currentUser }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'solicitud-viaticos.html';
+    const cleanUserName = (formData.nombre || 'Vendedor')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '');
+    const todayFileStr = today.toISOString().split('T')[0];
+    a.download = `Solicitud_Viaticos_${cleanUserName}_${todayFileStr}.html`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

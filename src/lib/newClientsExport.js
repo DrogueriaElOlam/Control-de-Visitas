@@ -299,10 +299,11 @@ export async function exportNewClientsToExcel(visits = [], options = {}) {
     column.width = Math.max(maxLen + 5, 20);
   });
 
-  // Nombre de archivo con el nombre del vendedor
-  // Por ejemplo: Clientes_Nuevos_Erick_Curley.xlsx
+  // Nombre de archivo con el nombre del vendedor y fecha
+  // Por ejemplo: Clientes_Nuevos_Erick_Curley_2026-10-08.xlsx
   const sanitizedVendor = sanitizeFileName(vendorNameForFile);
-  const fileName = `Clientes_Nuevos_${sanitizedVendor}.xlsx`;
+  const dateStrForFile = now.toISOString().split('T')[0];
+  const fileName = `Clientes_Nuevos_${sanitizedVendor}_${dateStrForFile}.xlsx`;
 
   // Generar Buffer y forzar descarga en el navegador
   const buffer = await workbook.xlsx.writeBuffer();

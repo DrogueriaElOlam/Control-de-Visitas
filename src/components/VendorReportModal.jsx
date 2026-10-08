@@ -1105,7 +1105,10 @@ export default function VendorReportModal({
 
   // Helper to generate clean vendor name
   const getCleanVendorName = () => {
-    const rawVendor = selectedVendorName || currentUser?.name || 'Vendedor';
+    // Para vendedores, usar siempre su nombre de usuario de forma canónica
+    const rawVendor = (!isAdmin && currentUser?.name)
+      ? currentUser.name
+      : (selectedVendorName || currentUser?.name || 'Vendedor');
     return rawVendor
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '') // remove accents for safe filename
@@ -1486,12 +1489,12 @@ export default function VendorReportModal({
             <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
               <button
                 type="button"
-                onClick={handleDownloadPDF}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition-all whitespace-nowrap"
-                title={`Descargar archivo PDF: Reporte_Visitas_${cleanVendor}_${todayStr}.pdf`}
+                onClick={handleExportExcel}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-all whitespace-nowrap"
+                title={`Descargar archivo Excel: Reporte_Visitas_${cleanVendor}_${todayStr}.xlsx`}
               >
-                <FileText size={14} />
-                <span>Descargar PDF</span>
+                <Download size={14} />
+                <span>Descargar Excel</span>
               </button>
 
               <button
@@ -2741,17 +2744,6 @@ export default function VendorReportModal({
               className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs sm:text-sm font-bold transition-all"
             >
               Cerrar
-            </button>
-
-            {/* BOTÓN 1: Descargar PDF Directo */}
-            <button
-              type="button"
-              onClick={handleDownloadPDF}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-red-500/25 transition-all"
-              title={`Descargar archivo PDF: Reporte_Visitas_${cleanVendor}_${todayStr}.pdf`}
-            >
-              <FileText size={16} />
-              <span>Descargar PDF</span>
             </button>
 
             {/* BOTÓN 2: Descargar HTML con Nombre y Fecha */}
