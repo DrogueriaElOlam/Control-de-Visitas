@@ -231,14 +231,62 @@ export async function fetchPharmacyDirectory(allVisits = []) {
   return result;
 }
 
+/**
+ * Extrae y normaliza hasta dos números telefónicos válidos de Guatemala (8 dígitos cada uno).
+ * Si en la misma celda se colocan dos números (ej: "79512345 / 55551234", "7951-2345, 55551234", "79512345 55551234")
+ * o si se proveen en campos separados, los detecta y separa limpiamente.
+ */
+export function parseGuatemalaPhoneNumbers(primary = '', secondary = '') {
+  const cleanInput = `${primary || ''} ${secondary || ''}`.trim();
+  if (!cleanInput) return { phone: '', secondaryPhone: '' };
+
+  const parts = cleanInput.split(/[/,;|]|\s+(?:y|o|cel|tel|contacto)\s+/i);
+  const detected = [];
+
+  for (const part of parts) {
+    const digitsOnly = part.replace(/\D/g, '');
+    if (digitsOnly.length === 8) {
+      detected.push(digitsOnly);
+    } else if (digitsOnly.length === 16) {
+      detected.push(digitsOnly.slice(0, 8));
+      detected.push(digitsOnly.slice(8, 16));
+    } else if (digitsOnly.length > 8) {
+      for (let i = 0; i + 8 <= digitsOnly.length; i += 8) {
+        detected.push(digitsOnly.slice(i, i + 8));
+      }
+    } else if (digitsOnly.length >= 7) {
+      detected.push(digitsOnly);
+    }
+  }
+
+  if (detected.length === 0) {
+    const rawDigits = cleanInput.replace(/\D/g, '');
+    if (rawDigits.length >= 16) {
+      detected.push(rawDigits.slice(0, 8));
+      detected.push(rawDigits.slice(8, 16));
+    } else if (rawDigits.length >= 8) {
+      detected.push(rawDigits.slice(0, 8));
+    } else if (rawDigits.length > 0) {
+      detected.push(rawDigits);
+    }
+  }
+
+  const unique = Array.from(new Set(detected));
+  return {
+    phone: unique[0] || '',
+    secondaryPhone: unique[1] || ''
+  };
+}
+
 // Save or update client record in directory and Supabase
-export async function saveClientRecord({ code, name, sector, route, visitDate, phone, vendorName }) {
+export async function saveClientRecord({ code, name, sector, route, visitDate, phone, secondaryPhone, vendorName }) {
   if (!name && !code) return;
   const cleanCode = (code || '').trim();
   const cleanName = (name || '').trim();
-  const cleanSector = (sector || route || '').trim();
-  const cleanRoute = (route || sector || '').trim();
+  const cleanSector = (sector || '').trim();
+  const cleanRoute = (route || '').trim();
   const cleanDate = (visitDate || getLocalDateString()).trim();
+  const parsedPhones = parseGuatemalaPhoneNumbers(phone, secondaryPhone);
 
   // 1. Update localStorage directory (olam_pharmacy_directory_v2)
   try {
@@ -278,8 +326,9 @@ export async function saveClientRecord({ code, name, sector, route, visitDate, p
       code: finalCode,
       name: finalName,
       sector: cleanSector || (previousItem ? previousItem.sector : ''),
-      route: cleanRoute || (previousItem ? previousItem.route : cleanSector),
-      phone: (phone || '').trim() || (previousItem ? previousItem.phone : ''),
+      route: cleanRoute || (previousItem ? previousItem.route : ''),
+      phone: parsedPhones.phone || (previousItem ? previousItem.phone : ''),
+      secondaryPhone: parsedPhones.secondaryPhone || (previousItem ? previousItem.secondaryPhone : ''),
       last_visit_date: cleanDate,
       last_vendor: vendorName || '',
       total_visits: previousItem ? (previousItem.total_visits || 0) + 1 : 1,
@@ -351,14 +400,14 @@ export async function saveClientRecord({ code, name, sector, route, visitDate, p
   }
 }
 
-// Update an existing client in the directory (supports changing code, name, phone, route, sector)
-export async function updateClientInDirectory({ originalCode, originalName, code, name, phone, sector, route }) {
+// Update an existing client in the directory (supports changing code, name, phone, secondaryPhone, route, sector)
+export async function updateClientInDirectory({ originalCode, originalName, code, name, phone, secondaryPhone, sector, route }) {
   const currentList = getStoredPharmacyDirectory();
   const origC = (originalCode || '').trim().toLowerCase();
   const origN = (originalName || '').trim().toLowerCase();
   const newC = (code || '').trim();
   const newN = (name || '').trim();
-  const newPhone = (phone || '').trim();
+  const parsedPhones = parseGuatemalaPhoneNumbers(phone, secondaryPhone);
   const newRoute = (route || '').trim();
   const newSector = (sector || '').trim();
 
@@ -372,7 +421,8 @@ export async function updateClientInDirectory({ originalCode, originalName, code
   const updatedRecord = {
     code: newC || originalCode || '0000',
     name: newN || originalName || 'Cliente Farmacia',
-    phone: newPhone,
+    phone: parsedPhones.phone,
+    secondaryPhone: parsedPhones.secondaryPhone || (idx !== -1 ? (currentList[idx].secondaryPhone || '') : ''),
     route: newRoute || (idx !== -1 ? (currentList[idx].route || '') : ''),
     sector: newSector || (idx !== -1 ? (currentList[idx].sector || '') : ''),
     total_visits: idx !== -1 ? (currentList[idx].total_visits || 0) : 0,
@@ -422,14 +472,15 @@ export function calculateClientCompleteness(client) {
   
   const hasCode = !!(client.code && String(client.code).trim() && String(client.code).trim() !== '0000');
   const hasName = !!(client.name && String(client.name).trim() && String(client.name).trim().toLowerCase() !== 'cliente farmacia');
-  const hasPhone = !!(client.phone && String(client.phone).trim().replace(/\D/g, '').length >= 7);
+  const cleanPhone = String(client.phone || '').replace(/\D/g, '');
+  const hasPhone = !!(cleanPhone.length >= 8 || cleanPhone.length === 7);
   const hasRoute = !!(client.route && String(client.route).trim());
   const hasSector = !!(client.sector && String(client.sector).trim());
 
   const missingFields = [];
   if (!hasCode) missingFields.push('Código');
   if (!hasName) missingFields.push('Nombre');
-  if (!hasPhone) missingFields.push('Teléfono');
+  if (!hasPhone) missingFields.push('Teléfono (8 dígitos)');
   if (!hasRoute) missingFields.push('Ruta');
   if (!hasSector) missingFields.push('Sector Visitado');
 
@@ -467,10 +518,13 @@ export function mergeClientRecords(base = {}, incoming = {}) {
     name = clean(base.name) || 'Cliente Farmacia';
   }
 
-  // Teléfono más completo
-  const p1 = clean(base.phone);
-  const p2 = clean(incoming.phone);
-  const phone = (p2 && p2.replace(/\D/g, '').length >= 7) ? p2 : (p1 || p2);
+  // Teléfonos combinados y deduplicados
+  const pBase = parseGuatemalaPhoneNumbers(base.phone, base.secondaryPhone);
+  const pInc = parseGuatemalaPhoneNumbers(incoming.phone, incoming.secondaryPhone);
+  const combinedPhones = parseGuatemalaPhoneNumbers(
+    pInc.phone || pBase.phone,
+    pInc.secondaryPhone || pBase.secondaryPhone || (pInc.phone !== pBase.phone ? pBase.phone : '')
+  );
 
   // Ruta y Sector Visitado independientes
   const r1 = clean(base.route);
@@ -484,7 +538,8 @@ export function mergeClientRecords(base = {}, incoming = {}) {
   return {
     code,
     name,
-    phone,
+    phone: combinedPhones.phone,
+    secondaryPhone: combinedPhones.secondaryPhone,
     route,
     sector,
     lastVisitDate: incoming.lastVisitDate || base.lastVisitDate || incoming.last_visit_date || base.last_visit_date || '',
@@ -692,6 +747,7 @@ export async function downloadClientsTemplateExcel() {
       'Código de Cliente': '0014',
       'Nombre de la Farmacia': 'Farmacia Santa María',
       'Teléfono': '79512345',
+      'Teléfono 2 / Celular': '55551234',
       'Ruta': 'Salama #14',
       'Sector Visitado': 'Zona 1 Central'
     },
@@ -699,6 +755,7 @@ export async function downloadClientsTemplateExcel() {
       'Código de Cliente': '0022',
       'Nombre de la Farmacia': 'Farmacia La Esperanza',
       'Teléfono': '77651234',
+      'Teléfono 2 / Celular': '44449876',
       'Ruta': 'Retalhuleu #22',
       'Sector Visitado': 'San Sebastián'
     },
@@ -706,6 +763,7 @@ export async function downloadClientsTemplateExcel() {
       'Código de Cliente': '0031',
       'Nombre de la Farmacia': 'Droguería y Farmacia El Ahorro',
       'Teléfono': '78329876',
+      'Teléfono 2 / Celular': '33334567',
       'Ruta': 'Sacatepéquez #31',
       'Sector Visitado': 'Antigua Guatemala'
     },
@@ -713,6 +771,7 @@ export async function downloadClientsTemplateExcel() {
       'Código de Cliente': '0043',
       'Nombre de la Farmacia': 'Farmacia Central Chimal',
       'Teléfono': '78394567',
+      'Teléfono 2 / Celular': '59998877',
       'Ruta': 'Chimaltenango I #43',
       'Sector Visitado': 'El Tejar'
     },
@@ -720,6 +779,7 @@ export async function downloadClientsTemplateExcel() {
       'Código de Cliente': '0063',
       'Nombre de la Farmacia': 'Farmacia San José',
       'Teléfono': '79423456',
+      'Teléfono 2 / Celular': '41112233',
       'Ruta': 'Chiquimula II #63',
       'Sector Visitado': 'Esquipulas Centro'
     }
@@ -732,6 +792,7 @@ export async function downloadClientsTemplateExcel() {
     { wch: 18 }, // Código de Cliente
     { wch: 35 }, // Nombre de la Farmacia
     { wch: 16 }, // Teléfono
+    { wch: 22 }, // Teléfono 2 / Celular
     { wch: 25 }, // Ruta
     { wch: 25 }  // Sector Visitado
   ];

@@ -21,19 +21,28 @@ import {
   X
 } from 'lucide-react';
 import { ALL_ROUTES, addVisitRecord, getRoutesForVendor } from '../lib/db';
-import { fetchClientCodes, fetchPharmacyDirectory, saveClientRecord, searchClientLive } from '../lib/catalog';
+import { 
+  fetchClientCodes, 
+  fetchPharmacyDirectory, 
+  saveClientRecord, 
+  searchClientLive, 
+  parseGuatemalaPhoneNumbers 
+} from '../lib/catalog';
 import { addCashRecordFromVisit } from '../lib/cashCollections';
 import { getLocalDateString } from '../lib/dateUtils';
 import { captureAndReportLocation } from '../lib/silentGpsTracker';
 
 export default function VisitRegistration({ currentUser, onVisitAdded, allVisits = [], onLogout, onNavigate }) {
   const isAdmin = currentUser?.role === 'admin';
+  const isSpecialVendor = isAdmin || (currentUser?.name && currentUser.name.toLowerCase().includes('antonio celada'));
   const [clientType, setClientType] = useState('propio');
   const [clientCode, setClientCode] = useState('');
   const [clientName, setClientName] = useState('');
   const [phone, setPhone] = useState('');
   const [secondaryPhone, setSecondaryPhone] = useState('');
   const [showSecondaryPhone, setShowSecondaryPhone] = useState(false);
+  const [validationErrors, setValidationErrors] = useState(null);
+
   // Vendor's assigned routes (Antonio Celada gets all routes, other vendors get only their assigned routes)
   const assignedVendorRoutes = React.useMemo(() => {
     return getRoutesForVendor(currentUser?.name);
@@ -279,16 +288,52 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     );
   };
 
+  // DETERMINAR SI EL VENDEDOR TIENE RESTRICCIÓN DE RUTAS (Ana Lucía Marroquín, etc.)
+  const isVendorWithRestrictedRoutes = !isSpecialVendor && assignedVendorRoutes && assignedVendorRoutes.length > 0;
+
+  // DIRECTORIO FILTRADO SEGÚN LAS RUTAS ASIGNADAS AL VENDEDOR LOGUEADO
+  // Para que vendedores como Ana Lucía Marroquín solo vean clientes de Cobán #13, Salamá #14, etc.
+  const vendorPharmacyDirectory = React.useMemo(() => {
+    if (!pharmacyDirectory || pharmacyDirectory.length === 0) return [];
+    if (!isVendorWithRestrictedRoutes) return pharmacyDirectory;
+
+    const normalizedAssigned = assignedVendorRoutes.map(r => (r || '').toLowerCase().trim());
+    const filtered = pharmacyDirectory.filter(p => {
+      if (!p.route) return false;
+      const clientRoute = (p.route || '').toLowerCase().trim();
+      return normalizedAssigned.some(ar => clientRoute.includes(ar) || ar.includes(clientRoute));
+    });
+
+    // Si existen clientes para sus rutas asignadas, se restringe estrictamente a ellas.
+    // De lo contrario, muestra el catálogo para permitir continuidad operativa.
+    return filtered.length > 0 ? filtered : pharmacyDirectory;
+  }, [pharmacyDirectory, isVendorWithRestrictedRoutes, assignedVendorRoutes]);
+
   // APLICAR SELECCIÓN Y AUTOLLENAR TODOS LOS CAMPOS DEL CLIENTE
   const applyClientSelection = (client) => {
     if (!client) return;
     if (client.code) setClientCode(client.code);
     if (client.name) setClientName(client.name);
-    if (client.phone) setPhone(client.phone);
-    if (client.secondaryPhone) {
+
+    // Separación y parseo inteligente de números guatemaltecos (8 dígitos)
+    const parsedPhones = parseGuatemalaPhoneNumbers(client.phone, client.secondaryPhone);
+    if (parsedPhones.primary) {
+      setPhone(parsedPhones.primary);
+    } else if (client.phone) {
+      setPhone(client.phone);
+    }
+
+    if (parsedPhones.secondary) {
+      setSecondaryPhone(parsedPhones.secondary);
+      setShowSecondaryPhone(true);
+    } else if (client.secondaryPhone) {
       setSecondaryPhone(client.secondaryPhone);
       setShowSecondaryPhone(true);
+    } else {
+      setSecondaryPhone('');
+      setShowSecondaryPhone(false);
     }
+
     if (client.route) {
       setRoute(client.route);
     }
@@ -301,6 +346,9 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       setClientType('propio');
     }
     
+    // Limpiar errores de validación si los había
+    setValidationErrors(null);
+
     // Cerrar desplegables de autocompletado
     setShowCodeSuggestions(false);
     setShowNameSuggestions(false);
@@ -332,7 +380,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     );
   };
 
-  // SUGERENCIAS INTERACTIVAS AL ESCRIBIR CUALQUIER DÍGITO O CÓDIGO
+  // SUGERENCIAS INTERACTIVAS AL ESCRIBIR CUALQUIER DÍGITO O CÓDIGO (FILTRADO POR RUTA DEL VENDEDOR)
   const codeSuggestions = React.useMemo(() => {
     const rawQ = (clientCode || '').trim();
     if (!rawQ) return [];
@@ -345,7 +393,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     const nameMatch = [];
     const seen = new Set();
 
-    for (const p of pharmacyDirectory) {
+    for (const p of vendorPharmacyDirectory) {
       const pCode = (p.code || '').trim();
       const pCodeLower = pCode.toLowerCase();
       const pCodeNum = pCodeLower.replace(/^0+/, '');
@@ -391,9 +439,9 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
     const merged = [...exactMatch, ...startsWithCode, ...containsCode, ...nameMatch];
     return merged.slice(0, 35);
-  }, [clientCode, pharmacyDirectory]);
+  }, [clientCode, vendorPharmacyDirectory]);
 
-  // SUGERENCIAS INTERACTIVAS AL ESCRIBIR CUALQUIER LETRA DEL NOMBRE (DESDE EL 1ER CARACTER)
+  // SUGERENCIAS INTERACTIVAS AL ESCRIBIR CUALQUIER LETRA DEL NOMBRE (FILTRADO POR RUTA DEL VENDEDOR)
   const nameSuggestions = React.useMemo(() => {
     const rawQ = (clientName || '').trim();
     if (!rawQ || rawQ.length < 1) return []; // Despliega opciones desde la primerísima letra
@@ -405,7 +453,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     const codeMatch = [];
     const seen = new Set();
 
-    for (const p of pharmacyDirectory) {
+    for (const p of vendorPharmacyDirectory) {
       const pName = (p.name || '').trim();
       const pNameLower = pName.toLowerCase();
       const pCode = (p.code || '').trim();
@@ -443,15 +491,15 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
     const merged = [...startsWithName, ...startsWithWord, ...containsName, ...codeMatch];
     return merged.slice(0, 35);
-  }, [clientName, pharmacyDirectory]);
+  }, [clientName, vendorPharmacyDirectory]);
 
-  // Cliente coincidente exacto para feedback visual
+  // Cliente coincidente exacto para feedback visual (Filtrado por las rutas del vendedor)
   const matchedClient = React.useMemo(() => {
     const trimmedCode = (clientCode || '').trim().toLowerCase();
     const trimmedName = (clientName || '').trim().toLowerCase();
     if (!trimmedCode && !trimmedName) return null;
 
-    return pharmacyDirectory.find(p => {
+    return vendorPharmacyDirectory.find(p => {
       const pCode = (p.code || '').trim().toLowerCase();
       const pName = (p.name || '').trim().toLowerCase();
       if (trimmedCode && (pCode === trimmedCode || (trimmedCode.length > 1 && pCode.replace(/^0+/, '') === trimmedCode.replace(/^0+/, '')))) {
@@ -462,7 +510,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       }
       return false;
     }) || null;
-  }, [clientCode, clientName, pharmacyDirectory]);
+  }, [clientCode, clientName, vendorPharmacyDirectory]);
 
   // MANEJO DE CAMBIO EN CÓDIGO (Despliega opciones de inmediato y consulta el directorio en vivo)
   const handleClientCodeChange = (code) => {
@@ -603,16 +651,57 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
   // SUBMIT
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!clientName.trim()) {
-      alert('Por favor ingrese el nombre del cliente');
+
+    // REGLA DE VALIDACIÓN ESTRICTA Y DETALLADA PARA ACTUALIZAR EL DIRECTORIO DE LA MEJOR MANERA
+    const missing = [];
+    const cName = (clientName || '').trim();
+    const cCode = (clientCode || '').trim();
+    const rawPhone = (phone || '').trim();
+    const rawPhone2 = (secondaryPhone || '').trim();
+    const cSector = (sector || '').trim();
+    const cRoute = (route || '').trim();
+
+    if (!cName) {
+      missing.push('Nombre de la Farmacia / Cliente: Es obligatorio ingresar el nombre del cliente o establecimiento.');
+    } else if (cName.length < 3) {
+      missing.push('Nombre de la Farmacia / Cliente: Debe tener al menos 3 caracteres (no puede estar abreviado o incompleto).');
+    }
+
+    if (!cCode) {
+      missing.push('Código de Cliente: Debe indicar el código numérico asignado (o "0000" si se trata de un cliente nuevo).');
+    }
+
+    const parsedPhones = parseGuatemalaPhoneNumbers(rawPhone, rawPhone2);
+    if (!rawPhone) {
+      missing.push('Teléfono Principal: Debe ingresar el número telefónico de contacto del cliente.');
+    } else if (!parsedPhones.primary || parsedPhones.primary.replace(/\D/g, '').length !== 8) {
+      missing.push('Teléfono Principal: Debe contener un número válido de Guatemala de 8 dígitos (ej: 55551234).');
+    }
+
+    if (rawPhone2 && (!parsedPhones.secondary || parsedPhones.secondary.replace(/\D/g, '').length !== 8)) {
+      missing.push('Segundo Teléfono / Celular: Ingresó un número complementario pero debe contener exactamente 8 dígitos.');
+    }
+
+    if (!cRoute) {
+      missing.push('Ruta Asignada: Debe seleccionar la ruta correspondiente a la visita.');
+    }
+
+    if (!cSector) {
+      missing.push('Sector Visitado: Debe ingresar el sector, zona, aldea o municipio visitado a la par de la ruta.');
+    }
+
+    if (missing.length > 0) {
+      setValidationErrors(missing);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
+    setValidationErrors(null);
     setSubmitting(true);
 
-    const p1 = phone.trim();
-    const p2 = secondaryPhone.trim();
-    const combinedPhone = p2 ? (p1 ? `${p1} / ${p2}` : p2) : p1;
+    const p1 = parsedPhones.primary || rawPhone;
+    const p2 = parsedPhones.secondary || rawPhone2;
+    const combinedPhone = p2 ? `${p1} / ${p2}` : p1;
 
     let finalLocation = location;
     if (!finalLocation) {
@@ -796,6 +885,46 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
           
+          {/* BANNER DE VALIDACIÓN DETALLADA: SI FALTAN CAMPOS OBLIGATORIOS PARA EL DIRECTORIO */}
+          {validationErrors && validationErrors.length > 0 && (
+            <div className="p-5 bg-gradient-to-r from-rose-50 to-red-50 dark:from-rose-950/70 dark:to-red-950/60 border-2 border-rose-500 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center font-black text-xl shrink-0 shadow-md">
+                    ⚠️
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-rose-900 dark:text-rose-100 flex items-center gap-2">
+                      <span>Faltan campos obligatorios para registrar la visita</span>
+                      <span className="text-[11px] px-2.5 py-0.5 bg-rose-200 dark:bg-rose-900/80 text-rose-900 dark:text-rose-200 rounded-full font-bold">
+                        {validationErrors.length} {validationErrors.length === 1 ? 'campo pendiente' : 'campos pendientes'}
+                      </span>
+                    </h4>
+                    <p className="text-xs text-rose-700 dark:text-rose-300 mt-1 leading-relaxed">
+                      Para que el directorio de clientes se actualice de la mejor manera y sin inconsistencias, debes completar los siguientes datos requeridos:
+                    </p>
+                    <ul className="mt-3 space-y-2 text-xs">
+                      {validationErrors.map((err, idx) => (
+                        <li key={idx} className="flex items-start gap-2 bg-white/70 dark:bg-slate-900/60 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/50 shadow-sm">
+                          <span className="text-rose-600 font-black text-sm leading-none mt-0.5">•</span>
+                          <span className="text-rose-900 dark:text-rose-100 font-semibold">{err}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setValidationErrors(null)}
+                  className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-xs font-bold transition-colors cursor-pointer"
+                  title="Cerrar advertencia"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Section 1: Client & General Info */}
           <div className="space-y-4">
             <h3 className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
@@ -894,7 +1023,12 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                         <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/80 text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md border-b border-blue-100 dark:border-blue-900/50">
                           <span className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                            Coincidencias ({codeSuggestions.length})
+                            <span>Coincidencias ({codeSuggestions.length})</span>
+                            {isVendorWithRestrictedRoutes && (
+                              <span className="ml-1 text-[9px] bg-blue-200 dark:bg-blue-900/90 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded font-bold">
+                                📍 Rutas asignadas
+                              </span>
+                            )}
                           </span>
                           <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">Toca para autollenar</span>
                         </div>
@@ -916,7 +1050,8 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                                 </span>
                               </div>
                               <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                {item.sector && <span>📍 {item.sector}</span>}
+                                {item.route && <span className="font-semibold text-blue-600 dark:text-blue-400">📍 {item.route}</span>}
+                                {item.sector && <span>• {item.sector}</span>}
                                 {item.phone && <span>📞 {item.phone}</span>}
                               </div>
                             </div>
@@ -931,7 +1066,9 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                         <p className="font-semibold text-slate-700 dark:text-slate-300">
                           No hay farmacias con el código <span className="font-mono text-blue-600 dark:text-blue-400">"{clientCode}"</span>
                         </p>
-                        <p className="mt-1 text-[11px]">Puedes continuar escribiendo o registrarla como cliente nuevo.</p>
+                        <p className="mt-1 text-[11px]">
+                          {isVendorWithRestrictedRoutes ? 'Se filtran solo las farmacias de tus rutas asignadas. Puedes continuar o registrar como nuevo cliente.' : 'Puedes continuar escribiendo o registrarla como cliente nuevo.'}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -1036,7 +1173,12 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                         <div className="px-3 py-2 bg-blue-50 dark:bg-blue-950/80 text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md border-b border-blue-100 dark:border-blue-900/50">
                           <span className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                            Farmacias encontradas ({nameSuggestions.length})
+                            <span>Farmacias encontradas ({nameSuggestions.length})</span>
+                            {isVendorWithRestrictedRoutes && (
+                              <span className="ml-1 text-[9px] bg-blue-200 dark:bg-blue-900/90 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded font-bold">
+                                📍 Tus rutas
+                              </span>
+                            )}
                           </span>
                           <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">Toca para autollenar</span>
                         </div>
@@ -1060,7 +1202,8 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                                 </span>
                               </div>
                               <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                {item.sector && <span>📍 {item.sector}</span>}
+                                {item.route && <span className="font-semibold text-blue-600 dark:text-blue-400">📍 {item.route}</span>}
+                                {item.sector && <span>• {item.sector}</span>}
                                 {item.phone && <span>📞 {item.phone}</span>}
                               </div>
                             </div>
@@ -1075,7 +1218,9 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                         <p className="font-semibold text-slate-700 dark:text-slate-300">
                           No hay farmacias que contengan <span className="text-blue-600 dark:text-blue-400">"{clientName}"</span>
                         </p>
-                        <p className="mt-1 text-[11px]">Se guardará como nuevo cliente al registrar la visita.</p>
+                        <p className="mt-1 text-[11px]">
+                          {isVendorWithRestrictedRoutes ? 'Se filtran únicamente farmacias de tus rutas asignadas. Se registrará como nuevo cliente en tu ruta.' : 'Se guardará como nuevo cliente al registrar la visita.'}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -1085,7 +1230,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Teléfono / Celular
+                    Teléfono Principal (8 dígitos) *
                   </label>
                   {!showSecondaryPhone && (
                     <button
@@ -1095,7 +1240,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                       title="Agregar un segundo número telefónico o celular para este cliente"
                     >
                       <Plus size={12} className="stroke-[2.5]" />
-                      <span>+ Agregar otro Teléfono</span>
+                      <span>+ 2º Teléfono</span>
                     </button>
                   )}
                 </div>
@@ -1103,7 +1248,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                   <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="tel"
-                    placeholder="Ej: 5555-1234"
+                    placeholder="Ej: 55551234 (8 dígitos)"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
@@ -1115,7 +1260,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                   <div className="mt-2.5 p-2.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 rounded-xl animate-in fade-in slide-in-from-top-1 transition-all">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1">
-                        <Phone size={11} /> Segundo Teléfono / Contacto:
+                        <Phone size={11} /> Teléfono 2 / Celular (8 dígitos):
                       </span>
                       <button
                         type="button"
@@ -1133,7 +1278,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                       <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500" />
                       <input
                         type="tel"
-                        placeholder="Ej: 5555-9876 (Opcional)"
+                        placeholder="Ej: 55559876 (Opcional)"
                         value={secondaryPhone}
                         onChange={(e) => setSecondaryPhone(e.target.value)}
                         className="w-full pl-9 pr-3.5 py-2 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-800 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
@@ -1248,7 +1393,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Sector Visitado
+                  Sector Visitado *
                 </label>
                 <input
                   type="text"
@@ -1256,6 +1401,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                   onChange={(e) => setSector(e.target.value)}
                   placeholder="Ej: Zona 1, Aldea San Antonio, Centro..."
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                  required
                 />
               </div>
 
