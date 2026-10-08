@@ -44,6 +44,10 @@
       - **Paginación Ilimitada en Supabase:** Se implementó fetchAllClientCodesFromSupabase() con paginación transparente en lotes de 1,000 registros, superando la limitación de PostgREST y garantizando la descarga de todos los registros sin pérdidas ni topes.
       - **Unificación Obligatoria sin Sobrescrituras:** fetchPharmacyDirectory y saveBulkClientsToDirectory ahora traen siempre la totalidad de clientes de Supabase antes de mezclar con el almacenamiento local y las visitas históricas, actualizando localStorage de forma unificada.
       - **Botón 'Sincronizar Nube':** Añadido botón interactivo en la barra del directorio para que el administrador pueda forzar la recarga manual desde Supabase en cualquier momento.
+  17. **Identificación Estricta y Exclusiva por Código de Cliente (Soporte de Farmacias Homónimas):**
+      - **Regla de Negocio de Droguería El Olam:** Se estableció que el único identificador irrepetible en toda la base de datos es el **Código de Cliente**. Farmacias con el mismo nombre comercial (ej. 'Farmacia La Bendición') pero con diferente código son clientes totalmente independientes y válidos.
+      - **Indexación Blindada por Código:** Se corrigió etchPharmacyDirectory, deduplicateClientsList, saveClientRecord y updateClientInDirectory para que las claves de los registros se basen exclusivamente en el código (code:xxx) y no colisionen por nombre.
+      - **Carga Masiva y Filtros Sin Pérdidas:** Al subir plantillas de Excel, el sistema no fusiona farmacias con el mismo nombre si sus códigos son diferentes; se cargan y conservan todas en el directorio maestro. La detección de duplicados opera estrictamente sobre el código de cliente.
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
   - Mantener la bitácora viva para que la IA retome exactamente en el punto donde se suspendió la sesión previa.

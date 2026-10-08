@@ -192,14 +192,28 @@ export async function fetchPharmacyDirectory(allVisits = [], forceRefresh = fals
   const codes = await fetchClientCodes(forceRefresh);
   const stored = getStoredPharmacyDirectory();
 
-  // Create unified dictionary keyed by normalized name and code
+  // Diccionario unificado indexado EXCLUSIVAMENTE por código de cliente.
+  // Regla Droguería El Olam: Pueden existir múltiples farmacias con el mismo nombre comercial,
+  // pero el distintivo único es el CÓDIGO. Registros con distinto código son clientes independientes.
   const map = new Map();
 
-  // 1. Seed with predefined client codes
+  const getRecordKey = (cCode, cName) => {
+    const cleanCode = (cCode || '').toString().trim().toLowerCase();
+    if (cleanCode && cleanCode !== '0000') {
+      return `code:${cleanCode}`;
+    }
+    const cleanName = (cName || '').toString().trim().toLowerCase();
+    if (cleanName && cleanName !== 'cliente farmacia') {
+      return `name:${cleanName}`;
+    }
+    return '';
+  };
+
+  // 1. Cargar todos los códigos de clientes desde Supabase
   codes.forEach(c => {
-    const codeKey = (c.code || '').trim().toLowerCase();
-    const nameKey = (c.name || '').trim().toLowerCase();
-    const item = {
+    const key = getRecordKey(c.code, c.name);
+    if (!key) return;
+    map.set(key, {
       code: c.code,
       name: c.name || '',
       sector: '',
@@ -208,22 +222,20 @@ export async function fetchPharmacyDirectory(allVisits = [], forceRefresh = fals
       secondaryPhone: '',
       lastVisitDate: '',
       totalVisits: 0
-    };
-    if (codeKey) map.set(codeKey, item);
-    if (nameKey) map.set(nameKey, item);
+    });
   });
 
-  // 2. Merge with all historical visits
+  // 2. Fusionar con visitas históricas para enriquecer datos (teléfono, sector, ruta)
   if (Array.isArray(allVisits)) {
     allVisits.forEach(v => {
       if (!v.clientName && !v.clientCode) return;
-      const codeKey = (v.clientCode || '').trim().toLowerCase();
-      const nameKey = (v.clientName || '').trim().toLowerCase();
+      const key = getRecordKey(v.clientCode, v.clientName);
+      if (!key) return;
 
-      const existing = (codeKey && map.get(codeKey)) || (nameKey && map.get(nameKey)) || {};
+      const existing = map.get(key) || {};
       const visitDate = v.visitDate || (v.created_at ? v.created_at.split('T')[0] : '');
 
-      const merged = {
+      map.set(key, {
         code: v.clientCode || existing.code || '',
         name: v.clientName || existing.name || '',
         sector: v.sector || v.route || existing.sector || '',
@@ -232,19 +244,17 @@ export async function fetchPharmacyDirectory(allVisits = [], forceRefresh = fals
         secondaryPhone: existing.secondaryPhone || '',
         lastVisitDate: visitDate || existing.lastVisitDate || '',
         totalVisits: (existing.totalVisits || 0) + 1
-      };
-
-      if (codeKey) map.set(codeKey, merged);
-      if (nameKey) map.set(nameKey, merged);
+      });
     });
   }
 
-  // 3. Merge with stored directory (Excel imports, manual adds, and manual edits from Admin) - HIGHEST PRIORITY
+  // 3. Fusionar con directorio almacenado (Excel imports y ediciones de Admin)
   stored.forEach(s => {
-    const codeKey = (s.code || '').trim().toLowerCase();
-    const nameKey = (s.name || '').trim().toLowerCase();
-    const existing = (codeKey && map.get(codeKey)) || (nameKey && map.get(nameKey)) || {};
-    const merged = {
+    const key = getRecordKey(s.code, s.name);
+    if (!key) return;
+
+    const existing = map.get(key) || {};
+    map.set(key, {
       code: s.code || existing.code || '',
       name: s.name || existing.name || '',
       sector: s.sector || s.route || existing.sector || '',
@@ -253,12 +263,10 @@ export async function fetchPharmacyDirectory(allVisits = [], forceRefresh = fals
       secondaryPhone: s.secondaryPhone || existing.secondaryPhone || '',
       lastVisitDate: s.last_visit_date || s.lastVisitDate || existing.lastVisitDate || '',
       totalVisits: (s.total_visits !== undefined ? s.total_visits : existing.totalVisits) || 0
-    };
-    if (codeKey) map.set(codeKey, merged);
-    if (nameKey) map.set(nameKey, merged);
+    });
   });
 
-  // Deduplicate prioritizing records with all necessary fields
+  // Deduplicar respetando que el código es la llave única
   const rawList = Array.from(map.values());
   const result = deduplicateClientsList(rawList);
 
@@ -339,8 +347,9 @@ export async function saveClientRecord({ code, name, sector, route, visitDate, p
       idx = list.findIndex(c => (c.code || '').trim().toLowerCase() === cleanCode.toLowerCase());
     }
 
-    // B. Prioridad 2: Coincidencia por nombre de farmacia (permite detectar clientes que tenían 0000 o cambiarles el código)
-    if (idx === -1 && cleanName) {
+    // B. Prioridad 2: Coincidencia por nombre de farmacia (SOLO si no se especificó código propio o era 0000)
+    // Regla Droguería El Olam: si tiene código propio real no debe fusionarse con otra farmacia homónima
+    if (idx === -1 && cleanName && (!cleanCode || cleanCode === '0000')) {
       idx = list.findIndex(c => (c.name || '').trim().toLowerCase() === cleanName.toLowerCase());
     }
 
@@ -451,10 +460,14 @@ export async function updateClientInDirectory({ originalCode, originalName, code
   const newSector = (sector || '').trim();
 
   // Find index of item in stored directory
+  // Regla Droguería El Olam: el código es el identificador único prioritario
   const idx = currentList.findIndex(item => {
     const itC = (item.code || '').trim().toLowerCase();
     const itN = (item.name || '').trim().toLowerCase();
-    return (origC && itC === origC) || (origN && itN === origN);
+    if (origC && origC !== '0000') {
+      return itC === origC;
+    }
+    return origN && itN === origN;
   });
 
   const updatedRecord = {
