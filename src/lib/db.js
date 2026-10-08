@@ -370,8 +370,8 @@ export async function createVendor({ name, username, password, route, daily_goal
     name,
     username: username || generateUsername(name),
     password: password ? hashPassword(password) : DEFAULT_VENDOR_HASH,
-    route: route || 'Ruta General',
-    daily_goal: Number(daily_goal) || 15,
+    route: route || '',
+    daily_goal: daily_goal ? Number(daily_goal) : 0,
     phone: phone || '',
     active: true,
     hire_date: hireDateFormatted,
@@ -493,7 +493,7 @@ export async function updateVendorCredentials(vendorId, { password, route, daily
         name: name !== undefined ? name : v.name,
         password: hashedPassword !== undefined ? hashedPassword : v.password,
         route: route !== undefined ? route : v.route,
-        daily_goal: daily_goal !== undefined ? Number(daily_goal) : v.daily_goal
+        daily_goal: daily_goal !== undefined ? (daily_goal !== '' ? Number(daily_goal) : 0) : v.daily_goal
       };
     }
     return v;

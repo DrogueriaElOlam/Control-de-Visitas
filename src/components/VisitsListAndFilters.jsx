@@ -536,8 +536,8 @@ export default function VisitsListAndFilters({
 
               {/* Export Report Button & Clientes Nuevos Excel & Cumplimiento de Metas & Resumen por Ruta */}
               <div className="flex flex-wrap items-center gap-2 ml-auto">
-                {/* Botón Cumplimiento de Metas */}
-                {(!isAdmin || currentUser?.role === 'vendor') && (
+                {/* Botón Cumplimiento de Metas (Solo Administrador) */}
+                {isAdmin && (
                   <button
                     type="button"
                     onClick={handleOpenGoalModal}
@@ -549,8 +549,8 @@ export default function VisitsListAndFilters({
                   </button>
                 )}
 
-                {/* Botón RESUMEN MENSUAL POR RUTA a la par de Cumplimiento de Metas */}
-                {(!isAdmin || currentUser?.role === 'vendor') && (
+                {/* Botón RESUMEN MENSUAL POR RUTA a la par de Cumplimiento de Metas (Solo Administrador) */}
+                {isAdmin && (
                   <button
                     type="button"
                     onClick={handleOpenRouteModal}

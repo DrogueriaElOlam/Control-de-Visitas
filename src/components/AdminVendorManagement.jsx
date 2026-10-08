@@ -67,8 +67,8 @@ export default function AdminVendorManagement({
     name: '',
     username: '',
     password: '',
-    route: 'Coban #13',
-    daily_goal: 15,
+    route: '',
+    daily_goal: '',
     phone: '',
     hire_date: getLocalDateString()
   });
@@ -78,7 +78,7 @@ export default function AdminVendorManagement({
     name: '',
     password: '',
     route: '',
-    daily_goal: 15
+    daily_goal: ''
   });
 
   // Admin password change form
@@ -173,15 +173,19 @@ export default function AdminVendorManagement({
     }
 
     try {
-      await createVendor(newVendorData);
+      await createVendor({
+        ...newVendorData,
+        route: newVendorData.route || '',
+        daily_goal: newVendorData.daily_goal ? Number(newVendorData.daily_goal) : 0
+      });
       showNotification(`Vendedor "${newVendorData.name}" creado con éxito.`);
       setShowCreateModal(false);
       setNewVendorData({
         name: '',
         username: '',
         password: '',
-        route: 'Coban #13',
-        daily_goal: 15,
+        route: '',
+        daily_goal: '',
         phone: '',
         hire_date: getLocalDateString()
       });
@@ -247,8 +251,8 @@ export default function AdminVendorManagement({
     setEditFormData({
       name: vendor.name,
       password: vendor.password?.length === 64 ? '' : (vendor.password || ''),
-      route: vendor.route || 'Coban #13',
-      daily_goal: vendor.daily_goal || 15
+      route: vendor.route || '',
+      daily_goal: vendor.daily_goal !== undefined && vendor.daily_goal !== null ? vendor.daily_goal : ''
     });
     setShowEditModal(true);
   };
@@ -259,7 +263,11 @@ export default function AdminVendorManagement({
     if (!selectedVendor) return;
 
     try {
-      await updateVendorCredentials(selectedVendor.id, editFormData);
+      await updateVendorCredentials(selectedVendor.id, {
+        ...editFormData,
+        route: editFormData.route || '',
+        daily_goal: editFormData.daily_goal !== '' ? Number(editFormData.daily_goal) : 0
+      });
       showNotification(`Datos y contraseña de "${editFormData.name}" actualizados.`);
       setShowEditModal(false);
       loadVendors();
@@ -711,13 +719,14 @@ export default function AdminVendorManagement({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-700 dark:text-slate-300 mb-1">
-                    Ruta Asignada
+                    Ruta Asignada (Opcional)
                   </label>
                   <select
                     value={newVendorData.route}
                     onChange={(e) => setNewVendorData({ ...newVendorData, route: e.target.value })}
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
                   >
+                    <option value="">(Sin ruta asignada / Opcional)</option>
                     {ALL_ROUTES.map(r => (
                       <option key={r} value={r}>{r}</option>
                     ))}
@@ -740,12 +749,13 @@ export default function AdminVendorManagement({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase text-slate-700 dark:text-slate-300 mb-1">
-                    Meta Diaria de Visitas
+                    Meta Diaria de Visitas (Opcional)
                   </label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     max="100"
+                    placeholder="Opcional"
                     value={newVendorData.daily_goal}
                     onChange={(e) => setNewVendorData({ ...newVendorData, daily_goal: e.target.value })}
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
@@ -827,13 +837,14 @@ export default function AdminVendorManagement({
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-700 dark:text-slate-300 mb-1">
-                  Ruta Asignada
+                  Ruta Asignada (Opcional)
                 </label>
                 <select
-                  value={editFormData.route}
+                  value={editFormData.route || ''}
                   onChange={(e) => setEditFormData({ ...editFormData, route: e.target.value })}
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
                 >
+                  <option value="">(Sin ruta asignada / Opcional)</option>
                   {ALL_ROUTES.map(r => (
                     <option key={r} value={r}>{r}</option>
                   ))}
@@ -842,13 +853,14 @@ export default function AdminVendorManagement({
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-700 dark:text-slate-300 mb-1">
-                  Meta Diaria de Visitas
+                  Meta Diaria de Visitas (Opcional)
                 </label>
                 <input
                   type="number"
-                  min="1"
+                  min="0"
                   max="100"
-                  value={editFormData.daily_goal}
+                  placeholder="Opcional"
+                  value={editFormData.daily_goal !== undefined && editFormData.daily_goal !== null ? editFormData.daily_goal : ''}
                   onChange={(e) => setEditFormData({ ...editFormData, daily_goal: e.target.value })}
                   className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
                 />

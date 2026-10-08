@@ -224,22 +224,9 @@ export async function fetchPharmacyDirectory(allVisits = []) {
     if (nameKey) map.set(nameKey, merged);
   });
 
-  // Deduplicate by unique code or name
-  const result = [];
-  const seenCodes = new Set();
-  const seenNames = new Set();
-
-  map.forEach(item => {
-    const cKey = (item.code || '').toLowerCase();
-    const nKey = (item.name || '').toLowerCase();
-    if (!cKey && !nKey) return;
-    if (cKey && seenCodes.has(cKey)) return;
-    if (nKey && seenNames.has(nKey)) return;
-
-    if (cKey) seenCodes.add(cKey);
-    if (nKey) seenNames.add(nKey);
-    result.push(item);
-  });
+  // Deduplicate prioritizing records with all necessary fields
+  const rawList = Array.from(map.values());
+  const result = deduplicateClientsList(rawList);
 
   return result;
 }
@@ -428,84 +415,167 @@ export async function updateClientInDirectory({ originalCode, originalName, code
   return { success: true, client: updatedRecord };
 }
 
+// Helper: Calcular nivel de completitud de campos de un cliente
+export function calculateClientCompleteness(client) {
+  if (!client) return { score: 0, percent: 0, missingFields: ['Código', 'Nombre', 'Teléfono', 'Ruta'], isComplete: false };
+  
+  const hasCode = !!(client.code && String(client.code).trim() && String(client.code).trim() !== '0000');
+  const hasName = !!(client.name && String(client.name).trim() && String(client.name).trim().toLowerCase() !== 'cliente farmacia');
+  const hasPhone = !!(client.phone && String(client.phone).trim().replace(/\D/g, '').length >= 7);
+  const hasRoute = !!((client.sector && String(client.sector).trim()) || (client.route && String(client.route).trim()));
+
+  const missingFields = [];
+  if (!hasCode) missingFields.push('Código');
+  if (!hasName) missingFields.push('Nombre');
+  if (!hasPhone) missingFields.push('Teléfono');
+  if (!hasRoute) missingFields.push('Ruta');
+
+  let score = 0;
+  if (hasCode) score += 1;
+  if (hasName) score += 1;
+  if (hasPhone) score += 1;
+  if (hasRoute) score += 1;
+
+  const percent = Math.round((score / 4) * 100);
+  return {
+    score,
+    percent,
+    hasCode,
+    hasName,
+    hasPhone,
+    hasRoute,
+    missingFields,
+    isComplete: score === 4
+  };
+}
+
+// Helper: Fusionar registros de clientes conservando los mejores campos
+export function mergeClientRecords(base = {}, incoming = {}) {
+  const clean = (val) => (val ? String(val).trim() : '');
+
+  // Código más válido
+  const code = (clean(incoming.code) && clean(incoming.code) !== '0000') ? clean(incoming.code) : (clean(base.code) || '0000');
+
+  // Nombre no genérico
+  let name = clean(incoming.name);
+  if (!name || name.toLowerCase() === 'cliente farmacia') {
+    name = clean(base.name) || 'Cliente Farmacia';
+  }
+
+  // Teléfono más completo
+  const p1 = clean(base.phone);
+  const p2 = clean(incoming.phone);
+  const phone = (p2 && p2.replace(/\D/g, '').length >= 7) ? p2 : (p1 || p2);
+
+  // Ruta / sector más completo
+  const r1 = clean(base.route || base.sector);
+  const r2 = clean(incoming.route || incoming.sector);
+  const route = r2 || r1 || '';
+
+  return {
+    code,
+    name,
+    phone,
+    sector: route,
+    route,
+    lastVisitDate: incoming.lastVisitDate || base.lastVisitDate || incoming.last_visit_date || base.last_visit_date || '',
+    totalVisits: Math.max(Number(base.totalVisits || base.total_visits || 0), Number(incoming.totalVisits || incoming.total_visits || 0)),
+    updated_at: new Date().toISOString()
+  };
+}
+
+// Helper: Deduplicar lista de clientes agrupados por código, priorizando registros completos
+export function deduplicateClientsList(list = []) {
+  if (!Array.isArray(list) || list.length === 0) return [];
+
+  const groups = new Map();
+
+  list.forEach(item => {
+    if (!item) return;
+    const cleanCode = item.code ? String(item.code).trim().toLowerCase() : '';
+    const cleanName = item.name ? String(item.name).trim().toLowerCase() : '';
+
+    let groupKey = '';
+    if (cleanCode && cleanCode !== '0000') {
+      groupKey = `code:${cleanCode}`;
+    } else if (cleanName && cleanName !== 'cliente farmacia') {
+      groupKey = `name:${cleanName}`;
+    } else {
+      groupKey = `raw:${Math.random()}`;
+    }
+
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, []);
+    }
+    groups.get(groupKey).push(item);
+  });
+
+  const deduplicated = [];
+
+  groups.forEach((groupItems) => {
+    if (groupItems.length === 1) {
+      deduplicated.push(groupItems[0]);
+      return;
+    }
+
+    // Ordenar por puntaje de completitud descendente
+    groupItems.sort((a, b) => {
+      const scoreA = calculateClientCompleteness(a).score;
+      const scoreB = calculateClientCompleteness(b).score;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      return (Number(b.totalVisits || b.total_visits || 0)) - (Number(a.totalVisits || a.total_visits || 0));
+    });
+
+    // Fusionar todos los campos del grupo en el registro principal
+    let merged = groupItems[0];
+    for (let i = 1; i < groupItems.length; i++) {
+      merged = mergeClientRecords(merged, groupItems[i]);
+    }
+
+    deduplicated.push(merged);
+  });
+
+  return deduplicated;
+}
+
 // Bulk save clients imported from Excel file into directory and Supabase
 export async function saveBulkClientsToDirectory(clientsList = []) {
-  if (!Array.isArray(clientsList) || clientsList.length === 0) return { success: false, count: 0 };
+  if (!Array.isArray(clientsList) || clientsList.length === 0) return { success: false, count: 0, duplicatesResolved: 0 };
 
   const currentList = getStoredPharmacyDirectory();
-  const map = new Map();
 
-  // Index existing by code and name
-  currentList.forEach(item => {
-    if (item.code) map.set(item.code.trim().toLowerCase(), item);
-    if (item.name) map.set(item.name.trim().toLowerCase(), item);
-  });
+  // Deduplicar la lista entrante primero para asegurar que en el archivo no haya conflictos
+  const cleanIncoming = deduplicateClientsList(clientsList);
+  const duplicatesInUpload = clientsList.length - cleanIncoming.length;
 
-  const validToSave = [];
-  const supabaseBatch = [];
+  // Unificar con el directorio existente
+  const combined = [...currentList, ...cleanIncoming];
+  const finalDirectory = deduplicateClientsList(combined);
+  const duplicatesResolved = combined.length - finalDirectory.length;
 
-  clientsList.forEach(c => {
-    const code = String(c.code || c.codigo || c.clientCode || '').trim();
-    const name = String(c.name || c.nombre || c.clientName || c.farmacia || '').trim();
-    const phone = String(c.phone || c.telefono || c.tel || '').trim();
-    const sector = String(c.sector || c.ruta || c.route || '').trim();
-    const route = String(c.route || c.ruta || c.sector || '').trim();
-
-    if (!code && !name) return;
-
-    const codeKey = code.toLowerCase();
-    const nameKey = name.toLowerCase();
-
-    const existing = (codeKey && map.get(codeKey)) || (nameKey && map.get(nameKey)) || {};
-
-    const updated = {
-      code: code || existing.code || '0000',
-      name: name || existing.name || 'Cliente Farmacia',
-      phone: phone || existing.phone || '',
-      sector: sector || existing.sector || '',
-      route: route || existing.route || sector || '',
-      total_visits: existing.total_visits || 0,
-      last_visit_date: existing.last_visit_date || '',
-      updated_at: new Date().toISOString()
-    };
-
-    if (codeKey) map.set(codeKey, updated);
-    if (nameKey) map.set(nameKey, updated);
-
-    validToSave.push(updated);
-
-    if (code && name) {
-      supabaseBatch.push({
-        code: code,
-        client_name: name
-      });
-    }
-  });
-
-  // Extract deduplicated list
-  const deduplicated = [];
-  const seenKeys = new Set();
-  map.forEach(val => {
-    const key = (val.code || '') + '|' + (val.name || '');
-    if (!seenKeys.has(key)) {
-      seenKeys.add(key);
-      deduplicated.push(val);
-    }
-  });
-
-  // 1. Save to local directory
+  // 1. Guardar en localStorage
   try {
-    localStorage.setItem('olam_pharmacy_directory_v2', JSON.stringify(deduplicated));
+    localStorage.setItem('olam_pharmacy_directory_v2', JSON.stringify(finalDirectory));
   } catch (e) {
     console.error('Error saving local directory bulk:', e);
   }
 
-  // 2. Dispatch custom event to notify all vendor forms in real-time
+  // 2. Disparar evento para actualizar UI en caliente
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('olam_clients_directory_updated', { detail: deduplicated }));
+    window.dispatchEvent(new CustomEvent('olam_clients_directory_updated', { detail: finalDirectory }));
   }
 
-  // 3. Upsert to Supabase in chunks of 50
+  // 3. Preparar e insertar en Supabase (client_codes) para autocompletado en tiempo real
+  const supabaseBatch = [];
+  finalDirectory.forEach(c => {
+    if (c.code && c.code !== '0000' && c.name && c.name !== 'Cliente Farmacia') {
+      supabaseBatch.push({
+        code: String(c.code).trim(),
+        client_name: String(c.name).trim()
+      });
+    }
+  });
+
   if (supabaseBatch.length > 0) {
     try {
       const chunkSize = 50;
@@ -520,40 +590,88 @@ export async function saveBulkClientsToDirectory(clientsList = []) {
 
   return {
     success: true,
-    count: validToSave.length,
-    totalInDirectory: deduplicated.length
+    count: cleanIncoming.length,
+    totalInDirectory: finalDirectory.length,
+    duplicatesResolved
   };
 }
 
-// Delete a client from the directory
-export async function deleteClientFromDirectory(code, name) {
+// Depuración automática de todo el directorio almacenado
+export async function cleanAndDeduplicateDirectory() {
   const currentList = getStoredPharmacyDirectory();
-  const cleanCode = (code || '').trim().toLowerCase();
-  const cleanName = (name || '').trim().toLowerCase();
-
-  const filtered = currentList.filter(c => {
-    const cCode = (c.code || '').trim().toLowerCase();
-    const cName = (c.name || '').trim().toLowerCase();
-    if (cleanCode && cCode === cleanCode) return false;
-    if (cleanName && cName === cleanName) return false;
-    return true;
-  });
+  const beforeCount = currentList.length;
+  const cleaned = deduplicateClientsList(currentList);
+  const removedCount = beforeCount - cleaned.length;
 
   try {
-    localStorage.setItem('olam_pharmacy_directory_v2', JSON.stringify(filtered));
+    localStorage.setItem('olam_pharmacy_directory_v2', JSON.stringify(cleaned));
   } catch (e) {}
 
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('olam_clients_directory_updated', { detail: filtered }));
+    window.dispatchEvent(new CustomEvent('olam_clients_directory_updated', { detail: cleaned }));
   }
 
-  if (cleanCode) {
+  return {
+    beforeCount,
+    afterCount: cleaned.length,
+    removedCount,
+    cleaned
+  };
+}
+
+// Delete an exact client record from the directory (permite borrar un duplicado específico sin borrar el otro)
+export async function deleteExactClientRecord(clientToDelete = {}) {
+  const currentList = getStoredPharmacyDirectory();
+  const targetCode = String(clientToDelete.code || '').trim().toLowerCase();
+  const targetName = String(clientToDelete.name || '').trim().toLowerCase();
+  const targetPhone = String(clientToDelete.phone || '').trim();
+
+  const idx = currentList.findIndex(c => {
+    const cCode = String(c.code || '').trim().toLowerCase();
+    const cName = String(c.name || '').trim().toLowerCase();
+    const cPhone = String(c.phone || '').trim();
+
+    const codeMatch = targetCode ? (cCode === targetCode) : true;
+    const nameMatch = targetName ? (cName === targetName) : true;
+    const phoneMatch = targetPhone ? (cPhone === targetPhone) : true;
+
+    return codeMatch && nameMatch && phoneMatch;
+  });
+
+  if (idx !== -1) {
+    currentList.splice(idx, 1);
+  } else {
+    // Fallback por código y nombre
+    const fIdx = currentList.findIndex(c => {
+      const cCode = String(c.code || '').trim().toLowerCase();
+      const cName = String(c.name || '').trim().toLowerCase();
+      return (targetCode && cCode === targetCode) && (targetName && cName === targetName);
+    });
+    if (fIdx !== -1) currentList.splice(fIdx, 1);
+  }
+
+  try {
+    localStorage.setItem('olam_pharmacy_directory_v2', JSON.stringify(currentList));
+  } catch (e) {}
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('olam_clients_directory_updated', { detail: currentList }));
+  }
+
+  // Si ya no queda NINGÚN registro con este código en el directorio, borrar de Supabase
+  const stillHasCode = currentList.some(c => String(c.code || '').trim().toLowerCase() === targetCode);
+  if (!stillHasCode && targetCode && targetCode !== '0000') {
     try {
-      await supabase.from('client_codes').delete().eq('code', code.trim());
+      await supabase.from('client_codes').delete().eq('code', clientToDelete.code.trim());
     } catch (e) {}
   }
 
-  return filtered;
+  return currentList;
+}
+
+// Delete a client from the directory (compatibilidad retroactiva)
+export async function deleteClientFromDirectory(code, name) {
+  return deleteExactClientRecord({ code, name });
 }
 
 // Generate and trigger download of official sample Excel template

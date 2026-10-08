@@ -17,7 +17,7 @@ export default function SupervisorLogoutModal({ isOpen, onClose, onConfirmLogout
       setPassword('');
       onConfirmLogout();
     } else {
-      setErrorMsg('Contraseña incorrecta. Se requiere autorización del supervisor (0l@m_2025$) para cerrar la sesión durante la jornada.');
+      setErrorMsg('Contraseña incorrecta. Se requiere autorización de un supervisor para cerrar la sesión durante la jornada.');
     }
   };
 
@@ -57,11 +57,9 @@ export default function SupervisorLogoutModal({ isOpen, onClose, onConfirmLogout
         </div>
 
         {/* Mensaje descriptivo */}
-        <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-3.5 border border-slate-200 dark:border-slate-700/70 mb-4 text-xs text-slate-600 dark:text-slate-300 leading-relaxed space-y-1.5">
-          <p>
-            Al cerrar sesión, el vendedor <span className="font-bold text-slate-900 dark:text-white">{vendorName || 'en campo'}</span> dejará de emitir su ubicación satelital en tiempo real en el mapa.
-          </p>
-          <p className="font-semibold text-slate-700 dark:text-slate-200">
+        <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-3.5 border border-slate-200 dark:border-slate-700/70 mb-4 text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
+          <p className="font-semibold">
+            {vendorName && <span className="font-black text-slate-900 dark:text-white">{vendorName}: </span>}
             Para proteger el monitoreo laboral, solo un supervisor puede autorizar la salida.
           </p>
         </div>

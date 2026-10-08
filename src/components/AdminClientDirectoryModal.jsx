@@ -1,5 +1,3 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import * as XLSX from 'xlsx';
 import { 
   Building2, 
   Upload, 
@@ -9,6 +7,7 @@ import {
   Plus, 
   CheckCircle2, 
   AlertCircle, 
+  AlertTriangle,
   X, 
   FileSpreadsheet, 
   Phone, 
@@ -17,7 +16,11 @@ import {
   UserCheck,
   Pencil,
   Save,
-  Check
+  Check,
+  Filter,
+  Sparkles,
+  Layers,
+  CheckCheck
 } from 'lucide-react';
 import { 
   getStoredPharmacyDirectory, 
@@ -26,6 +29,9 @@ import {
   saveClientRecord, 
   updateClientInDirectory,
   deleteClientFromDirectory, 
+  deleteExactClientRecord,
+  cleanAndDeduplicateDirectory,
+  calculateClientCompleteness,
   downloadClientsTemplateExcel 
 } from '../lib/catalog';
 import { ALL_ROUTES } from '../lib/db';
@@ -34,6 +40,8 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
   if (!isOpen) return null;
 
   const [activeSubTab, setActiveSubTab] = useState('import'); // 'import' | 'list' | 'manual'
+  const [listFilter, setListFilter] = useState('all'); // 'all' | 'duplicates' | 'incomplete'
+  const [autoDeduplicateUpload, setAutoDeduplicateUpload] = useState(true);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -64,8 +72,13 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
   const loadDirectory = async () => {
     setLoading(true);
     try {
-      const dir = await fetchPharmacyDirectory(visits);
-      setClients(dir);
+      const stored = getStoredPharmacyDirectory();
+      if (stored && stored.length > 0) {
+        setClients(stored);
+      } else {
+        const dir = await fetchPharmacyDirectory(visits);
+        setClients(dir);
+      }
     } catch (e) {
       console.error('Error loading directory:', e);
     } finally {
@@ -278,26 +291,123 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
     }
   };
 
-  // Delete single client
-  const handleDeleteClient = async (code, name) => {
-    if (window.confirm(`¿Deseas eliminar a "${name || code}" del directorio de farmacias?`)) {
-      await deleteClientFromDirectory(code, name);
+  // Duplicate statistics for the current directory
+  const duplicateStats = useMemo(() => {
+    const codeCounts = {};
+    clients.forEach(c => {
+      const code = c.code ? String(c.code).trim().toLowerCase() : '';
+      if (code && code !== '0000') {
+        codeCounts[code] = (codeCounts[code] || 0) + 1;
+      }
+    });
+
+    const duplicateCodes = Object.keys(codeCounts).filter(code => codeCounts[code] > 1);
+    const duplicateRowsCount = clients.filter(c => {
+      const code = c.code ? String(c.code).trim().toLowerCase() : '';
+      return code && codeCounts[code] > 1;
+    }).length;
+
+    let incompleteCount = 0;
+    clients.forEach(c => {
+      if (!calculateClientCompleteness(c).isComplete) incompleteCount++;
+    });
+
+    return {
+      codeCounts,
+      duplicateCodes,
+      duplicateRowsCount,
+      uniqueDuplicateCodesCount: duplicateCodes.length,
+      incompleteCount
+    };
+  }, [clients]);
+
+  // Duplicates detection for the uploaded Excel preview
+  const uploadDuplicateStats = useMemo(() => {
+    const codeCounts = {};
+    parsedRows.forEach(r => {
+      const code = r.code ? String(r.code).trim().toLowerCase() : '';
+      if (code && code !== '0000') {
+        codeCounts[code] = (codeCounts[code] || 0) + 1;
+      }
+    });
+    const dupCount = parsedRows.filter(r => {
+      const code = r.code ? String(r.code).trim().toLowerCase() : '';
+      return code && codeCounts[code] > 1;
+    }).length;
+    return { codeCounts, dupCount };
+  }, [parsedRows]);
+
+  // Delete single exact client record
+  const handleDeleteClient = async (client) => {
+    const isDup = client.code && (duplicateStats.codeCounts[String(client.code).trim().toLowerCase()] > 1);
+    const confirmMsg = isDup
+      ? `¿Deseas eliminar este registro duplicado específico de "${client.name || client.code}"?\n\nLos demás registros con este código se mantendrán intactos para que conserves el más completo.`
+      : `¿Deseas eliminar a "${client.name || client.code}" del directorio de farmacias?`;
+
+    if (window.confirm(confirmMsg)) {
+      await deleteExactClientRecord(client);
       await loadDirectory();
+      setStatusMsg({
+        type: 'info',
+        text: `Registro de "${client.name || client.code}" eliminado del directorio.`
+      });
+      setTimeout(() => setStatusMsg({ type: '', text: '' }), 3500);
+    }
+  };
+
+  // Auto clean all duplicate codes keeping only the most complete records
+  const handleAutoCleanDuplicates = async () => {
+    const confirm = window.confirm(
+      `¿Deseas depurar los códigos duplicados automáticamente?\n\n` +
+      `Se analizarán todos los registros repetidos y el sistema conservará únicamente el registro que contenga todos los campos necesarios (Código, Nombre, Teléfono y Ruta), fusionando la información más completa.`
+    );
+    if (!confirm) return;
+
+    try {
+      const res = await cleanAndDeduplicateDirectory();
+      setStatusMsg({
+        type: 'success',
+        text: `✓ Depuración completada: Se eliminaron ${res.removedCount} registros duplicados incompletos. Ahora el directorio cuenta con ${res.afterCount} farmacias con códigos únicos y completos.`
+      });
+      setTimeout(() => setStatusMsg({ type: '', text: '' }), 5500);
+      setListFilter('all');
+      await loadDirectory();
+    } catch (e) {
+      console.error(e);
+      alert('Error al depurar duplicados.');
     }
   };
 
   // Filtered clients for list view
   const filteredClients = useMemo(() => {
-    if (!searchQuery.trim()) return clients;
+    let list = clients;
+
+    if (listFilter === 'duplicates') {
+      list = list.filter(c => {
+        const code = c.code ? String(c.code).trim().toLowerCase() : '';
+        return code && (duplicateStats.codeCounts[code] > 1);
+      });
+      // Sort grouped by code so duplicates appear together, most complete first
+      list = [...list].sort((a, b) => {
+        const codeA = String(a.code || '').toLowerCase();
+        const codeB = String(b.code || '').toLowerCase();
+        if (codeA !== codeB) return codeA.localeCompare(codeB);
+        return calculateClientCompleteness(b).score - calculateClientCompleteness(a).score;
+      });
+    } else if (listFilter === 'incomplete') {
+      list = list.filter(c => !calculateClientCompleteness(c).isComplete);
+    }
+
+    if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase().trim();
-    return clients.filter(c => 
-      (c.code && c.code.toLowerCase().includes(q)) ||
-      (c.name && c.name.toLowerCase().includes(q)) ||
-      (c.sector && c.sector.toLowerCase().includes(q)) ||
-      (c.route && c.route.toLowerCase().includes(q)) ||
-      (c.phone && c.phone.toLowerCase().includes(q))
+    return list.filter(c => 
+      (c.code && String(c.code).toLowerCase().includes(q)) ||
+      (c.name && String(c.name).toLowerCase().includes(q)) ||
+      (c.sector && String(c.sector).toLowerCase().includes(q)) ||
+      (c.route && String(c.route).toLowerCase().includes(q)) ||
+      (c.phone && String(c.phone).toLowerCase().includes(q))
     );
-  }, [clients, searchQuery]);
+  }, [clients, searchQuery, listFilter, duplicateStats]);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
@@ -463,10 +573,24 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
               {/* Preview Table of Rows Found */}
               {parsedRows.length > 0 && (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
+                  {uploadDuplicateStats.dupCount > 0 && (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-2xl flex items-start gap-3 text-xs text-amber-900 dark:text-amber-200">
+                      <AlertTriangle className="shrink-0 text-amber-600 mt-0.5" size={20} />
+                      <div className="space-y-1">
+                        <p className="font-bold text-sm text-amber-800 dark:text-amber-200">
+                          ⚠️ Se detectaron {uploadDuplicateStats.dupCount} filas con códigos duplicados en el archivo Excel
+                        </p>
+                        <p className="text-xs text-slate-600 dark:text-slate-300">
+                          Al presionar <strong>"Confirmar e Importar"</strong>, el sistema aplicará automáticamente la depuración inteligente: unificará la información y <strong>conservará únicamente el registro con todos los campos necesarios</strong> (Código, Nombre, Teléfono y Ruta), descartando las copias incompletas.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-200 flex items-center gap-2">
                       <UserCheck size={16} className="text-emerald-500" />
-                      Vista Previa de Clientes Detectados ({parsedRows.length} registros)
+                      Vista Previa de Clientes ({parsedRows.length} filas detectadas)
                     </h4>
 
                     <button
@@ -476,7 +600,7 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                       className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white text-xs font-black transition-all shadow-md shadow-emerald-600/30 flex items-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       {importing ? <RefreshCw className="animate-spin" size={15} /> : <CheckCircle2 size={15} />}
-                      <span>Confirmar e Importar {parsedRows.length} Clientes</span>
+                      <span>Confirmar e Importar ({parsedRows.length - uploadDuplicateStats.dupCount + (uploadDuplicateStats.dupCount > 0 ? uploadDuplicateStats.dupCount : 0)} Clientes)</span>
                     </button>
                   </div>
 
@@ -489,18 +613,43 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                           <th className="p-2.5">Nombre de la Farmacia</th>
                           <th className="p-2.5">Teléfono</th>
                           <th className="p-2.5">Ruta o Sector</th>
+                          <th className="p-2.5 text-center">Campos</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {parsedRows.slice(0, 100).map((r, i) => (
-                          <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                            <td className="p-2.5 text-center text-slate-400 font-mono">{i + 1}</td>
-                            <td className="p-2.5 font-bold font-mono text-blue-600 dark:text-blue-400">{r.code || '—'}</td>
-                            <td className="p-2.5 font-medium text-slate-900 dark:text-slate-100">{r.name}</td>
-                            <td className="p-2.5 text-slate-600 dark:text-slate-400 font-mono">{r.phone || '—'}</td>
-                            <td className="p-2.5 text-slate-700 dark:text-slate-300 font-medium">{r.sector || r.route || '—'}</td>
-                          </tr>
-                        ))}
+                        {parsedRows.slice(0, 100).map((r, i) => {
+                          const codeKey = (r.code ? String(r.code).trim().toLowerCase() : '');
+                          const isDup = codeKey && (uploadDuplicateStats.codeCounts[codeKey] > 1);
+                          const comp = calculateClientCompleteness(r);
+
+                          return (
+                            <tr key={i} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 ${isDup ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''}`}>
+                              <td className="p-2.5 text-center text-slate-400 font-mono">{i + 1}</td>
+                              <td className="p-2.5 font-bold font-mono text-blue-600 dark:text-blue-400">
+                                <div>{r.code || '—'}</div>
+                                {isDup && (
+                                  <span className="inline-block text-[10px] text-amber-700 dark:text-amber-400 font-bold bg-amber-100 dark:bg-amber-900/50 px-1.5 py-0.2 rounded mt-0.5">
+                                    ⚠️ Duplicado ({uploadDuplicateStats.codeCounts[codeKey]}x)
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-2.5 font-medium text-slate-900 dark:text-slate-100">{r.name}</td>
+                              <td className="p-2.5 text-slate-600 dark:text-slate-400 font-mono">{r.phone || '—'}</td>
+                              <td className="p-2.5 text-slate-700 dark:text-slate-300 font-medium">{r.sector || r.route || '—'}</td>
+                              <td className="p-2.5 text-center">
+                                {comp.isComplete ? (
+                                  <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 rounded font-bold text-[10px]">
+                                    ✓ Completo
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 rounded font-bold text-[10px]" title={`Falta: ${comp.missingFields.join(', ')}`}>
+                                    ⚠️ Incompleto ({comp.score}/4)
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -520,9 +669,36 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
           {activeSubTab === 'list' && (
             <div className="space-y-4">
               
-              {/* Search bar & Stats */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-80">
+              {/* Alerta si se detectan duplicados */}
+              {duplicateStats.duplicateRowsCount > 0 && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/70 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
+                  <div className="flex items-start gap-2.5 text-amber-900 dark:text-amber-200">
+                    <AlertTriangle className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" size={18} />
+                    <div>
+                      <p className="font-bold text-sm">
+                        ⚠️ Se detectaron {duplicateStats.uniqueDuplicateCodesCount} códigos repetidos ({duplicateStats.duplicateRowsCount} registros en total)
+                      </p>
+                      <p className="text-slate-600 dark:text-slate-300 text-[11px] mt-0.5">
+                        Puedes revisarlos a continuación y eliminar manualmente los registros con la papelera, o presionar el botón de depuración para dejar solo los que contienen todos los campos necesarios.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAutoCleanDuplicates}
+                    className="shrink-0 px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 active:scale-95 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer text-xs"
+                    title="Elimina duplicados conservando automáticamente el registro con todos los campos completos"
+                  >
+                    <Sparkles size={14} />
+                    <span>Depurar Duplicados Automáticamente</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Controles de Búsqueda y Filtros Rápidos */}
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                {/* Search bar */}
+                <div className="relative w-full lg:w-72">
                   <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
@@ -536,8 +712,58 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                   )}
                 </div>
 
-                <div className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                  Mostrando {filteredClients.length} de {clients.length} farmacias registradas
+                {/* Filtros por píldora */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setListFilter('all')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      listFilter === 'all'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                    }`}
+                  >
+                    Todos ({clients.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setListFilter('duplicates')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      listFilter === 'duplicates'
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : duplicateStats.duplicateRowsCount > 0
+                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                    }`}
+                  >
+                    <AlertTriangle size={13} />
+                    <span>⚠️ Duplicados ({duplicateStats.duplicateRowsCount})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setListFilter('incomplete')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      listFilter === 'incomplete'
+                        ? 'bg-rose-600 text-white shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                    }`}
+                  >
+                    Incompletos ({duplicateStats.incompleteCount})
+                  </button>
+
+                  {duplicateStats.duplicateRowsCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleAutoCleanDuplicates}
+                      className="ml-auto px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow transition-all cursor-pointer flex items-center gap-1"
+                      title="Quedarse solo con los registros completos y unificados"
+                    >
+                      <Sparkles size={13} />
+                      <span>Limpiar Duplicados</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -552,57 +778,93 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                         <th className="p-3">Nombre de la Farmacia</th>
                         <th className="p-3">Teléfono</th>
                         <th className="p-3">Ruta / Sector</th>
+                        <th className="p-3 text-center">Estado de Campos</th>
                         <th className="p-3 text-center">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {loading ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-slate-400">Cargando directorio de farmacias...</td>
+                          <td colSpan={7} className="p-8 text-center text-slate-400">Cargando directorio de farmacias...</td>
                         </tr>
                       ) : filteredClients.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="p-8 text-center text-slate-400">
-                            {searchQuery ? 'No se encontraron coincidencias para la búsqueda.' : 'No hay farmacias cargadas en el directorio. Sube un archivo Excel para precargarlas.'}
+                          <td colSpan={7} className="p-8 text-center text-slate-400">
+                            {listFilter === 'duplicates'
+                              ? '✓ No se detectaron códigos duplicados en el directorio. Todos los códigos son únicos.'
+                              : searchQuery 
+                                ? 'No se encontraron coincidencias para la búsqueda.' 
+                                : 'No hay farmacias cargadas en el directorio.'}
                           </td>
                         </tr>
                       ) : (
-                        filteredClients.map((c, i) => (
-                          <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                            <td className="p-3 text-center text-slate-400 font-mono">{i + 1}</td>
-                            <td className="p-3 font-bold font-mono text-blue-600 dark:text-blue-400">{c.code || '—'}</td>
-                            <td className="p-3 font-bold text-slate-900 dark:text-slate-100">{c.name}</td>
-                            <td className="p-3 text-slate-600 dark:text-slate-400 font-mono">{c.phone || '—'}</td>
-                            <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
-                              {c.sector || c.route ? (
-                                <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                                  <MapPin size={11} className="text-blue-500" />
-                                  {c.sector || c.route}
-                                </span>
-                              ) : '—'}
-                            </td>
-                            <td className="p-3 text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => handleStartEdit(c)}
-                                  className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-all cursor-pointer"
-                                  title="Editar datos del cliente (corregir error de ingreso)"
-                                >
-                                  <Pencil size={14} />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteClient(c.code, c.name)}
-                                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer"
-                                  title="Eliminar del directorio"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
+                        filteredClients.map((c, i) => {
+                          const codeKey = c.code ? String(c.code).trim().toLowerCase() : '';
+                          const isDup = codeKey && (duplicateStats.codeCounts[codeKey] > 1);
+                          const comp = calculateClientCompleteness(c);
+
+                          return (
+                            <tr 
+                              key={i} 
+                              className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${
+                                isDup ? 'bg-amber-50/80 dark:bg-amber-950/30 border-l-4 border-l-amber-500' : ''
+                              }`}
+                            >
+                              <td className="p-3 text-center text-slate-400 font-mono">{i + 1}</td>
+                              <td className="p-3 font-bold font-mono text-blue-600 dark:text-blue-400">
+                                <div>{c.code || '—'}</div>
+                                {isDup && (
+                                  <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300">
+                                    ⚠️ Duplicado ({duplicateStats.codeCounts[codeKey]}x)
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 font-bold text-slate-900 dark:text-slate-100">
+                                {c.name}
+                              </td>
+                              <td className="p-3 text-slate-600 dark:text-slate-400 font-mono">{c.phone || '—'}</td>
+                              <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
+                                {c.sector || c.route ? (
+                                  <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                                    <MapPin size={11} className="text-blue-500" />
+                                    {c.sector || c.route}
+                                  </span>
+                                ) : '—'}
+                              </td>
+                              <td className="p-3 text-center">
+                                {comp.isComplete ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                    <CheckCircle2 size={11} /> Completo (4/4)
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800" title={`Falta: ${comp.missingFields.join(', ')}`}>
+                                    <AlertCircle size={11} /> Falta: {comp.missingFields.join(', ')}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEdit(c)}
+                                    className="p-1.5 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-all cursor-pointer"
+                                    title="Editar datos del cliente (corregir error de ingreso)"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteClient(c)}
+                                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer"
+                                    title={isDup ? "Eliminar este registro duplicado específico" : "Eliminar del directorio"}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>

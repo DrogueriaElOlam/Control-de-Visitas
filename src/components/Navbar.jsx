@@ -89,7 +89,7 @@ export default function Navbar({
                 {currentUser?.name}
               </span>
               <span className="text-xs text-blue-200">
-                {isAdmin ? 'Panel de Administración' : `Ruta: ${currentUser?.route || 'General'}`}
+                {isAdmin ? 'Panel de Administración' : 'Vendedor Autorizado'}
               </span>
             </div>
 
@@ -282,18 +282,6 @@ export default function Navbar({
               </button>
 
               <button
-                onClick={() => setActiveTab('my_goal')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
-                  activeTab === 'my_goal'
-                    ? 'bg-white text-blue-900 shadow-md font-bold'
-                    : 'text-blue-100 hover:bg-white/10'
-                }`}
-              >
-                <Target size={15} />
-                <span>Mi Meta Diaria</span>
-              </button>
-
-              <button
                 onClick={() => onOpenReportModal ? onOpenReportModal() : setActiveTab('report')}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-emerald-500/25 text-emerald-200 hover:bg-emerald-500 hover:text-white border border-emerald-400/40 shadow-sm"
                 title="Generar y Exportar Reporte Oficial con Gráficas y Métricas"
@@ -454,18 +442,6 @@ export default function Navbar({
             >
               <Database size={20} className={activeTab === 'info_general' ? 'stroke-[2.5] text-blue-600 dark:text-blue-400' : ''} />
               <span className="text-[10px] mt-0.5 font-bold">Info General</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('my_goal')}
-              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
-                activeTab === 'my_goal'
-                  ? 'text-blue-600 dark:text-blue-400 font-bold scale-105'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
-              }`}
-            >
-              <Target size={20} className={activeTab === 'my_goal' ? 'stroke-[2.5]' : ''} />
-              <span className="text-[10px] mt-0.5">Mi Meta</span>
             </button>
 
             <button

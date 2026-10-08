@@ -192,7 +192,7 @@ export default function App() {
 
   // Logout handler
   const handleLogout = () => {
-    // Si es un vendedor en campo, bloquear la salida con contraseña de supervisor (0l@m_2025$)
+    // Si es un vendedor en campo, bloquear la salida con contraseña de supervisor
     if (currentUser?.role === 'vendor') {
       setShowLogoutSupervisorModal(true);
       return;
@@ -354,7 +354,7 @@ export default function App() {
               />
             )}
 
-            {activeTab === 'my_goal' && (
+            {activeTab === 'my_goal' && currentUser?.role === 'admin' && (
               <DailyGoalWidget
                 currentUser={currentUser}
                 visits={visits}
@@ -406,7 +406,7 @@ export default function App() {
         currentUser={currentUser}
       />
 
-      {/* Modal de Bloqueo de Salida con Contraseña de Supervisor (0l@m_2025$) */}
+      {/* Modal de Bloqueo de Salida con Contraseña de Supervisor */}
       <SupervisorLogoutModal
         isOpen={showLogoutSupervisorModal}
         onClose={() => setShowLogoutSupervisorModal(false)}
