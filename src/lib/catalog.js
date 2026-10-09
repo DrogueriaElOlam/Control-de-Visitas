@@ -319,9 +319,13 @@ export function parseGuatemalaPhoneNumbers(primary = '', secondary = '') {
   }
 
   const unique = Array.from(new Set(detected));
+  const p1 = unique[0] || '';
+  const p2 = unique[1] || '';
   return {
-    phone: unique[0] || '',
-    secondaryPhone: unique[1] || ''
+    phone: p1,
+    secondaryPhone: p2,
+    primary: p1,
+    secondary: p2
   };
 }
 

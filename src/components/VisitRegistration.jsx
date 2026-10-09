@@ -678,15 +678,8 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     }
 
     const parsedPhones = parseGuatemalaPhoneNumbers(rawPhone, rawPhone2);
-    if (!rawPhone) {
-      missing.push('Teléfono Principal: Debe ingresar el número telefónico de contacto del cliente.');
-    } else if (!parsedPhones.primary || parsedPhones.primary.replace(/\D/g, '').length !== 8) {
-      missing.push('Teléfono Principal: Debe contener un número válido de Guatemala de 8 dígitos (ej: 55551234).');
-    }
-
-    if (rawPhone2 && (!parsedPhones.secondary || parsedPhones.secondary.replace(/\D/g, '').length !== 8)) {
-      missing.push('Segundo Teléfono / Celular: Ingresó un número complementario pero debe contener exactamente 8 dígitos.');
-    }
+    // El número de teléfono ya no es obligatorio para continuar el registro de la visita.
+    // Si el usuario ingresa un número, se procesa y guarda normalmente.
 
     if (!cRoute) {
       missing.push('Ruta Asignada: Debe seleccionar la ruta correspondiente a la visita.');
@@ -715,9 +708,9 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     setValidationErrors(null);
     setSubmitting(true);
 
-    const p1 = parsedPhones.primary || rawPhone;
-    const p2 = parsedPhones.secondary || rawPhone2;
-    const combinedPhone = p2 ? `${p1} / ${p2}` : p1;
+    const p1 = parsedPhones.phone || parsedPhones.primary || rawPhone;
+    const p2 = parsedPhones.secondaryPhone || parsedPhones.secondary || rawPhone2;
+    const combinedPhone = (p1 && p2) ? `${p1} / ${p2}` : (p1 || p2 || '');
 
     let finalLocation = location;
     if (!finalLocation) {
@@ -1260,7 +1253,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Teléfono Principal (8 dígitos) *
+                    Teléfono Principal (Opcional)
                   </label>
                   {!showSecondaryPhone && (
                     <button
@@ -1278,7 +1271,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                   <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="tel"
-                    placeholder="Ej: 55551234 (8 dígitos)"
+                    placeholder="Ej: 55551234 (Opcional)"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
@@ -1290,7 +1283,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                   <div className="mt-2.5 p-2.5 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 rounded-xl animate-in fade-in slide-in-from-top-1 transition-all">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1">
-                        <Phone size={11} /> Teléfono 2 / Celular (8 dígitos):
+                        <Phone size={11} /> Teléfono 2 / Celular (Opcional):
                       </span>
                       <button
                         type="button"
