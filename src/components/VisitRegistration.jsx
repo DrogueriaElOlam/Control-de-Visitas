@@ -1731,6 +1731,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
           </div>
 
         </form>
+      </div>
 
       {/* Modal de Soporte y Chat Interno con Administración */}
       <VendorSupportChatModal
