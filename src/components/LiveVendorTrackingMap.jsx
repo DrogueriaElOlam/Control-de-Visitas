@@ -21,11 +21,15 @@ import {
   ChevronRight,
   Sparkles,
   RefreshCw,
-  Trash2
+  Trash2,
+  AlertTriangle,
+  CheckCircle2,
+  X
 } from 'lucide-react';
-import { getDailyTrackingPoints, subscribeToLiveTracking, clearLocalTrackingPoints } from '../lib/trackingDb';
+import { getDailyTrackingPoints, subscribeToLiveTracking, clearLocalTrackingPoints, purgeTrackingPoints } from '../lib/trackingDb';
 import { getLocalDateString, getLocalYesterdayString } from '../lib/dateUtils';
 import { DEFAULT_VENDORS, normalizeVendorName } from '../lib/db';
+import { supabase } from '../lib/supabase';
 
 // Fix leaflet default icons
 delete L.Icon.Default.prototype._getIconUrl;
@@ -147,10 +151,62 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
   const [loading, setLoading] = useState(true);
   const [showVisitsPins, setShowVisitsPins] = useState(true);
 
+  // Estados para purgar y dejar en blanco los puntos de rastreo
+  const [showPurgeModal, setShowPurgeModal] = useState(false);
+  const [purging, setPurging] = useState(false);
+  const [purgeNotification, setPurgeNotification] = useState('');
+  const [purgeVisitsCoords, setPurgeVisitsCoords] = useState(false);
+
   // Estados del reproductor de recorrido (Playback)
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackIndex, setPlaybackIndex] = useState(0);
   const playbackTimerRef = useRef(null);
+
+  // Ejecución de purga en Supabase y memoria local
+  const handleExecutePurge = async (purgeAll = false) => {
+    setPurging(true);
+    try {
+      const res = await purgeTrackingPoints({
+        dateStr: purgeAll ? null : selectedDate,
+        purgeAll
+      });
+
+      // Si el administrador marcó remover coordenadas de visitas previas
+      if (purgeVisitsCoords) {
+        try {
+          if (purgeAll) {
+            await supabase.from('visits').update({ latitude: null, longitude: null, location_accuracy: null }).not('id', 'is', null);
+          } else if (selectedDate) {
+            await supabase.from('visits').update({ latitude: null, longitude: null, location_accuracy: null }).eq('visit_date', selectedDate);
+          }
+        } catch (_) {}
+      }
+
+      setTrackingPoints([]);
+      setShowPurgeModal(false);
+      const msg = purgeAll 
+        ? `🔥 Historial de puntos satelitales purgado al 100% en Supabase y memoria local (${res.deletedCount} pings eliminados). El mapa ha quedado completamente en blanco para la nueva versión.`
+        : `🗑️ Puntos satelitales de la fecha ${selectedDate} purgados con éxito (${res.deletedCount} pings eliminados).`;
+      setPurgeNotification(msg);
+      setTimeout(() => setPurgeNotification(''), 7000);
+      loadPointsForDate(selectedDate);
+    } catch (e) {
+      console.error('Error al purgar puntos GPS:', e);
+      setPurgeNotification('Error al purgar los puntos de rastreo.');
+    } finally {
+      setPurging(false);
+    }
+  };
+
+  useEffect(() => {
+    const handlePurged = (e) => {
+      if (e.detail?.purgeAll || e.detail?.dateStr === selectedDate) {
+        setTrackingPoints([]);
+      }
+    };
+    window.addEventListener('olam_tracking_purged', handlePurged);
+    return () => window.removeEventListener('olam_tracking_purged', handlePurged);
+  }, [selectedDate]);
 
   // Lista unificada y completa de todos los vendedores de Droguería El Olam
   const allVendorsList = useMemo(() => {
@@ -298,9 +354,23 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
     }
   }, [mapType]);
 
-  // Visitas del día seleccionado
+  // Visitas del día seleccionado (Soporta formato local y Supabase)
   const visitsForDate = useMemo(() => {
-    return visits.filter(v => v.visitDate === selectedDate && v.location?.lat && v.location?.lng);
+    return visits.filter(v => {
+      const vDate = v.visitDate || v.visit_date || (v.created_at ? v.created_at.split('T')[0] : '');
+      const lat = v.location?.lat !== undefined ? v.location.lat : v.latitude;
+      const lng = v.location?.lng !== undefined ? v.location.lng : v.longitude;
+      return vDate === selectedDate && lat !== null && lat !== undefined && lat !== '' && lng !== null && lng !== undefined && lng !== '';
+    }).map(v => {
+      const lat = Number(v.location?.lat !== undefined ? v.location.lat : v.latitude);
+      const lng = Number(v.location?.lng !== undefined ? v.location.lng : v.longitude);
+      const accuracy = Number(v.location?.accuracy || v.location_accuracy) || null;
+      return {
+        ...v,
+        visitDate: v.visitDate || v.visit_date,
+        location: { lat, lng, accuracy }
+      };
+    });
   }, [visits, selectedDate]);
 
   // 5. Agrupar puntos por vendedor: Combina pings de GPS continuos y visitas comerciales registradas
@@ -592,6 +662,19 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
 
   return (
     <div className="space-y-4">
+      {/* Banner de Notificación de Purga */}
+      {purgeNotification && (
+        <div className="bg-emerald-600 text-white p-4 rounded-2xl shadow-xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 text-xs font-bold">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={18} className="shrink-0" />
+            <span>{purgeNotification}</span>
+          </div>
+          <button onClick={() => setPurgeNotification('')} className="text-white/80 hover:text-white cursor-pointer">
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       {/* HEADER DE CONTROL Y SELECTORES */}
       <div className="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl flex flex-wrap items-center justify-between gap-4">
         
@@ -669,17 +752,14 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
 
-          {/* Botón para vaciar puntos y recorridos residuales de prueba */}
+          {/* Botón Administrativo para purgar puntos satelitales */}
           <button
-            onClick={() => {
-              clearLocalTrackingPoints(selectedDate);
-              setTrackingPoints([]);
-            }}
-            className="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800 transition-all shadow-sm flex items-center gap-1"
-            title="Limpiar puntos satelitales de prueba guardados en este navegador"
+            onClick={() => setShowPurgeModal(true)}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-all shadow-md shadow-rose-600/20 flex items-center gap-1.5 cursor-pointer"
+            title="Purgar puntos satelitales en la nube y memoria local para comenzar en blanco"
           >
             <Trash2 size={13} />
-            <span className="hidden sm:inline">Limpiar Pruebas</span>
+            <span>Purgar Puntos GPS</span>
           </button>
         </div>
 
@@ -943,6 +1023,27 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
         {/* Elemento donde Leaflet renderiza */}
         <div ref={mapContainerRef} className="w-full h-full" />
 
+        {/* Banner si el vendedor seleccionado no tiene puntos en la fecha seleccionada */}
+        {selectedVendor !== 'all' && (!pointsByVendor[selectedVendor] || pointsByVendor[selectedVendor].length === 0) && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[400] bg-slate-900/90 text-white backdrop-blur-md px-4 py-3 rounded-2xl border border-slate-700 shadow-2xl flex items-center gap-3 text-xs max-w-md animate-in fade-in slide-in-from-top-2">
+            <MapPin size={18} className="text-amber-400 shrink-0" />
+            <div className="flex-1">
+              <span className="font-bold text-white block">Sin recorrido para <strong>{selectedVendor}</strong> en {selectedDate}</span>
+              <span className="text-slate-400 block text-[11px] mt-0.5">
+                Al registrar visitas en campo o activar el rastreador, sus coordenadas satelitales se emitirán aquí automáticamente.
+              </span>
+            </div>
+            {selectedDate !== yesterdayStr && (
+              <button
+                onClick={() => setSelectedDate(yesterdayStr)}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-bold text-[11px] shrink-0 transition-all shadow-md"
+              >
+                Ver Ayer
+              </button>
+            )}
+          </div>
+        )}
+
         {/* LEYENDA FLOTANTE DE VENDEDORES (En Modo Grupal) */}
         {selectedVendor === 'all' && activeVendorsToday.length > 0 && (
           <div className="absolute bottom-4 left-4 z-[400] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl max-w-xs max-h-48 overflow-y-auto">
@@ -987,6 +1088,108 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
         )}
 
       </div>
+
+      {/* MODAL ADMINISTRATIVO DE PURGA DE PUNTOS GPS */}
+      {showPurgeModal && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-5 animate-in fade-in zoom-in-95">
+            
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 flex items-center justify-center shadow-inner shrink-0">
+                  <Trash2 size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                    Purgar Puntos Satelitales GPS
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Limpieza en Supabase (Nube) y Memoria Local de Dispositivos
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPurgeModal(false)}
+                disabled={purging}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-4 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+              <div className="flex items-center gap-2 font-black">
+                <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>¿Para qué sirve esta herramienta?</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-amber-900 dark:text-amber-200/90">
+                Permite erradicar de raíz todos los puntos de rastreo y pruebas satelitales acumuladas para dejar el sistema <strong>100% en blanco</strong> antes del lanzamiento oficial de la nueva versión.
+              </p>
+            </div>
+
+            {/* Opción adicional para desvincular coordenadas viejas de visitas de prueba */}
+            <label className="flex items-start gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={purgeVisitsCoords}
+                onChange={(e) => setPurgeVisitsCoords(e.target.checked)}
+                className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <div className="text-xs">
+                <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                  Remover también coordenadas GPS de visitas de prueba previas
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 block">
+                  Limpia la latitud y longitud de las visitas de prueba para que no proyecten pines en el mapa, conservando intactos todos los montos y registros de venta.
+                </span>
+              </div>
+            </label>
+
+            {/* Botones de acción */}
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => handleExecutePurge(false)}
+                disabled={purging}
+                className="w-full py-3 px-4 rounded-2xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <Trash2 size={15} />
+                <span>Borrar Solo Puntos de la Fecha Actual ({selectedDate})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleExecutePurge(true)}
+                disabled={purging}
+                className="w-full py-3 px-4 rounded-2xl text-xs font-extrabold bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white shadow-lg shadow-rose-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {purging ? (
+                  <>
+                    <RefreshCw size={15} className="animate-spin" />
+                    <span>Purgando Base de Datos en Supabase...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🔥 Purgar TODO el Historial Satelital (Dejar en Blanco Total)</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={() => setShowPurgeModal(false)}
+                disabled={purging}
+                className="text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-bold cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

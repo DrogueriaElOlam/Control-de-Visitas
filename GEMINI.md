@@ -1,4 +1,4 @@
-# Instrucciones del Proyecto Droguería El Olam
+﻿# Instrucciones del Proyecto Droguería El Olam
 
 ## 1. Idioma Obligatorio
 - **Todas las comunicaciones, respuestas, explicaciones y preguntas interactivas (incluyendo las ventanas modales de selección múltiple o confirmación) deben ser formuladas 100% en español.**
@@ -79,11 +79,39 @@
       - **Causa Raíz de Pantalla en Blanco:** En días con cobros en efectivo (como el 2026-10-01 con Q8,700 y Q2,500 recaudados), el componente VendorReportModal.jsx ejecutaba syncCashFromVisits() dentro de un useMemo(). Esta llamada guardaba los reportes y disparaba el evento global olam_cash_reports_changed. El event listener del modal escuchaba el evento y ejecutaba setCashRefreshTick(prev => prev + 1) durante la fase de render. Como cashRefreshTick estaba en las dependencias del useMemo, provocaba un ciclo infinito de re-renderizado síncrono (*Maximum update depth exceeded*), colapsando React y dejando la pantalla completamente en blanco.
       - **Solución Definitiva:** Se desacopló la sincronización de cobros en efectivo extrayéndola de useMemo a un useEffect controlado con useRef para evitar ejecuciones redundantes; useMemo se convirtió en una función puramente de lectura; se optimizó saveAllCashReports() en cashCollections.js para ser idempotente (si los datos no cambiaron, no escribe ni despacha eventos) y se le añadió soporte para modo silencioso (silent = true).
       - **Reactivación del Selector Visual de Modificaciones:** Restaurado e integrado <VisualFeedbackSelector /> en App.jsx, permitiendo al usuario marcar en pantalla cualquier elemento y copiarlo directamente para el chat sin tener que adivinar nombres de componentes.
+  25. **SincronizaciÃ³n Universal en la Nube de Claves OTP (Login y Cierre) & Captura Satelital GPS en Tiempo Real al Grabar Visitas:**
+      - **Causa RaÃ­z de Claves OTP No Quemadas y Archivo de Descarga Desactualizado:**
+        1) Las bÃ³vedas de claves se guardaban Ãºnicamente en el localStorage de cada navegador sin persistir en Supabase. Al quemar Danny Perez su clave en el telÃ©fono, no se reflejaba en la computadora del Administrador.
+        2) El botÃ³n de descarga apuntaba a un archivo estÃ¡tico /claves 2.0.xlsx fijo en public, el cual contenÃ­a todas las claves disponibles.
+      - **SoluciÃ³n Definitiva de Claves OTP:** Se implementÃ³ sincronizaciÃ³n bidireccional en Supabase (daily_supervision_history), eventos Realtime y generaciÃ³n 100% dinÃ¡mica de los archivos Excel con la librerÃ­a XLSX. La clave No. 1 (OLAM-X5F9-96RM) asignada a Danny Perez fue persistida y quemada en Supabase como consumida el 2026-10-08, descontÃ¡ndose en vivo del total.
+      - **Causa RaÃ­z de la UbicaciÃ³n de Danny Perez en el Mapa:**
+        1) VisitRegistration.jsx no activaba el GPS al abrirse y el botÃ³n de captura estaba oculto para vendedores.
+        2) Al grabar la visita, ante la ausencia de satÃ©lites inmediatos, recurrÃ­a a captureSilentIPLocation() (ipapi.co). Las antenas celulares de Guatemala asignan IPs centralizadas en la Ciudad de Guatemala (14.64072, -90.51327), ubicando errÃ³neamente a Danny Perez en la capital.
+      - **SoluciÃ³n Definitiva de UbicaciÃ³n Satelital GPS:**
+        1) Implementada la funciÃ³n obtainPreciseGPSLocation(maxWaitMs = 6000) con enableHighAccuracy: true y maximumAge: 0, auto-conexiÃ³n continua de satÃ©lites mediante watchPosition y botÃ³n interactivo visible en el encabezado.
+        2) Al presionar 'Registrar Visita', se capturan obligatoriamente las coordenadas satelitales GPS reales del telÃ©fono y se transmiten inmediatamente con saveGpsPoint() a daily_supervision_history y al canal en vivo de Supabase Realtime (olam_gps_live_channel), permitiendo que el supervisor visualice al vendedor de inmediato en el mapa satelital en el lugar exacto donde se encuentra.
+  26. **MÃ³dulo de Purga Administrativa y Vaciado Limpio de Puntos GPS (Nube y Local):**
+      - **Funcionalidad Implementada:** Creada la funciÃ³n purgeTrackingPoints({ dateStr, purgeAll }) en 	rackingDb.js conectada a Supabase (daily_supervision_history) y localStorage.
+      - **Herramienta en Interfaz:** Integrado el botÃ³n **'ðŸ—‘ï¸ Purgar Puntos GPS'** en la barra superior de LiveVendorTrackingMap.jsx. Despliega un modal administrativo con dos opciones seguras:
+        1) *'Borrar Solo Puntos de la Fecha Actual'*: Limpia pings de ese dÃ­a especÃ­fico.
+        2) *'ðŸ”¥ Purgar TODO el Historial Satelital (Dejar en Blanco Total)'*: Erradica absolutamente todos los pings de rastreo en Supabase y memoria local para iniciar el monitoreo oficial desde cero en una fecha exacta.
+        3) *Casilla Opcional*: Permite tambiÃ©n limpiar la latitud/longitud de las visitas de prueba para que no proyecten pines en el mapa, preservando al 100% los montos y registros de venta.
+  27. **NotificaciÃ³n en Tiempo Real de Vendedores en LÃ­nea, BitÃ¡cora de Conexiones y ExportaciÃ³n Elegante a Excel:**
+      - **NotificaciÃ³n Emergente (Toast + Audio):** Implementada detecciÃ³n en tiempo real de presencia satelital y canal Realtime (olam_vendor_events_channel). Cada vez que un vendedor entra a la app, el Administrador recibe una alerta emergente flotante en pantalla con badge ðŸŸ¢ En LÃ­nea Ahora, hora exacta, ruta y dispositivo, acompaÃ±ada de un sonido armÃ³nico sintetizado (Web Audio API) y botÃ³n de acceso rÃ¡pido.
+      - **Apartado Administrativo de Conexiones (AdminVendorConnectionsModal.jsx):** Nuevo mÃ³dulo accesible desde la barra de navegaciÃ³n del Administrador (Navbar), el panel principal (AdminDashboard) y el indicador interactivo de vendedores en lÃ­nea. Registra cronolÃ³gicamente cada ingreso a la plataforma con fecha, hora (formato 12h), vendedor, ruta asignada, tipo de dispositivo/navegador y estado actual.
+      - **Persistencia en Supabase y Modo Offline:** Cada sesiÃ³n se almacena de forma segura en daily_supervision_history (con 	ipo: 'vendor_login_session') y se respalda en localStorage, garantizando trazabilidad histÃ³rica y persistencia total.
+      - **ExportaciÃ³n a Excel en Cuadro Elegante con TÃ­tulos Azules y LÃ­neas Delgadas:** Integrado generador con exceljs que construye un archivo .xlsx profesional:
+        1) TÃ­tulo superior de DroguerÃ­a El Olam en azul marino corporativo (#1E3A8A) y subtÃ­tulo en azul brillante (#2563EB).
+        2) Encabezados de columnas con fondo azul elegante y texto en negrita blanca.
+        3) Todas las celdas de datos y encabezados delimitadas rigurosamente con bordes delgados (	hin borders).
+        4) Cebreado suave, alineaciones centradas para fechas/horas y auto-ajuste de ancho de columnas para visualizaciÃ³n e impresiÃ³n impecables.
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
   - Mantener la bitácora viva para que la IA retome exactamente en el punto donde se suspendió la sesión previa.
 - **Próximos Pasos Disponibles:**
   - Continuar con mejoras operativas solicitadas por el usuario en el panel administrativo o formularios de campo.
   - Implementar o refinar reportes, liquidaciones de viáticos o monitoreo de rutas según requerimientos.
+
+
 
 

@@ -32,6 +32,7 @@ import {
 import { addCashRecordFromVisit } from '../lib/cashCollections';
 import { getLocalDateString } from '../lib/dateUtils';
 import { captureAndReportLocation } from '../lib/silentGpsTracker';
+import { saveGpsPoint } from '../lib/trackingDb';
 import VendorSupportChatModal from './VendorSupportChatModal';
 
 export default function VisitRegistration({ currentUser, onVisitAdded, allVisits = [], onLogout, onNavigate }) {
@@ -255,44 +256,122 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     return null;
   };
 
+  // CAPTURA DE GPS SATELITAL CON MÁXIMA PRECISIÓN Y RETORNO ASÍNCRONO
+  const obtainPreciseGPSLocation = async (maxWaitMs = 6000) => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      return await captureSilentIPLocation();
+    }
+
+    return new Promise((resolve) => {
+      let finished = false;
+
+      const timer = setTimeout(() => {
+        if (!finished) {
+          finished = true;
+          // Si el satélite tardó, intentar usar la última posición satelital válida de la sesión
+          try {
+            const cached = sessionStorage.getItem('olam_last_known_loc');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (parsed?.lat && parsed?.lng && parsed.source !== 'Red/IP (Silencioso)') {
+                resolve(parsed);
+                return;
+              }
+            }
+          } catch (_) {}
+          // Si no hay satélite previo, usar fallback IP silencioso
+          captureSilentIPLocation().then((ipLoc) => resolve(ipLoc)).catch(() => resolve(null));
+        }
+      }, maxWaitMs);
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (!finished) {
+            finished = true;
+            clearTimeout(timer);
+            const gpsLoc = {
+              lat: Number(pos.coords.latitude),
+              lng: Number(pos.coords.longitude),
+              accuracy: pos.coords.accuracy ? Math.round(pos.coords.accuracy) : null,
+              source: 'GPS Satelital Real'
+            };
+            setLocation(gpsLoc);
+            try { sessionStorage.setItem('olam_last_known_loc', JSON.stringify(gpsLoc)); } catch (_) {}
+            resolve(gpsLoc);
+          }
+        },
+        async (_err) => {
+          if (!finished) {
+            finished = true;
+            clearTimeout(timer);
+            try {
+              const cached = sessionStorage.getItem('olam_last_known_loc');
+              if (cached) {
+                const parsed = JSON.parse(cached);
+                if (parsed?.lat && parsed?.lng) {
+                  resolve(parsed);
+                  return;
+                }
+              }
+            } catch (_) {}
+            const ipLoc = await captureSilentIPLocation();
+            resolve(ipLoc);
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: maxWaitMs - 500,
+          maximumAge: 0 // Coordenadas frescas satelitales en vivo
+        }
+      );
+    });
+  };
+
   // AUTO GPS CAPTURE CON RESPALDO SILENCIOSO INMEDIATO
   const captureGPSLocation = () => {
     setLocating(true);
     setLocError('');
 
-    // Pre-cargar caché de sesión si existe para respuesta inmediata (0ms)
-    try {
-      const cached = sessionStorage.getItem('olam_last_known_loc');
-      if (cached && !location) {
-        setLocation(JSON.parse(cached));
-      }
-    } catch (_) {}
+    obtainPreciseGPSLocation(6000)
+      .then((loc) => {
+        if (loc) setLocation(loc);
+      })
+      .finally(() => {
+        setLocating(false);
+      });
+  };
 
-    if (!navigator.geolocation) {
-      captureSilentIPLocation().finally(() => setLocating(false));
-      return;
+  // AUTO-ENGANCHE DE SATÉLITES GPS AL ENTRAR AL FORMULARIO DE REGISTRO
+  useEffect(() => {
+    captureGPSLocation();
+
+    // Mantener watchPosition silencioso para fijar satélites mientras el vendedor llena el formulario
+    let watchId = null;
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      try {
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const gpsLoc = {
+              lat: Number(pos.coords.latitude),
+              lng: Number(pos.coords.longitude),
+              accuracy: pos.coords.accuracy ? Math.round(pos.coords.accuracy) : null,
+              source: 'GPS Satelital Real'
+            };
+            setLocation(gpsLoc);
+            try { sessionStorage.setItem('olam_last_known_loc', JSON.stringify(gpsLoc)); } catch (_) {}
+          },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+        );
+      } catch (_) {}
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const gpsLoc = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: Math.round(pos.coords.accuracy),
-          source: 'GPS Satelital'
-        };
-        setLocation(gpsLoc);
-        try { sessionStorage.setItem('olam_last_known_loc', JSON.stringify(gpsLoc)); } catch (_) {}
-        setLocating(false);
-      },
-      async (_err) => {
-        // Si el usuario rechaza GPS o está apagado, se captura por Red/IP silenciosamente
-        await captureSilentIPLocation();
-        setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 }
-    );
-  };
+    return () => {
+      if (watchId !== null && navigator.geolocation) {
+        try { navigator.geolocation.clearWatch(watchId); } catch (_) {}
+      }
+    };
+  }, []);
 
   // DETERMINAR SI EL VENDEDOR TIENE RESTRICCIÓN DE RUTAS (Ana Lucía Marroquín, etc.)
   const isVendorWithRestrictedRoutes = !isSpecialVendor && assignedVendorRoutes && assignedVendorRoutes.length > 0;
@@ -712,22 +791,22 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     const p2 = parsedPhones.secondaryPhone || parsedPhones.secondary || rawPhone2;
     const combinedPhone = (p1 && p2) ? `${p1} / ${p2}` : (p1 || p2 || '');
 
+    // OBTENER UBICACIÓN SATELITAL FRESCA EN EL PRECISO INSTANTE DE GRABAR LA VISITA
     let finalLocation = location;
+    // Si no tenemos ubicación satelital fija o si proviene de IP centralizada, forzar satélites ahora
+    if (!finalLocation || finalLocation.source === 'Red/IP (Silencioso)') {
+      try {
+        const freshGps = await obtainPreciseGPSLocation(4500);
+        if (freshGps) {
+          finalLocation = freshGps;
+        }
+      } catch (_) {}
+    }
     if (!finalLocation) {
       try {
         const cached = sessionStorage.getItem('olam_last_known_loc');
         if (cached) finalLocation = JSON.parse(cached);
       } catch (_) {}
-    }
-    if (!finalLocation) {
-      try {
-        finalLocation = await Promise.race([
-          captureSilentIPLocation(),
-          new Promise(resolve => setTimeout(() => resolve(null), 1500))
-        ]);
-      } catch (_) {
-        finalLocation = null;
-      }
     }
 
     const visitPayload = {
@@ -760,6 +839,25 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
     try {
       const saved = await addVisitRecord(visitPayload);
+
+      // TRANSMISIÓN INMEDIATA DEL PUNTO SATELITAL AL MAPA EN TIEMPO REAL
+      if (finalLocation?.lat && finalLocation?.lng) {
+        try {
+          saveGpsPoint({
+            vendorId: currentUser?.id ? String(currentUser.id) : '',
+            vendorName: currentUser?.name || visitPayload.vendorName,
+            route: visitPayload.route || currentUser?.route || '',
+            latitude: Number(finalLocation.lat),
+            longitude: Number(finalLocation.lng),
+            accuracy: finalLocation.accuracy ? Number(finalLocation.accuracy) : null,
+            speed: 0,
+            batteryLevel: null,
+            isMocked: false,
+            trackingDate: visitPayload.visitDate || getLocalDateString(),
+            createdAt: new Date().toISOString()
+          }).catch(() => {});
+        } catch (_) {}
+      }
 
       // Emitir reporte satelital fresco al instante para marcar el punto en tiempo real
       try {
@@ -883,24 +981,29 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                 <span>💬 Soporte Admin</span>
               </button>
 
-              {/* GPS Status pill - Only visible for Admin */}
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={captureGPSLocation}
-                  disabled={locating}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
-                    location
-                      ? 'bg-emerald-500/90 hover:bg-emerald-500 text-white'
-                      : 'bg-white/20 hover:bg-white/30 text-white'
-                  }`}
-                >
-                  <Navigation size={15} className={locating ? 'animate-spin' : ''} />
-                  <span>
-                    {locating ? 'Obteniendo GPS...' : location ? `GPS Listo (±${location.accuracy}m)` : 'Capturar GPS'}
-                  </span>
-                </button>
-              )}
+              {/* GPS Status pill - Visible para Vendedores y Admin */}
+              <button
+                type="button"
+                onClick={captureGPSLocation}
+                disabled={locating}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
+                  location && location.source !== 'Red/IP (Silencioso)'
+                    ? 'bg-emerald-500/90 hover:bg-emerald-500 text-white'
+                    : locating
+                    ? 'bg-amber-500/90 text-white animate-pulse'
+                    : 'bg-white/20 hover:bg-white/30 text-white'
+                }`}
+                title="Tocar para actualizar satélite GPS de alta precisión"
+              >
+                <Navigation size={15} className={locating ? 'animate-spin' : ''} />
+                <span>
+                  {locating 
+                    ? 'Conectando Satélite GPS...' 
+                    : location && location.source !== 'Red/IP (Silencioso)'
+                    ? `GPS Satelital Activo (±${location.accuracy || 10}m)` 
+                    : '📍 Conectar GPS Satelital'}
+                </span>
+              </button>
             </div>
           </div>
         </div>

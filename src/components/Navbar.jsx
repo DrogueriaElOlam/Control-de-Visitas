@@ -18,16 +18,17 @@ import {
   Database,
   Shield,
   Settings,
-  MessageSquare
+  MessageSquare,
+  Wifi
 } from 'lucide-react';
 
 export default function Navbar({ 
   currentUser, 
   onLogout, 
   activeTab, 
-  setActiveTab,
+  setActiveTab, 
   darkMode, 
-  setDarkMode,
+  setDarkMode, 
   syncStatus,
   onOpenReportModal,
   onOpenCashModal,
@@ -37,6 +38,7 @@ export default function Navbar({
   onOpenAjustesModal,
   onOpenSupportTicketsModal,
   onOpenVendorSupportChat,
+  onOpenConnectionsModal,
   pendingTicketsCount = 0,
   onlineVendors = {}
 }) {
@@ -99,17 +101,17 @@ export default function Navbar({
 
             {/* Indicador de Vendedores en Línea (Solo Administrador) */}
             {isAdmin && (
-              <div 
-                onClick={() => setActiveTab('dashboard')} 
-                className="cursor-pointer hidden sm:flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 rounded-full text-xs font-bold text-emerald-300 shadow-sm transition-all"
-                title="Cantidad de vendedores conectados actualmente"
+              <button 
+                onClick={() => onOpenConnectionsModal && onOpenConnectionsModal()} 
+                className="cursor-pointer hidden sm:flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-400/40 rounded-full text-xs font-bold text-emerald-300 shadow-sm transition-all hover:scale-105 active:scale-95"
+                title="Ver registro y auditoría de conexiones de vendedores en línea"
               >
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
                 </span>
                 <span>{onlineVendorsCount} {onlineVendorsCount === 1 ? 'vendedor en línea' : 'vendedores en línea'}</span>
-              </div>
+              </button>
             )}
 
             {/* Sync Status indicator */}
@@ -256,6 +258,16 @@ export default function Navbar({
                     {pendingTicketsCount}
                   </span>
                 )}
+              </button>
+
+              {/* Botón Registro y Control de Conexiones en Línea (Admin) */}
+              <button
+                onClick={() => onOpenConnectionsModal && onOpenConnectionsModal()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-emerald-500/25 text-emerald-100 hover:bg-emerald-500 hover:text-white border border-emerald-400/40 shadow-sm cursor-pointer"
+                title="Historial de conexiones de vendedores, fechas, horas y exportación elegante a Excel"
+              >
+                <Wifi size={15} />
+                <span>Registro Conexiones</span>
               </button>
             </>
           ) : (
@@ -420,6 +432,15 @@ export default function Navbar({
             >
               <FileText size={20} className="text-amber-400" />
               <span className="text-[10px] mt-0.5 font-bold">Formularios</span>
+            </button>
+
+            <button
+              onClick={() => onOpenConnectionsModal && onOpenConnectionsModal()}
+              className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all text-emerald-600 dark:text-emerald-400 hover:text-emerald-700"
+              title="Registro de Conexiones de Vendedores"
+            >
+              <Wifi size={20} />
+              <span className="text-[10px] mt-0.5 font-bold">Conexión</span>
             </button>
 
             <button

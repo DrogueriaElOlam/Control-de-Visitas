@@ -255,3 +255,67 @@ export function clearLocalTrackingPoints(dateStr = null) {
   } catch (e) {}
 }
 
+/**
+ * Purga de forma permanente los puntos de rastreo satelital GPS en Supabase y localmente.
+ * @param {Object} options
+ * @param {string|null} options.dateStr - Fecha específica a purgar (YYYY-MM-DD), o null si es purgeAll.
+ * @param {boolean} options.purgeAll - Si es true, borra absolutamente TODOS los pings de todas las fechas.
+ * @returns {Promise<{success: boolean, deletedCount: number}>}
+ */
+export async function purgeTrackingPoints({ dateStr = null, purgeAll = false } = {}) {
+  let deletedCount = 0;
+
+  // 1. Limpiar localStorage local
+  clearLocalTrackingPoints(purgeAll ? null : dateStr);
+
+  // 2. Limpiar en Supabase (daily_supervision_history donde tipo === 'gps_ping')
+  try {
+    let query = supabase
+      .from('daily_supervision_history')
+      .select('id, datos');
+
+    if (!purgeAll && dateStr) {
+      query = query.eq('date', dateStr);
+    }
+
+    const { data, error } = await query;
+    if (!error && Array.isArray(data)) {
+      const idsToDelete = data
+        .filter(r => r.datos && r.datos.tipo === 'gps_ping')
+        .map(r => r.id);
+
+      if (idsToDelete.length > 0) {
+        for (let i = 0; i < idsToDelete.length; i += 80) {
+          const chunk = idsToDelete.slice(i, i + 80);
+          const { error: delErr } = await supabase
+            .from('daily_supervision_history')
+            .delete()
+            .in('id', chunk);
+
+          if (!delErr) {
+            deletedCount += chunk.length;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[Tracking] Error purgando pings en Supabase:', e);
+  }
+
+  // 3. Emitir evento por Broadcast para que todas las pantallas conectadas limpien el mapa en vivo
+  try {
+    const channel = supabase.channel('olam_gps_live_channel');
+    channel.send({
+      type: 'broadcast',
+      event: 'gps_purged',
+      payload: { dateStr, purgeAll, timestamp: Date.now() }
+    });
+  } catch (_) {}
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('olam_tracking_purged', { detail: { dateStr, purgeAll, deletedCount } }));
+  }
+
+  return { success: true, deletedCount };
+}
+

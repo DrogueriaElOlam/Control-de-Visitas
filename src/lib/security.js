@@ -121,6 +121,9 @@ export function verifyPassword(inputPassword, storedHashOrPlain, role = 'vendor'
   return false;
 }
 
+const OTP_LOGIN_VAULT_DATE = '2099-12-30';
+const OTP_LOGOUT_VAULT_DATE = '2099-12-31';
+
 /**
  * Gestión de la Bóveda de 50 Claves de Un Solo Toque (OTP)
  */
@@ -130,6 +133,8 @@ export function getOtpKeysVault() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Disparar sincronización silenciosa con la nube en segundo plano
+        setTimeout(() => { fetchOtpVaultFromCloud().catch(() => {}); }, 100);
         return parsed;
       }
     }
@@ -143,15 +148,133 @@ export function getOtpKeysVault() {
     hash: hashPassword(item.key)
   }));
   saveOtpKeysVault(initial);
+  setTimeout(() => { fetchOtpVaultFromCloud().catch(() => {}); }, 100);
   return initial;
 }
 
 export function saveOtpKeysVault(vault) {
   try {
     localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(vault));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('olam_otp_vault_changed', { detail: { vault } }));
+    }
   } catch (e) {
     console.error('Error al guardar bóveda de claves OTP:', e);
   }
+}
+
+/**
+ * Sincroniza la bóveda de claves de login con Supabase de forma bidireccional
+ */
+export async function fetchOtpVaultFromCloud() {
+  let localVault = [];
+  try {
+    const raw = localStorage.getItem(OTP_STORAGE_KEY);
+    if (raw) localVault = JSON.parse(raw);
+  } catch (_) {}
+
+  if (!Array.isArray(localVault) || localVault.length === 0) {
+    localVault = initialOtpKeys.map((item) => ({
+      ...item,
+      hash: hashPassword(item.key)
+    }));
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('daily_supervision_history')
+      .select('datos')
+      .eq('date', OTP_LOGIN_VAULT_DATE)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!error && data && data.length > 0 && data[0]?.datos?.vault) {
+      const cloudVault = data[0].datos.vault;
+      let hasNewCloudBurn = false;
+      let hasNewLocalBurn = false;
+
+      const merged = localVault.map((localItem) => {
+        const cloudItem = cloudVault.find(c => c.key === localItem.key || c.id === localItem.id);
+        // Si en la nube ya está quemada y localmente no, actualizar local
+        if (cloudItem && cloudItem.used && !localItem.used) {
+          hasNewCloudBurn = true;
+          return {
+            ...localItem,
+            used: true,
+            usedAt: cloudItem.usedAt,
+            usedBy: cloudItem.usedBy,
+            usedRole: cloudItem.usedRole
+          };
+        }
+        // Si localmente está quemada y en la nube no, avisar para actualizar nube
+        if (localItem.used && (!cloudItem || !cloudItem.used)) {
+          hasNewLocalBurn = true;
+          return localItem;
+        }
+        return localItem;
+      });
+
+      saveOtpKeysVault(merged);
+      if (hasNewLocalBurn) {
+        saveOtpVaultToCloud(merged).catch(() => {});
+      }
+      return merged;
+    } else {
+      // Inicializar la nube con la bóveda
+      saveOtpVaultToCloud(localVault).catch(() => {});
+    }
+  } catch (err) {
+    console.warn('[Security] Error consultando bóveda OTP en Supabase:', err);
+  }
+
+  return localVault;
+}
+
+export async function saveOtpVaultToCloud(vault) {
+  saveOtpKeysVault(vault);
+  try {
+    const { data: existing } = await supabase
+      .from('daily_supervision_history')
+      .select('id')
+      .eq('date', OTP_LOGIN_VAULT_DATE)
+      .limit(1);
+
+    const payload = {
+      date: OTP_LOGIN_VAULT_DATE,
+      datos: {
+        tipo: 'otp_vault_login',
+        vault: vault,
+        updated_at: new Date().toISOString()
+      }
+    };
+
+    if (existing && existing.length > 0) {
+      await supabase
+        .from('daily_supervision_history')
+        .update(payload)
+        .eq('id', existing[0].id);
+    } else {
+      await supabase
+        .from('daily_supervision_history')
+        .insert([payload]);
+    }
+
+    // Broadcast en tiempo real para refrescar otras pestañas/dispositivos
+    try {
+      const channel = supabase.channel('olam_otp_vault_live');
+      channel.send({
+        type: 'broadcast',
+        event: 'vault_updated',
+        payload: { type: 'login', timestamp: Date.now() }
+      });
+    } catch (_) {}
+  } catch (err) {
+    console.warn('[Security] Error guardando bóveda OTP en Supabase:', err);
+  }
+}
+
+export async function getOtpKeysVaultAsync() {
+  return await fetchOtpVaultFromCloud();
 }
 
 /**
@@ -215,20 +338,8 @@ export function verifyAndConsumeOtpKey(inputKey, userContext = {}) {
   vault[keyIndex] = targetKey;
   saveOtpKeysVault(vault);
 
-  // Sincronizar en segundo plano si la tabla existe en Supabase
-  try {
-    supabase.from('audit_otp_keys_logs').insert([
-      {
-        key_id: targetKey.id,
-        key_code: targetKey.key,
-        used_at: consumedTimestamp,
-        used_by: targetKey.usedBy,
-        role: targetKey.usedRole
-      }
-    ]).then(() => {}).catch(() => {});
-  } catch (e) {
-    // Modo offline resiliente
-  }
+  // Sincronizar de inmediato a Supabase en la nube para persistencia universal
+  saveOtpVaultToCloud(vault).catch(() => {});
 
   return {
     valid: true,
@@ -264,6 +375,7 @@ export function getLogoutOtpKeysVault() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        setTimeout(() => { fetchLogoutOtpVaultFromCloud().catch(() => {}); }, 100);
         return parsed;
       }
     }
@@ -277,15 +389,129 @@ export function getLogoutOtpKeysVault() {
     hash: hashPassword(item.key)
   }));
   saveLogoutOtpKeysVault(initial);
+  setTimeout(() => { fetchLogoutOtpVaultFromCloud().catch(() => {}); }, 100);
   return initial;
 }
 
 export function saveLogoutOtpKeysVault(vault) {
   try {
     localStorage.setItem(LOGOUT_OTP_STORAGE_KEY, JSON.stringify(vault));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('olam_logout_otp_vault_changed', { detail: { vault } }));
+    }
   } catch (e) {
     console.error('Error al guardar bóveda de claves OTP de cierre de sesión:', e);
   }
+}
+
+/**
+ * Sincroniza la bóveda de claves de cierre con Supabase de forma bidireccional
+ */
+export async function fetchLogoutOtpVaultFromCloud() {
+  let localVault = [];
+  try {
+    const raw = localStorage.getItem(LOGOUT_OTP_STORAGE_KEY);
+    if (raw) localVault = JSON.parse(raw);
+  } catch (_) {}
+
+  if (!Array.isArray(localVault) || localVault.length === 0) {
+    localVault = initialLogoutOtpKeys.map((item) => ({
+      ...item,
+      hash: hashPassword(item.key)
+    }));
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('daily_supervision_history')
+      .select('datos')
+      .eq('date', OTP_LOGOUT_VAULT_DATE)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!error && data && data.length > 0 && data[0]?.datos?.vault) {
+      const cloudVault = data[0].datos.vault;
+      let hasNewCloudBurn = false;
+      let hasNewLocalBurn = false;
+
+      const merged = localVault.map((localItem) => {
+        const cloudItem = cloudVault.find(c => c.key === localItem.key || c.id === localItem.id);
+        if (cloudItem && cloudItem.used && !localItem.used) {
+          hasNewCloudBurn = true;
+          return {
+            ...localItem,
+            used: true,
+            usedAt: cloudItem.usedAt,
+            usedBy: cloudItem.usedBy,
+            usedRole: cloudItem.usedRole
+          };
+        }
+        if (localItem.used && (!cloudItem || !cloudItem.used)) {
+          hasNewLocalBurn = true;
+          return localItem;
+        }
+        return localItem;
+      });
+
+      saveLogoutOtpKeysVault(merged);
+      if (hasNewLocalBurn) {
+        saveLogoutOtpVaultToCloud(merged).catch(() => {});
+      }
+      return merged;
+    } else {
+      saveLogoutOtpVaultToCloud(localVault).catch(() => {});
+    }
+  } catch (err) {
+    console.warn('[Security] Error consultando bóveda de cierre en Supabase:', err);
+  }
+
+  return localVault;
+}
+
+export async function saveLogoutOtpVaultToCloud(vault) {
+  saveLogoutOtpKeysVault(vault);
+  try {
+    const { data: existing } = await supabase
+      .from('daily_supervision_history')
+      .select('id')
+      .eq('date', OTP_LOGOUT_VAULT_DATE)
+      .limit(1);
+
+    const payload = {
+      date: OTP_LOGOUT_VAULT_DATE,
+      datos: {
+        tipo: 'otp_vault_logout',
+        vault: vault,
+        updated_at: new Date().toISOString()
+      }
+    };
+
+    if (existing && existing.length > 0) {
+      await supabase
+        .from('daily_supervision_history')
+        .update(payload)
+        .eq('id', existing[0].id);
+    } else {
+      await supabase
+        .from('daily_supervision_history')
+        .insert([payload]);
+    }
+
+    try {
+      const channel = supabase.channel('olam_otp_vault_live');
+      channel.send({
+        type: 'broadcast',
+        event: 'vault_updated',
+        payload: { type: 'logout', timestamp: Date.now() }
+      });
+    } catch (_) {}
+  } catch (err) {
+    console.warn('[Security] Error guardando bóveda de cierre en Supabase:', err);
+  }
+}
+
+export async function getLogoutOtpKeysVaultAsync() {
+  return await fetchLogoutOtpVaultFromCloud();
 }
 
 /**
@@ -347,6 +573,9 @@ export function verifyAndConsumeLogoutOtpKey(inputKey, userContext = {}) {
 
   vault[keyIndex] = targetKey;
   saveLogoutOtpKeysVault(vault);
+
+  // Sincronizar en Supabase de inmediato
+  saveLogoutOtpVaultToCloud(vault).catch(() => {});
 
   return {
     valid: true,

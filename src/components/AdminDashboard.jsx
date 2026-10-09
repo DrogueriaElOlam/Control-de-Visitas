@@ -16,7 +16,8 @@ import {
   Building2,
   FileText,
   Shield,
-  Settings
+  Settings,
+  Wifi
 } from 'lucide-react';
 import { getLocalDateString, getLocalYesterdayString } from '../lib/dateUtils';
 
@@ -29,6 +30,7 @@ export default function AdminDashboard({
   onOpenFormulariosModal,
   onOpenSupervisionModal,
   onOpenAjustesModal,
+  onOpenConnectionsModal,
   onlineVendors = {}
 }) {
   const todayStr = getLocalDateString();
@@ -151,6 +153,16 @@ export default function AdminDashboard({
                 <span>Cargar Clientes (Excel)</span>
               </button>
             )}
+            {onOpenConnectionsModal && (
+              <button
+                onClick={onOpenConnectionsModal}
+                className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-extrabold text-xs sm:text-sm transition-all shadow-md flex items-center gap-1.5 border border-emerald-400/40 cursor-pointer active:scale-95"
+                title="Historial de conexiones de vendedores, fechas, horas y exportación elegante a Excel"
+              >
+                <Wifi size={16} className="text-emerald-200 animate-pulse" />
+                <span>Registro Conexiones</span>
+              </button>
+            )}
             {onLogout && (
               <button
                 onClick={onLogout}
@@ -249,10 +261,16 @@ export default function AdminDashboard({
                 <Users className="text-blue-600" />
                 Estado de los Vendedores en Ruta (Hoy)
               </h3>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+              <button
+                type="button"
+                onClick={() => onOpenConnectionsModal && onOpenConnectionsModal()}
+                className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95"
+                title="Ver registro y auditoría de conexiones de vendedores"
+              >
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>{onlineVendorsCount} de {activeVendors.length} en línea</span>
-              </span>
+                <span className="text-[10px] bg-emerald-600 text-white font-extrabold px-1.5 py-0.2 rounded-full ml-0.5 shadow-sm">Ver</span>
+              </button>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Progreso en tiempo real hacia la meta diaria y supervisión de conexión.

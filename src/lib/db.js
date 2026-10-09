@@ -8,11 +8,15 @@ import {
   verifyAndConsumeOtpKey, 
   isOtpKeyFormat, 
   getOtpKeysStats,
+  getOtpKeysVaultAsync,
+  fetchOtpVaultFromCloud,
   getLogoutOtpKeysVault,
   saveLogoutOtpKeysVault,
   verifyAndConsumeLogoutOtpKey,
   isLogoutOtpKeyFormat,
   getLogoutOtpKeysStats,
+  getLogoutOtpKeysVaultAsync,
+  fetchLogoutOtpVaultFromCloud,
   DEFAULT_VENDOR_HASH
 } from './security.js';
 
@@ -27,11 +31,15 @@ export {
   verifyAndConsumeOtpKey,
   isOtpKeyFormat,
   getOtpKeysStats,
+  getOtpKeysVaultAsync,
+  fetchOtpVaultFromCloud,
   getLogoutOtpKeysVault,
   saveLogoutOtpKeysVault,
   verifyAndConsumeLogoutOtpKey,
   isLogoutOtpKeyFormat,
-  getLogoutOtpKeysStats
+  getLogoutOtpKeysStats,
+  getLogoutOtpKeysVaultAsync,
+  fetchLogoutOtpVaultFromCloud
 };
 
 const STORAGE_KEYS = {

@@ -37,8 +37,10 @@ import {
   getAdminPassword,
   setAdminPassword,
   getOtpKeysVault,
+  getOtpKeysVaultAsync,
   getOtpKeysStats,
   getLogoutOtpKeysVault,
+  getLogoutOtpKeysVaultAsync,
   getLogoutOtpKeysStats,
   verifyPassword,
   ALL_ROUTES 
@@ -106,6 +108,21 @@ export default function AdminVendorManagement({
 
   useEffect(() => {
     loadVendors();
+
+    const handleVaultChange = () => {
+      setOtpKeysList(getOtpKeysVault());
+    };
+    const handleLogoutVaultChange = () => {
+      setLogoutOtpKeysList(getLogoutOtpKeysVault());
+    };
+
+    window.addEventListener('olam_otp_vault_changed', handleVaultChange);
+    window.addEventListener('olam_logout_otp_vault_changed', handleLogoutVaultChange);
+
+    return () => {
+      window.removeEventListener('olam_otp_vault_changed', handleVaultChange);
+      window.removeEventListener('olam_logout_otp_vault_changed', handleLogoutVaultChange);
+    };
   }, []);
 
   async function loadVendors() {
@@ -113,9 +130,17 @@ export default function AdminVendorManagement({
     try {
       const list = await getVendorsList();
       setVendors(list);
-      setOtpKeysList(getOtpKeysVault());
+      // Sincronizar en vivo con la nube de Supabase
+      const [cloudVault, cloudLogoutVault] = await Promise.all([
+        getOtpKeysVaultAsync(),
+        getLogoutOtpKeysVaultAsync()
+      ]);
+      setOtpKeysList(cloudVault || getOtpKeysVault());
+      setLogoutOtpKeysList(cloudLogoutVault || getLogoutOtpKeysVault());
     } catch (e) {
       console.error(e);
+      setOtpKeysList(getOtpKeysVault());
+      setLogoutOtpKeysList(getLogoutOtpKeysVault());
     } finally {
       setLoading(false);
     }
@@ -128,19 +153,13 @@ export default function AdminVendorManagement({
     showNotification(`Clave "${key}" copiada al portapapeles.`);
   };
 
-  const handleDownloadExcelClaves = () => {
+  const handleDownloadExcelClaves = async () => {
     try {
-      // 1. Intentar enlace directo si el archivo existe en public
-      const link = document.createElement('a');
-      link.href = '/claves 2.0.xlsx';
-      link.download = 'claves 2.0.xlsx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showNotification('Descargando archivo "claves 2.0.xlsx"...');
-    } catch (e) {
-      // Fallback con XLSX
-      const vault = getOtpKeysVault();
+      showNotification('Sincronizando claves con la nube y generando Excel...');
+      // 1. Obtener la lista más fresca sincronizada directamente de Supabase
+      const vault = await getOtpKeysVaultAsync();
+      setOtpKeysList(vault);
+
       const rows = vault.map(k => ({
         'No.': k.id,
         'Clave de Un Solo Toque (OTP)': k.key,
@@ -150,11 +169,38 @@ export default function AdminVendorManagement({
         'Fecha de Uso': k.usedAt || '-',
         'Instrucciones': 'Válida para 1 solo inicio de sesión. Queda invalidada permanentemente al ingresar.'
       }));
+
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(rows);
+
+      ws['!cols'] = [
+        { wch: 8 },
+        { wch: 30 },
+        { wch: 35 },
+        { wch: 22 },
+        { wch: 26 },
+        { wch: 24 },
+        { wch: 85 }
+      ];
+
       XLSX.utils.book_append_sheet(wb, ws, 'Claves 2.0');
-      XLSX.writeFile(wb, 'claves 2.0.xlsx');
-      showNotification('Archivo "claves 2.0.xlsx" generado y descargado.');
+      const todayStr = getLocalDateString();
+      const fileName = `claves_otp_2.0_${todayStr}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      const stats = vault.reduce(
+        (acc, k) => {
+          if (k.used) acc.used++;
+          else acc.available++;
+          return acc;
+        },
+        { used: 0, available: 0 }
+      );
+
+      showNotification(`✅ Excel "${fileName}" generado: ${stats.available} disponibles, ${stats.used} quemadas.`);
+    } catch (e) {
+      console.error('Error generando Excel dinámico de claves:', e);
+      showNotification('Error al generar Excel de claves OTP', true);
     }
   };
 
@@ -165,9 +211,12 @@ export default function AdminVendorManagement({
     showNotification(`Clave de cierre "${key}" copiada al portapapeles.`);
   };
 
-  const handleDownloadExcelLogoutClaves = () => {
+  const handleDownloadExcelLogoutClaves = async () => {
     try {
-      const vault = getLogoutOtpKeysVault();
+      showNotification('Sincronizando claves de cierre con la nube...');
+      const vault = await getLogoutOtpKeysVaultAsync();
+      setLogoutOtpKeysList(vault);
+
       const rows = vault.map(k => ({
         'No.': k.id,
         'Clave de Cierre de Sesión (OTP)': k.key,
@@ -190,8 +239,20 @@ export default function AdminVendorManagement({
         { wch: 90 }
       ];
       XLSX.utils.book_append_sheet(wb, ws, 'Claves Cierre Sesión');
-      XLSX.writeFile(wb, 'claves cierre sesion 2.0.xlsx');
-      showNotification('Archivo "claves cierre sesion 2.0.xlsx" generado y descargado.');
+      const todayStr = getLocalDateString();
+      const fileName = `claves_cierre_sesion_2.0_${todayStr}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      const stats = vault.reduce(
+        (acc, k) => {
+          if (k.used) acc.used++;
+          else acc.available++;
+          return acc;
+        },
+        { used: 0, available: 0 }
+      );
+
+      showNotification(`✅ Excel "${fileName}" generado: ${stats.available} disponibles, ${stats.used} consumidas.`);
     } catch (e) {
       console.error(e);
       showNotification('Error al generar Excel de claves de cierre', true);
