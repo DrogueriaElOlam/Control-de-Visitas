@@ -70,6 +70,10 @@
       - **Teléfono Completamente Opcional:** Se retiró el teléfono de la lista de campos obligatorios en el registro de visitas. Los vendedores pueden continuar y registrar la visita sin necesidad de ingresar un número telefónico. Si deciden ingresarlo, el sistema lo procesa, separa y almacena limpiamente sin bloquear el avance.
       - **Interfaz Actualizada:** Las etiquetas del formulario fueron actualizadas a 'Teléfono Principal (Opcional)' y 'Teléfono 2 / Celular (Opcional)', eliminando el asterisco de obligatoriedad.
       - **Resolución Crítica de Build en Vercel (Cierre de Etiqueta Div):** Se detectó que Vercel no estaba actualizando el despliegue en producción debido a que faltaba un tag de cierre `</div>` en `VisitRegistration.jsx`, lo que provocaba un fallo silencioso de compilación en `vite build` y mantenía activa la versión vieja en la nube. Se corrigió el cierre del div, se compiló exitosamente el bundle de producción al 100% y se desplegó en Vercel.
+  23. **Remoción del Apartado Ruta/Gira en Reporte de Rendimiento de Vendedores:**
+      - **Ajuste en Filtros del Modal:** En `VendorReportModal.jsx` se eliminó el campo y etiqueta 'Ruta / Gira' de los parámetros de consulta, reestructurando la fila superior a 2 columnas equilibradas (Período y Vendedor).
+      - **Limpieza de Nombres en Selector:** En el desplegable de selección de vendedores, se suprimió la visualización del paréntesis de ruta (`({v.route})`), mostrando únicamente el nombre limpio de cada vendedor.
+      - **Reportes HTML, Excel y PDF:** Se retiró el indicador 'Ruta / Gira' del encabezado del reporte HTML imprimible, de la hoja de resumen de Excel y de la cabecera del documento PDF, manteniendo un diseño limpio enfocado en resultados de ventas, cobros y metas.
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
   - Mantener la bitácora viva para que la IA retome exactamente en el punto donde se suspendió la sesión previa.
