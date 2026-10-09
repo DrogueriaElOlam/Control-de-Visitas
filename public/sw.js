@@ -1,5 +1,5 @@
-// Service Worker para Droguería El Olam - Control de Visitas
-const CACHE_NAME = 'olam-cache-v1';
+// Service Worker para Droguería El Olam - Control de Visitas (Actualización Automática)
+const CACHE_NAME = 'olam-cache-v20261008-phone-free';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -19,7 +19,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Estrategia Network-First para que siempre reciba las actualizaciones en tiempo real
+// Network-First estricto: intenta siempre descargar la última versión de Vercel
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   

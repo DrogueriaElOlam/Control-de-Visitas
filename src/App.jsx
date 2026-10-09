@@ -84,6 +84,20 @@ export default function App() {
       }
     }
 
+    // Garantizar purga automática de bundles JS viejos en teléfonos y navegadores
+    const APP_BUILD_REV = 'olam_rev_20261008_phone_free_v2';
+    try {
+      const storedRev = localStorage.getItem('olam_app_build_rev');
+      if (storedRev !== APP_BUILD_REV) {
+        localStorage.setItem('olam_app_build_rev', APP_BUILD_REV);
+        if ('caches' in window) {
+          caches.keys().then((names) => {
+            names.forEach((name) => caches.delete(name));
+          });
+        }
+      }
+    } catch (_) {}
+
     loadInitialData();
 
     // Auto retry sync whenever internet connection is restored

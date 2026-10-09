@@ -909,44 +909,48 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
           
           {/* BANNER DE VALIDACIÓN DETALLADA: SI FALTAN CAMPOS OBLIGATORIOS PARA EL DIRECTORIO */}
-          {validationErrors && validationErrors.length > 0 && (
-            <div className="p-5 bg-gradient-to-r from-rose-50 to-red-50 dark:from-rose-950/70 dark:to-red-950/60 border-2 border-rose-500 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center font-black text-xl shrink-0 shadow-md">
-                    ⚠️
+          {(() => {
+            const activeErrors = (validationErrors || []).filter(err => !err.toLowerCase().includes('teléfono') && !err.toLowerCase().includes('telefono'));
+            if (activeErrors.length === 0) return null;
+            return (
+              <div className="p-5 bg-gradient-to-r from-rose-50 to-red-50 dark:from-rose-950/70 dark:to-red-950/60 border-2 border-rose-500 rounded-2xl shadow-xl animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center font-black text-xl shrink-0 shadow-md">
+                      ⚠️
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-rose-900 dark:text-rose-100 flex items-center gap-2">
+                        <span>Faltan campos obligatorios para registrar la visita</span>
+                        <span className="text-[11px] px-2.5 py-0.5 bg-rose-200 dark:bg-rose-900/80 text-rose-900 dark:text-rose-200 rounded-full font-bold">
+                          {activeErrors.length} {activeErrors.length === 1 ? 'campo pendiente' : 'campos pendientes'}
+                        </span>
+                      </h4>
+                      <p className="text-xs text-rose-700 dark:text-rose-300 mt-1 leading-relaxed">
+                        Para que el directorio de clientes se actualice de la mejor manera y sin inconsistencias, debes completar los siguientes datos requeridos:
+                      </p>
+                      <ul className="mt-3 space-y-2 text-xs">
+                        {activeErrors.map((err, idx) => (
+                          <li key={idx} className="flex items-start gap-2 bg-white/70 dark:bg-slate-900/60 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/50 shadow-sm">
+                            <span className="text-rose-600 font-black text-sm leading-none mt-0.5">•</span>
+                            <span className="text-rose-900 dark:text-rose-100 font-semibold">{err}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-black text-rose-900 dark:text-rose-100 flex items-center gap-2">
-                      <span>Faltan campos obligatorios para registrar la visita</span>
-                      <span className="text-[11px] px-2.5 py-0.5 bg-rose-200 dark:bg-rose-900/80 text-rose-900 dark:text-rose-200 rounded-full font-bold">
-                        {validationErrors.length} {validationErrors.length === 1 ? 'campo pendiente' : 'campos pendientes'}
-                      </span>
-                    </h4>
-                    <p className="text-xs text-rose-700 dark:text-rose-300 mt-1 leading-relaxed">
-                      Para que el directorio de clientes se actualice de la mejor manera y sin inconsistencias, debes completar los siguientes datos requeridos:
-                    </p>
-                    <ul className="mt-3 space-y-2 text-xs">
-                      {validationErrors.map((err, idx) => (
-                        <li key={idx} className="flex items-start gap-2 bg-white/70 dark:bg-slate-900/60 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/50 shadow-sm">
-                          <span className="text-rose-600 font-black text-sm leading-none mt-0.5">•</span>
-                          <span className="text-rose-900 dark:text-rose-100 font-semibold">{err}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setValidationErrors(null)}
+                    className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-xs font-bold transition-colors cursor-pointer"
+                    title="Cerrar advertencia"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setValidationErrors(null)}
-                  className="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 text-xs font-bold transition-colors cursor-pointer"
-                  title="Cerrar advertencia"
-                >
-                  ✕
-                </button>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Section 1: Client & General Info */}
           <div className="space-y-4">
