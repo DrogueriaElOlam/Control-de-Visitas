@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -82,10 +82,8 @@ export default function VendorReportModal({
   // Report configuration state
   const [periodType, setPeriodType] = useState('daily'); // 'daily' | 'weekly' | 'monthly' | 'custom' | 'all'
   
-  // Initialize date to today, or if no visits today but vendor has visits on another day, use that day
-  const [selectedDate, setSelectedDate] = useState(() => {
-    return availableDatesForVendor.length > 0 ? availableDatesForVendor[0] : todayStr;
-  });
+  // Initialize date to today
+  const [selectedDate, setSelectedDate] = useState(todayStr);
 
   const [selectedWeekStart, setSelectedWeekStart] = useState(() => {
     const today = getLocalDateString();
@@ -171,13 +169,6 @@ export default function VendorReportModal({
     }
   }, [selectedVendorName, periodType]);
 
-  // If vendor changes and has visits on specific dates, align selectedDate if current selectedDate has 0 visits
-  useEffect(() => {
-    const hasCurrent = visits.some(v => v.vendorName === selectedVendorName && v.visitDate === selectedDate);
-    if (!hasCurrent && availableDatesForVendor.length > 0) {
-      setSelectedDate(availableDatesForVendor[0]);
-    }
-  }, [selectedVendorName, availableDatesForVendor]);
 
   // Capture GPS for quick form
   const handleCaptureGPS = () => {
@@ -338,6 +329,16 @@ export default function VendorReportModal({
 
   const [cashRefreshTick, setCashRefreshTick] = useState(0);
 
+  // Sincronizar visitas con cobros en efectivo de forma desacoplada y silenciosa para evitar bucles de render
+  const lastSyncHashRef = useRef('');
+  useEffect(() => {
+    if (!selectedVendorName || !filteredVisits || filteredVisits.length === 0) return;
+    const currentHash = `${selectedVendorName}_${filteredVisits.length}_${filteredVisits.map(v => `${v.id || v.clientName}_${v.collectionCash || 0}`).join('|')}`;
+    if (lastSyncHashRef.current === currentHash) return;
+    lastSyncHashRef.current = currentHash;
+    syncCashFromVisits(filteredVisits, selectedVendorName, true);
+  }, [filteredVisits, selectedVendorName]);
+
   // Listener para actualización en tiempo real cuando se guarda un cobro en efectivo
   useEffect(() => {
     const handleCashReportsChanged = () => {
@@ -347,11 +348,10 @@ export default function VendorReportModal({
     return () => window.removeEventListener('olam_cash_reports_changed', handleCashReportsChanged);
   }, []);
 
-  // Sincronizar visitas con cobros en efectivo y obtener reportes correspondientes
+  // Obtener reportes de cobros en efectivo para el vendedor (función pura)
   const vendorCashReports = useMemo(() => {
     if (!selectedVendorName) return [];
     try {
-      syncCashFromVisits(filteredVisits, selectedVendorName);
       const allForVendor = getCashReportsForVendor(selectedVendorName);
       
       if (periodType === 'daily') {
@@ -377,7 +377,7 @@ export default function VendorReportModal({
       console.error('Error al obtener reportes de cobros en efectivo:', e);
       return [];
     }
-  }, [selectedVendorName, filteredVisits, periodType, selectedDate, selectedWeekStart, selectedMonth, customStartDate, customEndDate, cashRefreshTick]);
+  }, [selectedVendorName, periodType, selectedDate, selectedWeekStart, selectedMonth, customStartDate, customEndDate, cashRefreshTick, todayStr]);
 
   // Manejador para borrar cuadro de cobros en efectivo si se guardó por error
   const handleDeleteCashReport = (reportId, reportDate, index) => {
@@ -1794,27 +1794,6 @@ export default function VendorReportModal({
               </button>
             </div>
           </div>
-
-          {/* Quick Date Chips if vendor has visits on other dates */}
-          {availableDatesForVendor.length > 0 && periodType === 'daily' && (
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="text-[11px] font-bold text-slate-400">Fechas con visitas registradas:</span>
-              {availableDatesForVendor.map(d => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setSelectedDate(d)}
-                  className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
-                    selectedDate === d
-                      ? 'bg-blue-600 text-white shadow'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                  }`}
-                >
-                  📅 {d}
-                </button>
-              ))}
-            </div>
-          )}
 
           {/* 2. Filtros de Fecha y Parámetros del Reporte */}
           <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-4">

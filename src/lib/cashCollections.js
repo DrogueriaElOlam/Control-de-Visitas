@@ -43,8 +43,9 @@ export function getAllCashReports() {
   return [];
 }
 
-export function saveAllCashReports(reports) {
+export function saveAllCashReports(reports, silent = false) {
   try {
+    const raw = localStorage.getItem(STORAGE_KEY);
     const normalized = (reports || []).map(r => {
       const rows = (r.rows || r.items || []).map((row, idx) => ({
         ...row,
@@ -63,8 +64,13 @@ export function saveAllCashReports(reports) {
         observations: obs
       };
     });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-    if (typeof window !== 'undefined') {
+    const serialized = JSON.stringify(normalized);
+    // Si no hay cambios reales en los datos, evitar escrituras y eventos redundantes
+    if (raw === serialized) {
+      return;
+    }
+    localStorage.setItem(STORAGE_KEY, serialized);
+    if (!silent && typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('olam_cash_reports_changed', { detail: normalized }));
     }
   } catch (e) {
@@ -125,7 +131,7 @@ export function createNewCashReport(vendorName, date = null) {
 }
 
 // Directly record a cash collection coming from a registered visit
-export function addCashRecordFromVisit({ vendorName, visitDate, monto, clientName, boleta = '', observations = '', visitId = '' }) {
+export function addCashRecordFromVisit({ vendorName, visitDate, monto, clientName, boleta = '', observations = '', visitId = '', silent = false }) {
   const cashNum = Number(monto) || 0;
   if (cashNum <= 0) return null;
 
@@ -197,7 +203,7 @@ export function addCashRecordFromVisit({ vendorName, visitDate, monto, clientNam
     rep.updatedAt = new Date().toISOString();
   }
 
-  saveAllCashReports(allReports);
+  saveAllCashReports(allReports, silent);
   return rep;
 }
 
@@ -246,7 +252,7 @@ export function deleteCashReport(reportId) {
 }
 
 // Automatically sync cash collections recorded in visits into cash reports
-export function syncCashFromVisits(visits = [], currentVendorName = null) {
+export function syncCashFromVisits(visits = [], currentVendorName = null, silent = false) {
   if (!Array.isArray(visits) || visits.length === 0) return getAllCashReports();
 
   // Filter visits that collected cash
@@ -268,7 +274,8 @@ export function syncCashFromVisits(visits = [], currentVendorName = null) {
       clientName: v.clientName,
       boleta: v.collectionBoleta || '',
       observations: v.observations || '',
-      visitId: visitId
+      visitId: visitId,
+      silent: silent
     });
   });
 
