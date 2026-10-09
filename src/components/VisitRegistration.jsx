@@ -18,6 +18,7 @@ import {
   Calendar,
   AlertTriangle,
   Search,
+  MessageSquare,
   X
 } from 'lucide-react';
 import { ALL_ROUTES, addVisitRecord, getRoutesForVendor } from '../lib/db';
@@ -31,6 +32,7 @@ import {
 import { addCashRecordFromVisit } from '../lib/cashCollections';
 import { getLocalDateString } from '../lib/dateUtils';
 import { captureAndReportLocation } from '../lib/silentGpsTracker';
+import VendorSupportChatModal from './VendorSupportChatModal';
 
 export default function VisitRegistration({ currentUser, onVisitAdded, allVisits = [], onLogout, onNavigate }) {
   const isAdmin = currentUser?.role === 'admin';
@@ -42,6 +44,10 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
   const [secondaryPhone, setSecondaryPhone] = useState('');
   const [showSecondaryPhone, setShowSecondaryPhone] = useState(false);
   const [validationErrors, setValidationErrors] = useState(null);
+
+  // Estados para el Chat Interno de Soporte con el Administrador
+  const [showSupportChat, setShowSupportChat] = useState(false);
+  const [supportTicketData, setSupportTicketData] = useState(null);
 
   // Vendor's assigned routes (Antonio Celada gets all routes, other vendors get only their assigned routes)
   const assignedVendorRoutes = React.useMemo(() => {
@@ -690,6 +696,16 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       missing.push('Sector Visitado: Debe ingresar el sector, zona, aldea o municipio visitado a la par de la ruta.');
     }
 
+    // BLOQUEO ESTRICTO CONTRA REEMPLAZO INVOLUNTARIO DE CÓDIGO
+    if (cCode && cCode !== '0000') {
+      const existingByCode = pharmacyDirectory.find(p => (p.code || '').trim().toLowerCase() === cCode.toLowerCase());
+      if (existingByCode && cName && existingByCode.name.trim().toLowerCase() !== cName.toLowerCase()) {
+        missing.push(
+          `⛔ CÓDIGO YA REGISTRADO: El código #${cCode} ya pertenece a "${existingByCode.name}". Para evitar reemplazos involuntarios en la base de datos, verifique el código ingresado. Si requiere un cambio de nombre o corrección de catálogo, comuníquese con el administrador mediante el botón de Soporte.`
+        );
+      }
+    }
+
     if (missing.length > 0) {
       setValidationErrors(missing);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -860,6 +876,20 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {/* Botón Chat de Soporte / Peticiones con Administración */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSupportTicketData(null);
+                  setShowSupportChat(true);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-white/20 hover:bg-white/30 text-white transition-all shadow-md cursor-pointer backdrop-blur-sm"
+                title="Abrir chat privado de soporte con el Administrador"
+              >
+                <MessageSquare size={15} />
+                <span>💬 Soporte Admin</span>
+              </button>
+
               {/* GPS Status pill - Only visible for Admin */}
               {isAdmin && (
                 <button
@@ -1323,24 +1353,47 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
               if (isNameUpdated) {
                 return (
-                  <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border-2 border-amber-400 dark:border-amber-600 rounded-xl flex flex-wrap items-center justify-between gap-2 shadow-md animate-in fade-in">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center font-black text-sm shadow">
-                        ✏️
+                  <div className="p-4 bg-gradient-to-r from-rose-50 to-red-50 dark:from-rose-950/70 dark:to-red-950/60 border-2 border-rose-500 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center font-black text-lg shrink-0 shadow">
+                        ⛔
                       </div>
                       <div>
-                        <div className="text-xs font-black text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                          <span>Actualización de Nombre de Farmacia:</span>
-                          <span className="underline decoration-amber-500">#{clientCode}</span>
+                        <div className="text-xs font-black text-rose-900 dark:text-rose-100 flex items-center gap-1.5">
+                          <span>CÓDIGO YA REGISTRADO EN EL SISTEMA:</span>
+                          <span className="underline decoration-rose-500">#{clientCode}</span>
                         </div>
-                        <div className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">
-                          Se actualizará el nombre de <strong>"{matchedClient.name}"</strong> a <strong>"{clientName}"</strong> en todo el catálogo.
+                        <div className="text-[11px] text-rose-800 dark:text-rose-200 font-medium mt-1">
+                          Este código ya pertenece a la farmacia: <strong className="underline decoration-rose-400">"{matchedClient.name}"</strong>.<br />
+                          Para evitar reemplazos involuntarios en el catálogo, verifique el código. Si necesita modificarlo, solicítelo al Administrador.
                         </div>
                       </div>
                     </div>
-                    <span className="px-2.5 py-1 bg-amber-600 text-white text-[11px] font-bold rounded-lg shadow-sm">
-                      Nombre Actualizado
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => applyClientSelection(matchedClient)}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold rounded-xl shadow-sm transition-all cursor-pointer"
+                        title="Usar el nombre y datos registrados originalmente para este código"
+                      >
+                        ✓ Usar "{matchedClient.name}"
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSupportTicketData({
+                            clientCode: clientCode.trim(),
+                            oldName: matchedClient.name,
+                            newName: clientName.trim()
+                          });
+                          setShowSupportChat(true);
+                        }}
+                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1"
+                      >
+                        <MessageSquare size={13} />
+                        <span>Solicitar Cambio al Admin</span>
+                      </button>
+                    </div>
                   </div>
                 );
               }
@@ -1682,7 +1735,13 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
         </form>
 
-      </div>
+      {/* Modal de Soporte y Chat Interno con Administración */}
+      <VendorSupportChatModal
+        isOpen={showSupportChat}
+        onClose={() => setShowSupportChat(false)}
+        currentUser={currentUser}
+        initialTicketData={supportTicketData}
+      />
 
     </div>
   );

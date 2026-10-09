@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   Database,
   Shield,
-  Settings
+  Settings,
+  MessageSquare
 } from 'lucide-react';
 
 export default function Navbar({ 
@@ -34,6 +35,9 @@ export default function Navbar({
   onOpenFormulariosModal,
   onOpenSupervisionModal,
   onOpenAjustesModal,
+  onOpenSupportTicketsModal,
+  onOpenVendorSupportChat,
+  pendingTicketsCount = 0,
   onlineVendors = {}
 }) {
   const isAdmin = currentUser?.role === 'admin';
@@ -238,6 +242,21 @@ export default function Navbar({
                 <FileText size={15} className="text-amber-300" />
                 <span>Formularios Droguería El Olam</span>
               </button>
+
+              {/* Botón Chat & Solicitudes de Vendedores (Admin) */}
+              <button
+                onClick={() => onOpenSupportTicketsModal && onOpenSupportTicketsModal()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-rose-500/25 text-rose-100 hover:bg-rose-500 hover:text-white border border-rose-400/40 shadow-sm relative cursor-pointer"
+                title="Bandeja de Solicitudes y Chat de Soporte con Vendedores"
+              >
+                <MessageSquare size={15} />
+                <span>Chat & Solicitudes</span>
+                {pendingTicketsCount > 0 && (
+                  <span className="bg-rose-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full animate-pulse ml-0.5 shadow">
+                    {pendingTicketsCount}
+                  </span>
+                )}
+              </button>
             </>
           ) : (
             <>
@@ -306,6 +325,16 @@ export default function Navbar({
               >
                 <FileText size={15} className="text-amber-300" />
                 <span>Formularios Droguería El Olam</span>
+              </button>
+
+              {/* Botón Soporte Admin (Vendedor) */}
+              <button
+                onClick={() => onOpenVendorSupportChat && onOpenVendorSupportChat()}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-indigo-500/30 text-indigo-100 hover:bg-indigo-500 hover:text-white border border-indigo-400/50 shadow-sm cursor-pointer"
+                title="Abrir chat de soporte privado con la Administración"
+              >
+                <MessageSquare size={15} />
+                <span>Soporte Admin</span>
               </button>
             </>
           )}

@@ -17,6 +17,8 @@ import AdminClientDirectoryModal from './components/AdminClientDirectoryModal';
 import SupervisorLogoutModal from './components/SupervisorLogoutModal';
 import CentralSupervisionModal from './components/CentralSupervisionModal';
 import AjustesSistemaModal from './components/AjustesSistemaModal';
+import AdminSupportTicketsModal from './components/AdminSupportTicketsModal';
+import VendorSupportChatModal from './components/VendorSupportChatModal';
 
 import { 
   getSavedSession, 
@@ -31,6 +33,11 @@ import {
 import { syncCashFromVisits } from './lib/cashCollections';
 import { subscribeToOnlinePresence } from './lib/presence';
 import { startSilentTracking, stopSilentTracking } from './lib/silentGpsTracker';
+import { 
+  getAdminSupportStats, 
+  subscribeToInternalChat, 
+  fetchRemoteChatMessages 
+} from './lib/internalChat';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -43,6 +50,9 @@ export default function App() {
   const [showFormulariosModal, setShowFormulariosModal] = useState(false);
   const [showSupervisionModal, setShowSupervisionModal] = useState(false);
   const [showAjustesModal, setShowAjustesModal] = useState(false);
+  const [showAdminTicketsModal, setShowAdminTicketsModal] = useState(false);
+  const [showVendorChatModal, setShowVendorChatModal] = useState(false);
+  const [pendingTicketsCount, setPendingTicketsCount] = useState(0);
 
   const [vendors, setVendors] = useState([]);
   const [visits, setVisits] = useState([]);
@@ -124,6 +134,31 @@ export default function App() {
     }
     return () => {
       stopSilentTracking();
+    };
+  }, [currentUser]);
+
+  // Sincronización en tiempo real de chat interno y peticiones de soporte
+  useEffect(() => {
+    const updateStats = () => {
+      const stats = getAdminSupportStats();
+      setPendingTicketsCount(stats.totalPending);
+    };
+    updateStats();
+
+    fetchRemoteChatMessages().then(() => updateStats()).catch(() => {});
+
+    const cleanupRealtime = subscribeToInternalChat(() => {
+      updateStats();
+    });
+
+    const handleLocalUpdate = () => {
+      updateStats();
+    };
+    window.addEventListener('olam_chat_updated', handleLocalUpdate);
+
+    return () => {
+      if (typeof cleanupRealtime === 'function') cleanupRealtime();
+      window.removeEventListener('olam_chat_updated', handleLocalUpdate);
     };
   }, [currentUser]);
 
@@ -251,6 +286,9 @@ export default function App() {
         onOpenFormulariosModal={() => setShowFormulariosModal(true)}
         onOpenSupervisionModal={() => setShowSupervisionModal(true)}
         onOpenAjustesModal={() => setShowAjustesModal(true)}
+        onOpenSupportTicketsModal={() => setShowAdminTicketsModal(true)}
+        onOpenVendorSupportChat={() => setShowVendorChatModal(true)}
+        pendingTicketsCount={pendingTicketsCount}
         onlineVendors={onlineVendors}
       />
 
@@ -426,6 +464,24 @@ export default function App() {
       <AjustesSistemaModal
         isOpen={showAjustesModal}
         onClose={() => setShowAjustesModal(false)}
+      />
+
+      {/* Modal del Administrador: Gestión de Solicitudes y Chat de Soporte */}
+      <AdminSupportTicketsModal
+        isOpen={showAdminTicketsModal}
+        onClose={() => {
+          setShowAdminTicketsModal(false);
+          const stats = getAdminSupportStats();
+          setPendingTicketsCount(stats.totalPending);
+        }}
+        currentUser={currentUser}
+      />
+
+      {/* Modal del Vendedor: Chat Privado con el Administrador */}
+      <VendorSupportChatModal
+        isOpen={showVendorChatModal}
+        onClose={() => setShowVendorChatModal(false)}
+        currentUser={currentUser}
       />
 
       {/* Footer */}
