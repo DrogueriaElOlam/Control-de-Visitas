@@ -17,9 +17,11 @@ import {
   FileText,
   Shield,
   Settings,
-  Wifi
+  Wifi,
+  Key
 } from 'lucide-react';
 import { getLocalDateString, getLocalYesterdayString } from '../lib/dateUtils';
+import { getOtpKeysStats, getLogoutOtpKeysStats } from '../lib/security';
 
 export default function AdminDashboard({ 
   vendors = [], 
@@ -31,6 +33,8 @@ export default function AdminDashboard({
   onOpenSupervisionModal,
   onOpenAjustesModal,
   onOpenConnectionsModal,
+  onOpenOtpModal,
+  onOpenLogoutOtpModal,
   onlineVendors = {}
 }) {
   const todayStr = getLocalDateString();
@@ -161,6 +165,32 @@ export default function AdminDashboard({
               >
                 <Wifi size={16} className="text-emerald-200 animate-pulse" />
                 <span>Registro Conexiones</span>
+              </button>
+            )}
+            {onOpenOtpModal && (
+              <button
+                onClick={onOpenOtpModal}
+                className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white font-extrabold text-xs sm:text-sm transition-all shadow-md flex items-center gap-1.5 border border-amber-400/40 cursor-pointer active:scale-95"
+                title="50 claves de un solo toque para inicio de sesión de vendedores o administradores"
+              >
+                <Key size={16} className="text-amber-200" />
+                <span>Claves 2.0 (OTP)</span>
+                <span className="bg-amber-950/70 text-amber-200 text-[10px] font-black px-1.5 py-0.2 rounded-full border border-amber-400/50">
+                  {getOtpKeysStats().available}
+                </span>
+              </button>
+            )}
+            {onOpenLogoutOtpModal && (
+              <button
+                onClick={onOpenLogoutOtpModal}
+                className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white font-extrabold text-xs sm:text-sm transition-all shadow-md flex items-center gap-1.5 border border-rose-400/40 cursor-pointer active:scale-95"
+                title="50 contraseñas de un toque para autorizar el cierre de sesión en dispositivos"
+              >
+                <LogOut size={16} className="text-rose-200" />
+                <span>Claves Salida (OTP)</span>
+                <span className="bg-rose-950/70 text-rose-200 text-[10px] font-black px-1.5 py-0.2 rounded-full border border-rose-400/50">
+                  {getLogoutOtpKeysStats().available}
+                </span>
               </button>
             )}
             {onLogout && (

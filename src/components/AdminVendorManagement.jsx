@@ -27,6 +27,8 @@ import {
   LogOut
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import AdminOtpVaultModal from './AdminOtpVaultModal';
+import AdminLogoutOtpModal from './AdminLogoutOtpModal';
 import { 
   getVendorsList, 
   createVendor, 
@@ -103,6 +105,7 @@ export default function AdminVendorManagement({
 
   // Revealed passwords state map
   const [revealedPasswords, setRevealedPasswords] = useState({});
+  const [showAllPasswords, setShowAllPasswords] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -456,33 +459,43 @@ export default function AdminVendorManagement({
         <div className="flex flex-wrap items-center gap-3">
           {/* Botón Bóveda Claves 2.0 (OTP) */}
           <button
-            onClick={() => {
-              setOtpKeysList(getOtpKeysVault());
+            type="button"
+            onClick={async () => {
               setShowOtpModal(true);
+              setOtpKeysList(getOtpKeysVault());
+              try {
+                const fresh = await getOtpKeysVaultAsync();
+                setOtpKeysList(fresh);
+              } catch (_) {}
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-bold text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/40 font-bold text-xs sm:text-sm transition-all shadow-sm cursor-pointer hover:scale-105 active:scale-95"
             title="50 claves de un solo toque para inicio de sesión de vendedores o administradores"
           >
             <Key size={16} className="text-amber-500" />
             <span>Claves 2.0 (OTP)</span>
-            <span className="bg-amber-500 text-white text-[11px] px-1.5 py-0.5 rounded-full font-bold ml-1">
-              50
+            <span className="bg-amber-500 text-white text-[11px] px-2 py-0.5 rounded-full font-black ml-1 shadow-sm">
+              {getOtpKeysStats().available} Disp.
             </span>
           </button>
 
           {/* Botón Bóveda Claves Cierre Sesión (OTP) */}
           <button
-            onClick={() => {
-              setLogoutOtpKeysList(getLogoutOtpKeysVault());
+            type="button"
+            onClick={async () => {
               setShowLogoutOtpModal(true);
+              setLogoutOtpKeysList(getLogoutOtpKeysVault());
+              try {
+                const fresh = await getLogoutOtpKeysVaultAsync();
+                setLogoutOtpKeysList(fresh);
+              } catch (_) {}
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 border border-rose-500/40 font-bold text-xs sm:text-sm transition-all shadow-sm cursor-pointer hover:scale-105 active:scale-95"
             title="50 contraseñas de un toque para autorizar el cierre de sesión en dispositivos"
           >
             <LogOut size={16} className="text-rose-500" />
             <span>Claves Cierre Sesión (OTP)</span>
-            <span className="bg-rose-500 text-white text-[11px] px-1.5 py-0.5 rounded-full font-bold ml-1">
-              50
+            <span className="bg-rose-500 text-white text-[11px] px-2 py-0.5 rounded-full font-black ml-1 shadow-sm">
+              {getLogoutOtpKeysStats().available} Disp.
             </span>
           </button>
 
@@ -517,6 +530,123 @@ export default function AdminVendorManagement({
           <span>{errorMessage}</span>
         </div>
       )}
+
+      {/* BÓVEDAS DE SEGURIDAD & CLAVES RÁPIDAS (OTP) DESTACADAS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Tarjeta Ámbar: Bóveda de Claves 2.0 (OTP - Login) */}
+        <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-950/30 dark:via-amber-950/10 dark:to-transparent p-5 rounded-3xl border-2 border-amber-500/30 dark:border-amber-500/40 shadow-sm flex flex-col justify-between">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-md">
+                <Key size={22} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Bóveda de Claves 2.0 (OTP)
+                  </h3>
+                  <span className="bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase shadow-sm">
+                    1 Solo Uso
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  50 contraseñas criptográficas de un solo uso para inicio de sesión seguro.
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-black text-amber-600 dark:text-amber-400">
+                {getOtpKeysStats().available} <span className="text-xs font-normal text-slate-400">/ 50</span>
+              </div>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                Disponibles
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-amber-500/20 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+              🔥 <strong className="text-red-600 dark:text-red-400">{getOtpKeysStats().used} Quemada:</strong> Danny Perez (2026-10-08)
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadExcelClaves}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Descargar Excel con todas las claves"
+              >
+                <FileSpreadsheet size={14} />
+                <span>Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowOtpModal(true)}
+                className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <span>Ver y Copiar Claves</span>
+                <Key size={13} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Tarjeta Rosa: Bóveda de Claves Cierre Sesión (Logout OTP) */}
+        <div className="bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent dark:from-rose-950/30 dark:via-rose-950/10 dark:to-transparent p-5 rounded-3xl border-2 border-rose-500/30 dark:border-rose-500/40 shadow-sm flex flex-col justify-between">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-rose-600 text-white rounded-2xl shadow-md">
+                <LogOut size={22} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Claves Cierre Sesión (Logout OTP)
+                  </h3>
+                  <span className="bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase shadow-sm">
+                    Salida / 1 Uso
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  50 contraseñas de un toque para autorizar la salida en teléfonos de campo.
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-black text-rose-600 dark:text-rose-400">
+                {getLogoutOtpKeysStats().available} <span className="text-xs font-normal text-slate-400">/ 50</span>
+              </div>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                Disponibles
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-rose-500/20 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+              🛡️ Cada clave se invalida permanentemente al autorizar la salida
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadExcelLogoutClaves}
+                className="px-3 py-1.5 bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Descargar Excel con claves de salida"
+              >
+                <FileSpreadsheet size={14} />
+                <span>Excel</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLogoutOtpModal(true)}
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <span>Ver y Copiar Claves</span>
+                <LogOut size={13} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -605,6 +735,21 @@ export default function AdminVendorManagement({
             }`}
           >
             De Baja ({inactiveCount})
+          </button>
+
+          {/* Botón Maestro: Mostrar / Ocultar Todas las Claves */}
+          <button
+            type="button"
+            onClick={() => setShowAllPasswords(!showAllPasswords)}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 border cursor-pointer ml-auto sm:ml-0 ${
+              showAllPasswords
+                ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 shadow-sm'
+                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600'
+            }`}
+            title="Mostrar u ocultar las contraseñas de todos los vendedores de forma simultánea"
+          >
+            {showAllPasswords ? <EyeOff size={14} /> : <Eye size={14} />}
+            <span>{showAllPasswords ? 'Ocultar Claves' : '👁️ Ver Todas las Claves'}</span>
           </button>
         </div>
       </div>
@@ -713,22 +858,58 @@ export default function AdminVendorManagement({
                         </div>
                       </td>
 
-                      {/* Password */}
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-semibold bg-slate-100 dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200">
-                            {isPasswordVisible 
-                              ? (vendor.password?.length === 64 ? '🔒 Cifrado SHA-256' : (vendor.password || 'Protegida')) 
-                              : '••••••••'}
-                          </span>
-                          <button
-                            onClick={() => togglePasswordVisibility(vendor.id)}
-                            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                            title={isPasswordVisible ? 'Ocultar' : 'Ver clave'}
-                          >
-                            {isPasswordVisible ? <EyeOff size={15} /> : <Eye size={15} />}
-                          </button>
-                        </div>
+                      {/* Password y Copia Directa */}
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        {(() => {
+                          const shouldShowPass = showAllPasswords || isPasswordVisible;
+                          const passValue = vendor.display_password || vendor.plain_password || 'olam2026';
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <span 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(passValue);
+                                  setCopiedKey(vendor.id);
+                                  setTimeout(() => setCopiedKey(''), 2000);
+                                  showNotification(`Contraseña de ${vendor.name} copiada.`);
+                                }}
+                                className={`font-mono text-xs font-black px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                                  shouldShowPass
+                                    ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700 shadow-sm'
+                                    : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+                                }`}
+                                title="Haz clic sobre la contraseña para copiarla"
+                              >
+                                {shouldShowPass ? passValue : '••••••••'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => togglePasswordVisibility(vendor.id)}
+                                className="p-1.5 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                title={shouldShowPass ? 'Ocultar clave' : 'Ver clave en texto claro'}
+                              >
+                                {shouldShowPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(passValue);
+                                  setCopiedKey(vendor.id);
+                                  setTimeout(() => setCopiedKey(''), 2000);
+                                  showNotification(`Contraseña de ${vendor.name} copiada al portapapeles.`);
+                                }}
+                                className={`px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 text-xs font-bold cursor-pointer border ${
+                                  copiedKey === vendor.id
+                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                    : 'bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                                }`}
+                                title="Copiar contraseña al portapapeles"
+                              >
+                                <Copy size={13} />
+                                <span>{copiedKey === vendor.id ? 'Copiada' : 'Copiar'}</span>
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Actions */}
@@ -1093,438 +1274,17 @@ export default function AdminVendorManagement({
         </div>
       )}
 
-      {/* BÓVEDA DE CLAVES 2.0 (OTP - UN SOLO TOQUE) MODAL */}
-      {showOtpModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 sm:p-7 w-full max-w-4xl shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-[92vh]">
-            
-            {/* Modal Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-2xl border border-amber-500/20">
-                  <Key size={26} />
-                </div>
-                <div>
-                  <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Bóveda de Claves 2.0 (OTP)</span>
-                    <span className="text-[11px] bg-amber-500 text-white font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                      1 Solo Uso
-                    </span>
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    50 claves desechables criptográficas. Una vez logueados quedan <strong>quemadas/invalidadas</strong> de inmediato.
-                  </p>
-                </div>
-              </div>
+      {/* BÓVEDA DE CLAVES 2.0 (OTP) MODAL DEDICADO */}
+      <AdminOtpVaultModal
+        isOpen={showOtpModal}
+        onClose={() => setShowOtpModal(false)}
+      />
 
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={handleDownloadExcelClaves}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-lg shadow-emerald-600/20 transition-all"
-                  title="Descargar archivo Excel oficial"
-                >
-                  <FileSpreadsheet size={16} />
-                  <span>Descargar "claves 2.0.xlsx"</span>
-                  <Download size={14} />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowOtpModal(false)}
-                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            {/* KPI Cards for OTP Vault */}
-            {(() => {
-              const stats = getOtpKeysStats();
-              return (
-                <div className="grid grid-cols-3 gap-3 my-4">
-                  <div className="bg-slate-50 dark:bg-slate-900/60 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Generadas</span>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{stats.total}</div>
-                  </div>
-                  <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-3 sm:p-4 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/60">
-                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Disponibles</span>
-                    <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{stats.available}</div>
-                  </div>
-                  <div className="bg-red-50/60 dark:bg-red-950/30 p-3 sm:p-4 rounded-2xl border border-red-200/60 dark:border-red-800/60">
-                    <span className="text-[11px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">Quemadas / Usadas</span>
-                    <div className="text-2xl font-black text-red-600 dark:text-red-400 mt-0.5">{stats.used}</div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Filters & Search */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-3">
-              <div className="relative w-full sm:w-72">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar clave o usuario..."
-                  value={otpSearch}
-                  onChange={(e) => setOtpSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div className="flex items-center gap-1.5 self-end sm:self-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setOtpFilter('all')}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                    otpFilter === 'all' ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  Todas (50)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOtpFilter('available')}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                    otpFilter === 'available' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  Disponibles
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOtpFilter('used')}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                    otpFilter === 'used' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  Quemadas
-                </button>
-              </div>
-            </div>
-
-            {/* Keys Table Container */}
-            <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800/80 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-slate-500 uppercase tracking-wider text-[11px] font-bold">
-                  <tr>
-                    <th className="py-2.5 px-3">No.</th>
-                    <th className="py-2.5 px-3">Clave de 1 Solo Toque</th>
-                    <th className="py-2.5 px-3 text-center">Estado</th>
-                    <th className="py-2.5 px-3">Usada Por</th>
-                    <th className="py-2.5 px-3">Fecha y Hora</th>
-                    <th className="py-2.5 px-3 text-right">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {otpKeysList
-                    .filter((k) => {
-                      if (otpFilter === 'available') return !k.used;
-                      if (otpFilter === 'used') return k.used;
-                      return true;
-                    })
-                    .filter((k) => {
-                      if (!otpSearch) return true;
-                      const q = otpSearch.toLowerCase();
-                      return k.key.toLowerCase().includes(q) || (k.usedBy && k.usedBy.toLowerCase().includes(q));
-                    })
-                    .map((item) => (
-                      <tr 
-                        key={item.id} 
-                        className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${
-                          item.used ? 'opacity-65 bg-slate-50/40 dark:bg-slate-900/30' : ''
-                        }`}
-                      >
-                        <td className="py-2.5 px-3 font-mono font-bold text-slate-400">
-                          #{item.id}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span className={`font-mono font-extrabold tracking-wider px-2 py-0.5 rounded-lg border text-xs sm:text-sm ${
-                            item.used 
-                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 line-through' 
-                              : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700'
-                          }`}>
-                            {item.key}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          {item.used ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
-                              ⛔ QUEMADA
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                              ✓ DISPONIBLE
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 font-medium text-slate-700 dark:text-slate-300">
-                          {item.usedBy ? (
-                            <span className="font-semibold text-slate-900 dark:text-white">
-                              {item.usedBy}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 italic">—</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3 text-xs text-slate-500">
-                          {item.usedAt || '—'}
-                        </td>
-                        <td className="py-2.5 px-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleCopyKey(item.key)}
-                            disabled={item.used}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ml-auto ${
-                              copiedKey === item.key
-                                ? 'bg-emerald-600 text-white'
-                                : item.used
-                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
-                            }`}
-                          >
-                            <Copy size={12} />
-                            <span>{copiedKey === item.key ? 'Copiada' : 'Copiar'}</span>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Modal Footer / Instructions */}
-            <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
-                <span>
-                  Protección de sesión activa: ninguna clave de un solo toque puede usarse dos veces.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowOtpModal(false)}
-                className="w-full sm:w-auto px-5 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl text-xs hover:opacity-90 transition-opacity"
-              >
-                Cerrar Bóveda
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* BÓVEDA DE CLAVES DE CIERRE DE SESIÓN (LOGOUT OTP) MODAL */}
-      {showLogoutOtpModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 sm:p-7 w-full max-w-4xl shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-[92vh]">
-            
-            {/* Modal Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-rose-500/10 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-2xl border border-rose-500/20">
-                  <LogOut size={26} />
-                </div>
-                <div>
-                  <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Bóveda de Claves de Cierre de Sesión (OTP)</span>
-                    <span className="text-[11px] bg-rose-600 text-white font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                      Cierre Sesión / 1 Uso
-                    </span>
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    50 claves de un solo toque para autorizar salida o cierre de sesión en teléfonos y dispositivos. Al usarse quedan <strong>quemadas/invalidadas</strong> permanentemente.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={handleDownloadExcelLogoutClaves}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-lg shadow-rose-600/20 transition-all cursor-pointer"
-                  title="Descargar archivo Excel oficial de claves de cierre de sesión"
-                >
-                  <FileSpreadsheet size={16} />
-                  <span>Descargar "claves cierre sesion 2.0.xlsx"</span>
-                  <Download size={14} />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowLogoutOtpModal(false)}
-                  className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            {/* KPI Cards for Logout OTP Vault */}
-            {(() => {
-              const stats = getLogoutOtpKeysStats();
-              return (
-                <div className="grid grid-cols-3 gap-3 my-4">
-                  <div className="bg-slate-50 dark:bg-slate-900/60 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Generadas</span>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{stats.total}</div>
-                  </div>
-                  <div className="bg-emerald-50/60 dark:bg-emerald-950/30 p-3 sm:p-4 rounded-2xl border border-emerald-200/60 dark:border-emerald-800/60">
-                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Disponibles</span>
-                    <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{stats.available}</div>
-                  </div>
-                  <div className="bg-rose-50/60 dark:bg-rose-950/30 p-3 sm:p-4 rounded-2xl border border-rose-200/60 dark:border-rose-800/60">
-                    <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Quemadas / Usadas</span>
-                    <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-0.5">{stats.used}</div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Filters & Search */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-3">
-              <div className="relative w-full sm:w-72">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar clave de cierre..."
-                  value={logoutOtpSearch}
-                  onChange={(e) => setLogoutOtpSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-                />
-              </div>
-
-              <div className="flex items-center gap-1.5 self-end sm:self-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setLogoutOtpFilter('all')}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    logoutOtpFilter === 'all' ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  Todas (50)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLogoutOtpFilter('available')}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    logoutOtpFilter === 'available' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  Disponibles
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLogoutOtpFilter('used')}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                    logoutOtpFilter === 'used' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  Quemadas
-                </button>
-              </div>
-            </div>
-
-            {/* Keys Table Container */}
-            <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800/80 sticky top-0 border-b border-slate-200 dark:border-slate-700 text-slate-500 uppercase tracking-wider text-[11px] font-bold">
-                  <tr>
-                    <th className="py-2.5 px-3">No.</th>
-                    <th className="py-2.5 px-3">Clave de Cierre (OTP)</th>
-                    <th className="py-2.5 px-3">Estado</th>
-                    <th className="py-2.5 px-3">Consumida Por</th>
-                    <th className="py-2.5 px-3">Fecha de Uso</th>
-                    <th className="py-2.5 px-3 text-right">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                  {logoutOtpKeysList
-                    .filter((item) => {
-                      if (logoutOtpFilter === 'available') return !item.used;
-                      if (logoutOtpFilter === 'used') return item.used;
-                      return true;
-                    })
-                    .filter((item) => {
-                      if (!logoutOtpSearch.trim()) return true;
-                      const q = logoutOtpSearch.toLowerCase();
-                      return (
-                        item.key.toLowerCase().includes(q) ||
-                        (item.usedBy && item.usedBy.toLowerCase().includes(q))
-                      );
-                    })
-                    .map((item) => (
-                      <tr 
-                        key={item.id} 
-                        className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${
-                          item.used ? 'opacity-50 bg-slate-50/50 dark:bg-slate-900/30' : ''
-                        }`}
-                      >
-                        <td className="py-2 px-3 text-slate-400 font-bold">{item.id}</td>
-                        <td className="py-2 px-3 font-mono font-black text-rose-700 dark:text-rose-400 tracking-wider">
-                          {item.key}
-                        </td>
-                        <td className="py-2 px-3">
-                          {item.used ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                              QUEMADA
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                              DISPONIBLE
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2 px-3 text-slate-600 dark:text-slate-300">
-                          {item.usedBy || '-'}
-                        </td>
-                        <td className="py-2 px-3 text-slate-400 text-xs">
-                          {item.usedAt || '-'}
-                        </td>
-                        <td className="py-2 px-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleCopyLogoutKey(item.key)}
-                            disabled={item.used}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                              copiedLogoutKey === item.key
-                                ? 'bg-emerald-600 text-white'
-                                : item.used
-                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                                : 'bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                            }`}
-                          >
-                            <Copy size={12} />
-                            <span>{copiedLogoutKey === item.key ? 'Copiada' : 'Copiar'}</span>
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Modal Footer / Instructions */}
-            <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-              <div className="flex items-center gap-2">
-                <ShieldCheck size={16} className="text-rose-600 shrink-0" />
-                <span>
-                  Protección de salida: cada clave permite exactamente una autorización de cierre de sesión en campo y se invalida para siempre.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowLogoutOtpModal(false)}
-                className="w-full sm:w-auto px-5 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl text-xs hover:opacity-90 transition-opacity cursor-pointer"
-              >
-                Cerrar Bóveda
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
+      {/* BÓVEDA DE CLAVES DE CIERRE DE SESIÓN (LOGOUT OTP) MODAL DEDICADO */}
+      <AdminLogoutOtpModal
+        isOpen={showLogoutOtpModal}
+        onClose={() => setShowLogoutOtpModal(false)}
+      />
 
     </div>
   );

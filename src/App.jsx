@@ -21,6 +21,8 @@ import AjustesSistemaModal from './components/AjustesSistemaModal';
 import AdminSupportTicketsModal from './components/AdminSupportTicketsModal';
 import VendorSupportChatModal from './components/VendorSupportChatModal';
 import AdminVendorConnectionsModal from './components/AdminVendorConnectionsModal';
+import AdminOtpVaultModal from './components/AdminOtpVaultModal';
+import AdminLogoutOtpModal from './components/AdminLogoutOtpModal';
 import VisualFeedbackSelector from './components/VisualFeedbackSelector';
 
 import { supabase } from './lib/supabase';
@@ -68,6 +70,8 @@ export default function App() {
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [onlineVendors, setOnlineVendors] = useState({});
   const [showConnectionsModal, setShowConnectionsModal] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [showLogoutOtpModal, setShowLogoutOtpModal] = useState(false);
   const [vendorOnlineToast, setVendorOnlineToast] = useState(null);
   const prevOnlineVendorsRef = useRef({});
 
@@ -396,6 +400,8 @@ export default function App() {
         onOpenSupportTicketsModal={() => setShowAdminTicketsModal(true)}
         onOpenVendorSupportChat={() => setShowVendorChatModal(true)}
         onOpenConnectionsModal={() => setShowConnectionsModal(true)}
+        onOpenOtpModal={() => setShowOtpModal(true)}
+        onOpenLogoutOtpModal={() => setShowLogoutOtpModal(true)}
         pendingTicketsCount={pendingTicketsCount}
         onlineVendors={onlineVendors}
       />
@@ -469,6 +475,8 @@ export default function App() {
                 onOpenSupervisionModal={() => setShowSupervisionModal(true)}
                 onOpenAjustesModal={() => setShowAjustesModal(true)}
                 onOpenConnectionsModal={() => setShowConnectionsModal(true)}
+                onOpenOtpModal={() => setShowOtpModal(true)}
+                onOpenLogoutOtpModal={() => setShowLogoutOtpModal(true)}
                 onlineVendors={onlineVendors}
               />
             )}
@@ -650,6 +658,18 @@ export default function App() {
         isOpen={showConnectionsModal}
         onClose={() => setShowConnectionsModal(false)}
         onlineVendors={onlineVendors}
+      />
+
+      {/* Modal Bóveda de Claves 2.0 (OTP - Un Solo Toque) */}
+      <AdminOtpVaultModal
+        isOpen={showOtpModal}
+        onClose={() => setShowOtpModal(false)}
+      />
+
+      {/* Modal Bóveda de Claves de Cierre de Sesión (Logout OTP) */}
+      <AdminLogoutOtpModal
+        isOpen={showLogoutOtpModal}
+        onClose={() => setShowLogoutOtpModal(false)}
       />
 
       {/* Footer */}

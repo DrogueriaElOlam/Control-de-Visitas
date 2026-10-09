@@ -19,8 +19,10 @@ import {
   Shield,
   Settings,
   MessageSquare,
-  Wifi
+  Wifi,
+  Key
 } from 'lucide-react';
+import { getOtpKeysStats, getLogoutOtpKeysStats } from '../lib/security';
 
 export default function Navbar({ 
   currentUser, 
@@ -39,6 +41,8 @@ export default function Navbar({
   onOpenSupportTicketsModal,
   onOpenVendorSupportChat,
   onOpenConnectionsModal,
+  onOpenOtpModal,
+  onOpenLogoutOtpModal,
   pendingTicketsCount = 0,
   onlineVendors = {}
 }) {
@@ -269,6 +273,32 @@ export default function Navbar({
                 <Wifi size={15} />
                 <span>Registro Conexiones</span>
               </button>
+
+              {/* Botón Bóveda Claves 2.0 (OTP) en Navbar */}
+              <button
+                onClick={() => onOpenOtpModal && onOpenOtpModal()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-amber-500/25 text-amber-200 hover:bg-amber-500 hover:text-white border border-amber-400/40 shadow-sm cursor-pointer"
+                title="Bóveda de 50 claves de un solo toque para inicio de sesión"
+              >
+                <Key size={15} className="text-amber-300" />
+                <span>Claves 2.0 (OTP)</span>
+                <span className="bg-amber-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-sm ml-0.5">
+                  {getOtpKeysStats().available} Disp.
+                </span>
+              </button>
+
+              {/* Botón Bóveda Claves Cierre Sesión (OTP) en Navbar */}
+              <button
+                onClick={() => onOpenLogoutOtpModal && onOpenLogoutOtpModal()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-rose-500/25 text-rose-200 hover:bg-rose-500 hover:text-white border border-rose-400/40 shadow-sm cursor-pointer"
+                title="Bóveda de 50 contraseñas de un toque para autorizar salida de vendedores"
+              >
+                <LogOut size={15} className="text-rose-300" />
+                <span>Claves Salida (OTP)</span>
+                <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-sm ml-0.5">
+                  {getLogoutOtpKeysStats().available} Disp.
+                </span>
+              </button>
             </>
           ) : (
             <>
@@ -441,6 +471,24 @@ export default function Navbar({
             >
               <Wifi size={20} />
               <span className="text-[10px] mt-0.5 font-bold">Conexión</span>
+            </button>
+
+            <button
+              onClick={() => onOpenOtpModal && onOpenOtpModal()}
+              className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all text-amber-500 hover:text-amber-600"
+              title="Bóveda de Claves 2.0 (OTP)"
+            >
+              <Key size={20} />
+              <span className="text-[10px] mt-0.5 font-bold">Claves 2.0</span>
+            </button>
+
+            <button
+              onClick={() => onOpenLogoutOtpModal && onOpenLogoutOtpModal()}
+              className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all text-rose-500 hover:text-rose-600"
+              title="Claves de Cierre de Sesión (OTP)"
+            >
+              <LogOut size={20} />
+              <span className="text-[10px] mt-0.5 font-bold">Salida OTP</span>
             </button>
 
             <button

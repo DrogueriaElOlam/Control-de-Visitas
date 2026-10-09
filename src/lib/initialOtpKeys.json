@@ -2,10 +2,10 @@
   {
     "id": 1,
     "key": "OLAM-X5F9-96RM",
-    "used": false,
-    "usedAt": null,
-    "usedBy": null,
-    "role": "any",
+    "used": true,
+    "usedAt": "2026-10-08 14:30:00",
+    "usedBy": "Danny Perez",
+    "role": "vendor",
     "createdAt": "2026-10-03T23:00:17.215Z"
   },
   {

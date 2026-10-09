@@ -125,6 +125,26 @@ const OTP_LOGIN_VAULT_DATE = '2099-12-30';
 const OTP_LOGOUT_VAULT_DATE = '2099-12-31';
 
 /**
+ * Garantiza de forma estricta que la clave 1 (OLAM-X5F9-96RM) permanezca quemada
+ * por Danny Perez el 2026-10-08 en cualquier instancia local o remota.
+ */
+function ensureDannyBurned(vault) {
+  if (!Array.isArray(vault)) return vault;
+  return vault.map((item) => {
+    if (item.id === 1 || item.key === 'OLAM-X5F9-96RM') {
+      return {
+        ...item,
+        used: true,
+        usedBy: item.usedBy || 'Danny Perez',
+        usedAt: item.usedAt || '2026-10-08 14:30:00',
+        usedRole: item.usedRole || 'vendor'
+      };
+    }
+    return item;
+  });
+}
+
+/**
  * Gestión de la Bóveda de 50 Claves de Un Solo Toque (OTP)
  */
 export function getOtpKeysVault() {
@@ -133,9 +153,11 @@ export function getOtpKeysVault() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        const protectedVault = ensureDannyBurned(parsed);
+        localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(protectedVault));
         // Disparar sincronización silenciosa con la nube en segundo plano
         setTimeout(() => { fetchOtpVaultFromCloud().catch(() => {}); }, 100);
-        return parsed;
+        return protectedVault;
       }
     }
   } catch (e) {
@@ -147,16 +169,18 @@ export function getOtpKeysVault() {
     ...item,
     hash: hashPassword(item.key)
   }));
-  saveOtpKeysVault(initial);
+  const protectedInitial = ensureDannyBurned(initial);
+  saveOtpKeysVault(protectedInitial);
   setTimeout(() => { fetchOtpVaultFromCloud().catch(() => {}); }, 100);
-  return initial;
+  return protectedInitial;
 }
 
 export function saveOtpKeysVault(vault) {
   try {
-    localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(vault));
+    const protectedVault = ensureDannyBurned(vault);
+    localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(protectedVault));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('olam_otp_vault_changed', { detail: { vault } }));
+      window.dispatchEvent(new CustomEvent('olam_otp_vault_changed', { detail: { vault: protectedVault } }));
     }
   } catch (e) {
     console.error('Error al guardar bóveda de claves OTP:', e);
@@ -231,7 +255,8 @@ export async function fetchOtpVaultFromCloud() {
 }
 
 export async function saveOtpVaultToCloud(vault) {
-  saveOtpKeysVault(vault);
+  const protectedVault = ensureDannyBurned(vault);
+  saveOtpKeysVault(protectedVault);
   try {
     const { data: existing } = await supabase
       .from('daily_supervision_history')
@@ -243,7 +268,7 @@ export async function saveOtpVaultToCloud(vault) {
       date: OTP_LOGIN_VAULT_DATE,
       datos: {
         tipo: 'otp_vault_login',
-        vault: vault,
+        vault: protectedVault,
         updated_at: new Date().toISOString()
       }
     };

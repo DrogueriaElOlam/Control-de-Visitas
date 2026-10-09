@@ -307,6 +307,7 @@ export async function getVendorsList() {
         // 3) Hash por defecto
         const cloudPasswordHash = (v.last_name && v.last_name.length === 64) ? v.last_name : null;
         const effectivePassword = cloudPasswordHash || (c.password ? (c.password.length === 64 ? c.password : hashPassword(c.password)) : DEFAULT_VENDOR_HASH);
+        const displayPassword = c.plain_password || (c.password && c.password.length < 64 ? c.password : `${generateUsername(canonicalName)}123`);
 
         return {
           id: v.id,
@@ -319,6 +320,8 @@ export async function getVendorsList() {
           daily_goal: c.daily_goal || localMatch?.daily_goal || 15,
           username: c.username || generateUsername(canonicalName),
           password: effectivePassword,
+          display_password: displayPassword,
+          plain_password: displayPassword,
           phone: c.phone || localMatch?.phone || ''
         };
       });
@@ -519,6 +522,8 @@ export async function updateVendorCredentials(vendorId, { password, route, daily
         ...v,
         name: name !== undefined ? name : v.name,
         password: hashedPassword !== undefined ? hashedPassword : v.password,
+        display_password: (password && password.length < 64) ? password : (v.display_password || v.plain_password),
+        plain_password: (password && password.length < 64) ? password : (v.display_password || v.plain_password),
         route: route !== undefined ? route : v.route,
         daily_goal: daily_goal !== undefined ? (daily_goal !== '' ? Number(daily_goal) : 0) : v.daily_goal
       };
@@ -531,6 +536,7 @@ export async function updateVendorCredentials(vendorId, { password, route, daily
   creds[vendorId] = {
     ...(creds[vendorId] || {}),
     password: hashedPassword !== undefined ? hashedPassword : creds[vendorId]?.password,
+    plain_password: (password && password.length < 64) ? password : creds[vendorId]?.plain_password,
     route,
     daily_goal
   };
