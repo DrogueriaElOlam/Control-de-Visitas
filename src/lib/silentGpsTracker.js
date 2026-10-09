@@ -186,6 +186,20 @@ async function handlePositionUpdate(pos, currentUser) {
   lastRecordedCoord = { lat, lng };
   lastRecordedTime = now;
 
+  // Persistir la última posición satelital real comprobada para autollenado silencioso en visitas
+  try {
+    if (typeof localStorage !== 'undefined' && lat && lng) {
+      localStorage.setItem('olam_last_satellite_gps', JSON.stringify({
+        lat,
+        lng,
+        accuracy: accuracy ? Math.round(accuracy) : null,
+        source: 'GPS Satelital Real',
+        timestamp: now,
+        date: getLocalDateString()
+      }));
+    }
+  } catch (_) {}
+
   // Guardar en la base de datos y emitir por broadcast
   try {
     await saveGpsPoint(pointPayload);

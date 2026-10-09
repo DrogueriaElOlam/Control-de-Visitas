@@ -155,7 +155,7 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [purging, setPurging] = useState(false);
   const [purgeNotification, setPurgeNotification] = useState('');
-  const [purgeVisitsCoords, setPurgeVisitsCoords] = useState(false);
+  const [purgeVisitsCoords, setPurgeVisitsCoords] = useState(true);
 
   // Estados del reproductor de recorrido (Playback)
   const [isPlaying, setIsPlaying] = useState(false);
@@ -168,24 +168,29 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
     try {
       const res = await purgeTrackingPoints({
         dateStr: purgeAll ? null : selectedDate,
-        purgeAll
+        purgeAll,
+        purgeVisitsCoords: true
       });
 
-      // Si el administrador marcó remover coordenadas de visitas previas
-      if (purgeVisitsCoords) {
-        try {
-          if (purgeAll) {
-            await supabase.from('visits').update({ latitude: null, longitude: null, location_accuracy: null }).not('id', 'is', null);
-          } else if (selectedDate) {
-            await supabase.from('visits').update({ latitude: null, longitude: null, location_accuracy: null }).eq('visit_date', selectedDate);
-          }
-        } catch (_) {}
-      }
+      // Limpiar también en Supabase las coordenadas de visitas
+      try {
+        if (purgeAll) {
+          await supabase.from('visits').update({ latitude: null, longitude: null, location_accuracy: null }).gt('id', 0);
+        } else if (selectedDate) {
+          await supabase.from('visits').update({ latitude: null, longitude: null, location_accuracy: null }).eq('visit_date', selectedDate);
+        }
+      } catch (_) {}
 
+      // Limpiar estado en pantalla de inmediato
       setTrackingPoints([]);
       setShowPurgeModal(false);
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('olam_visits_updated'));
+      }
+
       const msg = purgeAll 
-        ? `🔥 Historial de puntos satelitales purgado al 100% en Supabase y memoria local (${res.deletedCount} pings eliminados). El mapa ha quedado completamente en blanco para la nueva versión.`
+        ? `🔥 Historial de puntos satelitales purgado al 100% en Supabase y memoria local (${res.deletedCount} pings eliminados). El mapa ha quedado completamente en blanco.`
         : `🗑️ Puntos satelitales de la fecha ${selectedDate} purgados con éxito (${res.deletedCount} pings eliminados).`;
       setPurgeNotification(msg);
       setTimeout(() => setPurgeNotification(''), 7000);

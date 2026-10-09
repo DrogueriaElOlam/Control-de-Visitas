@@ -668,24 +668,46 @@ export function getVisitLateStatus(visit) {
 }
 
 // VISITS MANAGEMENT
+export const VISITS_RESET_VERSION = 'olam_visits_reset_v5_20261009';
+
+export async function clearAllVisitsHistory() {
+  try {
+    localStorage.setItem(STORAGE_KEYS.VISITS, '[]');
+    localStorage.removeItem('drogueriaElOlamHistory');
+    localStorage.removeItem(STORAGE_KEYS.PENDING_SYNC);
+    localStorage.setItem('olam_visits_reset_version', VISITS_RESET_VERSION);
+
+    // Eliminar permanentemente en Supabase
+    await supabase.from('visits').delete().gt('id', 0);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('olam_visits_updated'));
+    }
+    return true;
+  } catch (e) {
+    console.error('Error al vaciar historial de visitas:', e);
+    return false;
+  }
+}
+
 export async function getVisitsList(vendorFilter = null) {
+  // 1. Auto-purga de versión de visitas para dejar contadores en 0 en todos los dispositivos
+  try {
+    const currentPurge = localStorage.getItem('olam_visits_reset_version');
+    if (currentPurge !== VISITS_RESET_VERSION) {
+      localStorage.setItem('olam_visits_reset_version', VISITS_RESET_VERSION);
+      localStorage.setItem(STORAGE_KEYS.VISITS, '[]');
+      localStorage.removeItem('drogueriaElOlamHistory');
+      localStorage.removeItem(STORAGE_KEYS.PENDING_SYNC);
+    }
+  } catch (_) {}
+
   let localVisits = [];
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.VISITS);
     if (raw) localVisits = JSON.parse(raw);
   } catch (e) {
     console.error('Error reading local visits:', e);
-  }
-
-  // Also check previous version history key if local is empty
-  if (localVisits.length === 0) {
-    try {
-      const v71 = localStorage.getItem('drogueriaElOlamHistory');
-      if (v71) {
-        localVisits = JSON.parse(v71);
-        localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(localVisits));
-      }
-    } catch (e) {}
   }
 
   // Limpiar duplicados locales de antemano
@@ -698,7 +720,15 @@ export async function getVisitsList(vendorFilter = null) {
       query = query.eq('vendor_name', vendorFilter);
     }
     const { data, error } = await query;
-    if (!error && data && data.length > 0) {
+
+    if (!error && Array.isArray(data)) {
+      // Si la base de datos de Supabase fue vaciada a 0 registros, limpiar inmediatamente el almacenamiento local
+      if (data.length === 0) {
+        localStorage.setItem(STORAGE_KEYS.VISITS, '[]');
+        localStorage.removeItem('drogueriaElOlamHistory');
+        return [];
+      }
+
       // Normalize Supabase rows to match app format
       const normalizedCloud = data.map((d) => ({
         id: d.id,
@@ -731,9 +761,7 @@ export async function getVisitsList(vendorFilter = null) {
         synced: true
       }));
 
-      // Deduplicación estricta y sincronizada con la nube:
-      // Si la nube responde con éxito, se respetan las visitas eliminadas en Supabase
-      // y únicamente se conservan del almacenamiento local los borradores pendientes de sincronizar
+      // Deduplicación estricta y sincronizada con la nube
       const cloudIds = new Set(normalizedCloud.map(c => String(c.id)));
       const onlyUnsyncedLocal = localVisits.filter(l => !l.synced && !cloudIds.has(String(l.id)));
       const fullList = deduplicateVisitsList([...normalizedCloud, ...onlyUnsyncedLocal]);

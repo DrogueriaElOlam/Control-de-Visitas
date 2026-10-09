@@ -31,7 +31,7 @@ import {
   Target,
   PieChart
 } from 'lucide-react';
-import { deleteVisitRecord, updateVisitSalesAndCollections, deduplicateVisitsList, getVisitLateStatus } from '../lib/db';
+import { deleteVisitRecord, updateVisitSalesAndCollections, deduplicateVisitsList, getVisitLateStatus, clearAllVisitsHistory } from '../lib/db';
 import { addCashRecordFromVisit } from '../lib/cashCollections';
 import { exportNewClientsToExcel } from '../lib/newClientsExport';
 import { generateGoalComplianceHTMLReport } from '../lib/goalComplianceReport';
@@ -445,14 +445,34 @@ export default function VisitsListAndFilters({
           </h2>
         </div>
 
-        {/* Si es vista de primera mano (pestaña Visitas): Indicador de registros de hoy */}
-        {isFirstHandView && (
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {/* Si es vista de primera mano (pestaña Visitas): Indicador de registros de hoy */}
+          {isFirstHandView && (
             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700/60 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
               Registros de Hoy ({todayVisitsCount})
             </span>
-          </div>
-        )}
+          )}
+
+          {/* Botón Administrador para vaciar el historial de visitas a 0 */}
+          {isAdmin && (
+            <button
+              onClick={async () => {
+                const confirm = window.confirm('¿Seguro que deseas purgar y vaciar el historial de visitas a 0 en la nube y en todos los dispositivos?');
+                if (confirm) {
+                  await clearAllVisitsHistory();
+                  setStatusNotification('Historial de visitas vaciado completamente a 0 registros.');
+                  setTimeout(() => setStatusNotification(''), 5000);
+                  if (onVisitsChange) onVisitsChange();
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-300 dark:border-rose-800 transition-all cursor-pointer shadow-sm"
+              title="Vaciar todo el historial de visitas en Supabase y localmente para dejar contadores en 0"
+            >
+              <Trash2 size={13} />
+              <span>Vaciar Historial a 0</span>
+            </button>
+          )}
+        </div>
 
       </div>
 

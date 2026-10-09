@@ -211,55 +211,27 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     }
   }
 
-  // CAPTURA SILENCIOSA DE RESPALDO (Sin permisos, sin ventanas, ultrarrápida no bloqueante)
-  const captureSilentIPLocation = async () => {
+  // CAPTURA DE GPS SATELITAL CON MÁXIMA PRECISIÓN Y RETORNO ASÍNCRONO SILENCIOSO
+  // Se erradica por completo cualquier consulta a IPs celulares (que en Guatemala siempre resuelven en la capital)
+  const obtainPreciseGPSLocation = async (maxWaitMs = 12000) => {
+    // 1. Verificar si ya tenemos una coordenada satelital real y fresca en memoria persistente
     try {
-      const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(2200) });
-      if (res.ok) {
-        const d = await res.json();
-        if (d.latitude && d.longitude) {
-          const loc = {
-            lat: Number(d.latitude),
-            lng: Number(d.longitude),
-            accuracy: 2500,
-            city: d.city || '',
-            region: d.region || '',
-            org: d.org || '',
-            source: 'Red/IP (Silencioso)'
-          };
-          setLocation(loc);
-          try { sessionStorage.setItem('olam_last_known_loc', JSON.stringify(loc)); } catch (_) {}
-          return loc;
-        }
-      }
-    } catch (_) {
-      try {
-        const res2 = await fetch('https://freeipapi.com/api/json', { signal: AbortSignal.timeout(2200) });
-        if (res2.ok) {
-          const d2 = await res2.json();
-          if (d2.latitude && d2.longitude) {
-            const loc2 = {
-              lat: Number(d2.latitude),
-              lng: Number(d2.longitude),
-              accuracy: 3000,
-              city: d2.cityName || '',
-              region: d2.regionName || '',
-              source: 'Red/IP (Silencioso)'
-            };
-            setLocation(loc2);
-            try { sessionStorage.setItem('olam_last_known_loc', JSON.stringify(loc2)); } catch (_) {}
-            return loc2;
+      const cached = localStorage.getItem('olam_last_satellite_gps');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        // Si la coordenada satelital es del día de hoy y tiene latitud y longitud válidas
+        if (parsed?.lat && parsed?.lng && parsed.date === getLocalDateString()) {
+          const ageMs = Date.now() - (parsed.timestamp || 0);
+          // Si tiene menos de 15 minutos de antigüedad, usarla como base sólida inmediata
+          if (ageMs < 15 * 60 * 1000) {
+            setLocation(parsed);
           }
         }
-      } catch (__) {}
-    }
-    return null;
-  };
+      }
+    } catch (_) {}
 
-  // CAPTURA DE GPS SATELITAL CON MÁXIMA PRECISIÓN Y RETORNO ASÍNCRONO
-  const obtainPreciseGPSLocation = async (maxWaitMs = 6000) => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      return await captureSilentIPLocation();
+      return null;
     }
 
     return new Promise((resolve) => {
@@ -268,19 +240,19 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       const timer = setTimeout(() => {
         if (!finished) {
           finished = true;
-          // Si el satélite tardó, intentar usar la última posición satelital válida de la sesión
+          // Si el satélite tardó en responder (por ejemplo en carreteras o bajo techo de lámina),
+          // intentar usar la última posición satelital real registrada del vendedor hoy
           try {
-            const cached = sessionStorage.getItem('olam_last_known_loc');
+            const cached = localStorage.getItem('olam_last_satellite_gps');
             if (cached) {
               const parsed = JSON.parse(cached);
-              if (parsed?.lat && parsed?.lng && parsed.source !== 'Red/IP (Silencioso)') {
+              if (parsed?.lat && parsed?.lng) {
                 resolve(parsed);
                 return;
               }
             }
           } catch (_) {}
-          // Si no hay satélite previo, usar fallback IP silencioso
-          captureSilentIPLocation().then((ipLoc) => resolve(ipLoc)).catch(() => resolve(null));
+          resolve(null);
         }
       }, maxWaitMs);
 
@@ -293,19 +265,25 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               lat: Number(pos.coords.latitude),
               lng: Number(pos.coords.longitude),
               accuracy: pos.coords.accuracy ? Math.round(pos.coords.accuracy) : null,
-              source: 'GPS Satelital Real'
+              source: 'GPS Satelital Real',
+              timestamp: Date.now(),
+              date: getLocalDateString()
             };
             setLocation(gpsLoc);
-            try { sessionStorage.setItem('olam_last_known_loc', JSON.stringify(gpsLoc)); } catch (_) {}
+            try {
+              localStorage.setItem('olam_last_satellite_gps', JSON.stringify(gpsLoc));
+              sessionStorage.setItem('olam_last_known_loc', JSON.stringify(gpsLoc));
+            } catch (_) {}
             resolve(gpsLoc);
           }
         },
-        async (_err) => {
+        (_err) => {
           if (!finished) {
             finished = true;
             clearTimeout(timer);
+            // Si hubo error momentáneo de satélites, recuperar la última posición real previa sin inventar coordenadas
             try {
-              const cached = sessionStorage.getItem('olam_last_known_loc');
+              const cached = localStorage.getItem('olam_last_satellite_gps');
               if (cached) {
                 const parsed = JSON.parse(cached);
                 if (parsed?.lat && parsed?.lng) {
@@ -314,25 +292,24 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                 }
               }
             } catch (_) {}
-            const ipLoc = await captureSilentIPLocation();
-            resolve(ipLoc);
+            resolve(null);
           }
         },
         {
           enableHighAccuracy: true,
-          timeout: maxWaitMs - 500,
-          maximumAge: 0 // Coordenadas frescas satelitales en vivo
+          timeout: Math.max(3000, maxWaitMs - 500),
+          maximumAge: 0 // Forzar satélite fresco en vivo
         }
       );
     });
   };
 
-  // AUTO GPS CAPTURE CON RESPALDO SILENCIOSO INMEDIATO
+  // AUTO GPS CAPTURE SILENCIOSO
   const captureGPSLocation = () => {
     setLocating(true);
     setLocError('');
 
-    obtainPreciseGPSLocation(6000)
+    obtainPreciseGPSLocation(10000)
       .then((loc) => {
         if (loc) setLocation(loc);
       })
@@ -343,9 +320,46 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
   // AUTO-ENGANCHE DE SATÉLITES GPS AL ENTRAR AL FORMULARIO DE REGISTRO
   useEffect(() => {
+    // 1. Intentar cargar de inmediato la última posición satelital real del día si existe
+    try {
+      const cached = localStorage.getItem('olam_last_satellite_gps');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.lat && parsed?.lng && parsed.date === getLocalDateString()) {
+          setLocation(parsed);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Disparar enganche satelital fresco
     captureGPSLocation();
 
-    // Mantener watchPosition silencioso para fijar satélites mientras el vendedor llena el formulario
+    // 3. Conectar al Puente Nativo de Android en segundo plano (para teléfonos con la APK oficial)
+    if (typeof window !== 'undefined') {
+      const originalOnNativeGpsPing = window.onNativeGpsPing;
+      window.onNativeGpsPing = (lat, lng, acc, spd) => {
+        if (lat && lng) {
+          const nativeGps = {
+            lat: Number(lat),
+            lng: Number(lng),
+            accuracy: acc ? Math.round(acc) : null,
+            speed: spd || 0,
+            source: 'GPS Satelital Real (Android Nativo)',
+            timestamp: Date.now(),
+            date: getLocalDateString()
+          };
+          setLocation(nativeGps);
+          try {
+            localStorage.setItem('olam_last_satellite_gps', JSON.stringify(nativeGps));
+          } catch (_) {}
+        }
+        if (typeof originalOnNativeGpsPing === 'function') {
+          originalOnNativeGpsPing(lat, lng, acc, spd);
+        }
+      };
+    }
+
+    // 4. Mantener watchPosition silencioso para fijar satélites mientras el vendedor llena el formulario
     let watchId = null;
     if (typeof window !== 'undefined' && navigator.geolocation) {
       try {
@@ -355,13 +369,18 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               lat: Number(pos.coords.latitude),
               lng: Number(pos.coords.longitude),
               accuracy: pos.coords.accuracy ? Math.round(pos.coords.accuracy) : null,
-              source: 'GPS Satelital Real'
+              source: 'GPS Satelital Real',
+              timestamp: Date.now(),
+              date: getLocalDateString()
             };
             setLocation(gpsLoc);
-            try { sessionStorage.setItem('olam_last_known_loc', JSON.stringify(gpsLoc)); } catch (_) {}
+            try {
+              localStorage.setItem('olam_last_satellite_gps', JSON.stringify(gpsLoc));
+              sessionStorage.setItem('olam_last_known_loc', JSON.stringify(gpsLoc));
+            } catch (_) {}
           },
           () => {},
-          { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
         );
       } catch (_) {}
     }
@@ -792,20 +811,28 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     const combinedPhone = (p1 && p2) ? `${p1} / ${p2}` : (p1 || p2 || '');
 
     // OBTENER UBICACIÓN SATELITAL FRESCA EN EL PRECISO INSTANTE DE GRABAR LA VISITA
-    let finalLocation = location;
-    // Si no tenemos ubicación satelital fija o si proviene de IP centralizada, forzar satélites ahora
-    if (!finalLocation || finalLocation.source === 'Red/IP (Silencioso)') {
+    let finalLocation = (location && location.source !== 'Red/IP (Silencioso)') ? location : null;
+    
+    // Si aún no tenemos satélite capturado, intentar enganche rápido de satélites
+    if (!finalLocation) {
       try {
-        const freshGps = await obtainPreciseGPSLocation(4500);
-        if (freshGps) {
+        const freshGps = await obtainPreciseGPSLocation(3500);
+        if (freshGps && freshGps.source !== 'Red/IP (Silencioso)') {
           finalLocation = freshGps;
         }
       } catch (_) {}
     }
+    
+    // Si no respondió en esos segundos, recuperar la última posición satelital real del teléfono
     if (!finalLocation) {
       try {
-        const cached = sessionStorage.getItem('olam_last_known_loc');
-        if (cached) finalLocation = JSON.parse(cached);
+        const cached = localStorage.getItem('olam_last_satellite_gps');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed?.lat && parsed?.lng && parsed.source !== 'Red/IP (Silencioso)') {
+            finalLocation = parsed;
+          }
+        }
       } catch (_) {}
     }
 

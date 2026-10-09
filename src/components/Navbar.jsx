@@ -145,13 +145,13 @@ export default function Navbar({
           </div>
         </div>
 
-        {/* Tab Navigation Menu (Tablets & Desktops) */}
-        <nav className="hidden md:flex space-x-1 sm:space-x-2 overflow-x-auto pb-2 pt-1 border-t border-blue-700/40 scrollbar-none text-xs sm:text-sm">
+        {/* Tab Navigation Menu (Tablets & Desktops) con scroll horizontal ultra-estético */}
+        <nav className="hidden md:flex items-center gap-2.5 overflow-x-auto py-2 px-1 border-t border-blue-700/50 scrollbar-thin scrollbar-thumb-blue-400/40 hover:scrollbar-thumb-blue-300/60 scrollbar-track-blue-950/20 text-xs sm:text-sm">
           {isAdmin ? (
             <>
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                className={`flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap shadow-sm ${
                   activeTab === 'dashboard'
                     ? 'bg-white text-blue-900 shadow-md font-bold'
                     : 'text-blue-100 hover:bg-white/10'
@@ -163,7 +163,7 @@ export default function Navbar({
 
               <button
                 onClick={() => setActiveTab('vendors')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                className={`flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap shadow-sm ${
                   activeTab === 'vendors'
                     ? 'bg-white text-blue-900 shadow-md font-bold'
                     : 'text-blue-100 hover:bg-white/10'
@@ -175,7 +175,7 @@ export default function Navbar({
 
               <button
                 onClick={() => setActiveTab('frequency')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                className={`flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap shadow-sm ${
                   activeTab === 'frequency'
                     ? 'bg-white text-blue-900 shadow-md font-bold'
                     : 'text-blue-100 hover:bg-white/10'
@@ -187,7 +187,7 @@ export default function Navbar({
 
               <button
                 onClick={() => setActiveTab('visits')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                className={`flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap shadow-sm ${
                   activeTab === 'visits'
                     ? 'bg-white text-blue-900 shadow-md font-bold'
                     : 'text-blue-100 hover:bg-white/10'
@@ -199,7 +199,7 @@ export default function Navbar({
 
               <button
                 onClick={() => setActiveTab('map')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                className={`flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap shadow-sm ${
                   activeTab === 'map'
                     ? 'bg-white text-blue-900 shadow-md font-bold'
                     : 'text-blue-100 hover:bg-white/10'
@@ -212,7 +212,7 @@ export default function Navbar({
 
               <button
                 onClick={() => setActiveTab('export')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                className={`flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap shadow-sm ${
                   activeTab === 'export'
                     ? 'bg-white text-blue-900 shadow-md font-bold'
                     : 'text-blue-100 hover:bg-white/10'
@@ -224,7 +224,7 @@ export default function Navbar({
 
               <button
                 onClick={() => onOpenDirectoryModal && onOpenDirectoryModal()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-indigo-500/25 text-indigo-100 hover:bg-indigo-500 hover:text-white border border-indigo-400/40 shadow-sm cursor-pointer"
+                className="flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap bg-indigo-500/25 text-indigo-100 hover:bg-indigo-500 hover:text-white border border-indigo-400/40 shadow-sm cursor-pointer"
                 title="Cargar y gestionar directorio de farmacias y clientes desde Excel"
               >
                 <Building2 size={15} />
@@ -233,7 +233,7 @@ export default function Navbar({
 
               <button
                 onClick={() => onOpenCashModal && onOpenCashModal()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-amber-500/20 text-amber-200 hover:bg-amber-500 hover:text-white border border-amber-400/40 shadow-sm"
+                className="flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap bg-amber-500/20 text-amber-200 hover:bg-amber-500 hover:text-white border border-amber-400/40 shadow-sm"
                 title="Reporte Cobros en Efectivo (Boletas y Bancos)"
               >
                 <Banknote size={15} />
@@ -242,7 +242,7 @@ export default function Navbar({
 
               <button
                 onClick={() => onOpenFormulariosModal && onOpenFormulariosModal()}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-blue-500/30 text-white hover:bg-blue-500 border border-blue-400/60 shadow-md cursor-pointer animate-pulse hover:animate-none"
+                className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all whitespace-nowrap bg-blue-500/35 text-white hover:bg-blue-500 border border-blue-400/60 shadow-md cursor-pointer animate-pulse hover:animate-none"
                 title="Formularios Droguería El Olam (Aperturas, Viáticos, Recibos y Boletas)"
               >
                 <FileText size={15} className="text-amber-300" />
@@ -252,7 +252,7 @@ export default function Navbar({
               {/* Botón Chat & Solicitudes de Vendedores (Admin) */}
               <button
                 onClick={() => onOpenSupportTicketsModal && onOpenSupportTicketsModal()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-rose-500/25 text-rose-100 hover:bg-rose-500 hover:text-white border border-rose-400/40 shadow-sm relative cursor-pointer"
+                className="flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap bg-rose-500/25 text-rose-100 hover:bg-rose-500 hover:text-white border border-rose-400/40 shadow-sm relative cursor-pointer"
                 title="Bandeja de Solicitudes y Chat de Soporte con Vendedores"
               >
                 <MessageSquare size={15} />
@@ -267,7 +267,7 @@ export default function Navbar({
               {/* Botón Registro y Control de Conexiones en Línea (Admin) */}
               <button
                 onClick={() => onOpenConnectionsModal && onOpenConnectionsModal()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-emerald-500/25 text-emerald-100 hover:bg-emerald-500 hover:text-white border border-emerald-400/40 shadow-sm cursor-pointer"
+                className="flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap bg-emerald-500/25 text-emerald-100 hover:bg-emerald-500 hover:text-white border border-emerald-400/40 shadow-sm cursor-pointer"
                 title="Historial de conexiones de vendedores, fechas, horas y exportación elegante a Excel"
               >
                 <Wifi size={15} />
@@ -277,12 +277,12 @@ export default function Navbar({
               {/* Botón Bóveda Claves 2.0 (OTP) en Navbar */}
               <button
                 onClick={() => onOpenOtpModal && onOpenOtpModal()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-amber-500/25 text-amber-200 hover:bg-amber-500 hover:text-white border border-amber-400/40 shadow-sm cursor-pointer"
+                className="flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap bg-amber-500/25 text-amber-200 hover:bg-amber-500 hover:text-white border border-amber-400/40 shadow-sm cursor-pointer"
                 title="Bóveda de 50 claves de un solo toque para inicio de sesión"
               >
                 <Key size={15} className="text-amber-300" />
                 <span>Claves 2.0 (OTP)</span>
-                <span className="bg-amber-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-sm ml-0.5">
+                <span className="bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm ml-0.5">
                   {getOtpKeysStats().available} Disp.
                 </span>
               </button>
@@ -290,12 +290,12 @@ export default function Navbar({
               {/* Botón Bóveda Claves Cierre Sesión (OTP) en Navbar */}
               <button
                 onClick={() => onOpenLogoutOtpModal && onOpenLogoutOtpModal()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-rose-500/25 text-rose-200 hover:bg-rose-500 hover:text-white border border-rose-400/40 shadow-sm cursor-pointer"
+                className="flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap bg-rose-500/25 text-rose-200 hover:bg-rose-500 hover:text-white border border-rose-400/40 shadow-sm cursor-pointer"
                 title="Bóveda de 50 contraseñas de un toque para autorizar salida de vendedores"
               >
                 <LogOut size={15} className="text-rose-300" />
                 <span>Claves Salida (OTP)</span>
-                <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-sm ml-0.5">
+                <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm ml-0.5">
                   {getLogoutOtpKeysStats().available} Disp.
                 </span>
               </button>

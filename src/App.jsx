@@ -130,6 +130,7 @@ export default function App() {
       }).catch(() => {});
     };
     window.addEventListener('olam_visits_synced', handleVisitsSynced);
+    window.addEventListener('olam_visits_updated', handleVisitsSynced);
 
     // Verificador periódico ligero de cola pendiente (cada 12 segundos)
     const queueInterval = setInterval(() => {
@@ -142,6 +143,7 @@ export default function App() {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('olam_visits_synced', handleVisitsSynced);
+      window.removeEventListener('olam_visits_updated', handleVisitsSynced);
       clearInterval(queueInterval);
     };
   }, []);

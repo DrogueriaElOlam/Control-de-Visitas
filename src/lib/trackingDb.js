@@ -260,19 +260,31 @@ export function clearLocalTrackingPoints(dateStr = null) {
  * @param {Object} options
  * @param {string|null} options.dateStr - Fecha específica a purgar (YYYY-MM-DD), o null si es purgeAll.
  * @param {boolean} options.purgeAll - Si es true, borra absolutamente TODOS los pings de todas las fechas.
+ * @param {boolean} options.purgeVisitsCoords - Si es true, limpia también coordenadas de visitas.
  * @returns {Promise<{success: boolean, deletedCount: number}>}
  */
-export async function purgeTrackingPoints({ dateStr = null, purgeAll = false } = {}) {
+export async function purgeTrackingPoints({ dateStr = null, purgeAll = false, purgeVisitsCoords = true } = {}) {
   let deletedCount = 0;
 
   // 1. Limpiar localStorage local
   clearLocalTrackingPoints(purgeAll ? null : dateStr);
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('olam_last_satellite_gps');
+      localStorage.removeItem('olam_live_tracking_points');
+      localStorage.removeItem('olam_tracking_points_v2');
+      localStorage.removeItem('olam_gps_pings_history');
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('olam_last_known_loc');
+    }
+  } catch (_) {}
 
-  // 2. Limpiar en Supabase (daily_supervision_history donde tipo === 'gps_ping')
+  // 2. Limpiar en Supabase (daily_supervision_history)
   try {
     let query = supabase
       .from('daily_supervision_history')
-      .select('id, datos');
+      .select('id, date, datos');
 
     if (!purgeAll && dateStr) {
       query = query.eq('date', dateStr);
@@ -280,8 +292,13 @@ export async function purgeTrackingPoints({ dateStr = null, purgeAll = false } =
 
     const { data, error } = await query;
     if (!error && Array.isArray(data)) {
+      // Proteger estrictamente las bóvedas OTP de fecha 2099-12-31
       const idsToDelete = data
-        .filter(r => r.datos && r.datos.tipo === 'gps_ping')
+        .filter(r => {
+          if (r.date === '2099-12-31') return false;
+          if (purgeAll) return true;
+          return r.datos && (r.datos.tipo === 'gps_ping' || r.datos.tipo === 'gps_point');
+        })
         .map(r => r.id);
 
       if (idsToDelete.length > 0) {
@@ -302,7 +319,20 @@ export async function purgeTrackingPoints({ dateStr = null, purgeAll = false } =
     console.error('[Tracking] Error purgando pings en Supabase:', e);
   }
 
-  // 3. Emitir evento por Broadcast para que todas las pantallas conectadas limpien el mapa en vivo
+  // 3. Limpiar coordenadas de visitas si se solicita o si es purga total
+  if (purgeVisitsCoords || purgeAll) {
+    try {
+      if (purgeAll) {
+        await supabase.from('visits').update({ latitude: null, longitude: null, location_accuracy: null }).gt('id', 0);
+      } else if (dateStr) {
+        await supabase.from('visits').update({ latitude: null, longitude: null, location_accuracy: null }).eq('visit_date', dateStr);
+      }
+    } catch (errVisits) {
+      console.warn('[Tracking] Error limpiando coordenadas en visits:', errVisits);
+    }
+  }
+
+  // 4. Emitir evento por Broadcast para que todas las pantallas conectadas limpien el mapa en vivo
   try {
     const channel = supabase.channel('olam_gps_live_channel');
     channel.send({

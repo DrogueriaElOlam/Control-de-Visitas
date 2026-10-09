@@ -105,12 +105,18 @@
         2) Encabezados de columnas con fondo azul elegante y texto en negrita blanca.
         3) Todas las celdas de datos y encabezados delimitadas rigurosamente con bordes delgados (	hin borders).
         4) Cebreado suave, alineaciones centradas para fechas/horas y auto-ajuste de ancho de columnas para visualizaciÃ³n e impresiÃ³n impecables.
+  29. **Scroll Horizontal EstÃ©tico en Navbar de Administrador, UbicaciÃ³n Satelital GPS Real en PetÃ©n (Danny PÃ©rez), Purga Satelital Total y Vaciado de Historial a CERO (0):**
+      - **Scroll Horizontal EstÃ©tico y Desahogado en Navbar del Administrador:** Se transformÃ³ el contenedor de navegaciÃ³n de escritorio/tablets del Administrador implementando overflow-x-auto con scrollbar sutil y estilizado (scrollbar-thin scrollbar-thumb-blue-400/40 hover:scrollbar-thumb-blue-300/60). Todos los botones y accesos directos (Formularios, Registro Conexiones, Claves OTP 2.0 y Salida, Chat & Solicitudes, etc.) fueron provistos de lex-shrink-0 whitespace-nowrap, padding cÃ³modo px-3.5 py-2, bordes redondeados consistentes ounded-xl y separaciÃ³n holgada gap-2.5, eliminando por completo la saturaciÃ³n o amontonamiento de iconos.
+      - **UbicaciÃ³n Satelital Silenciosa y Real en PetÃ©n (Danny PÃ©rez):** Identificada y erradicada la causa raÃ­z por la cual Danny PÃ©rez aparecÃ­a en el centro de la Ciudad de Guatemala: la funciÃ³n de respaldo captureSilentIPLocation() consultaba APIs de IP (ipapi.co / reeipapi.com), las cuales en Guatemala concentran todas las antenas celulares 3G/4G/5G en la capital (14.64072, -90.51327). Se eliminÃ³ definitivamente el fallback de IP para geolocalizaciÃ³n, se ajustÃ³ obtainPreciseGPSLocation con enableHighAccuracy: true y satÃ©lites reales, se enlazÃ³ el puente nativo window.onNativeGpsPing (Android Bridge) y se persistiÃ³ la Ãºltima posiciÃ³n satelital real comprobada en olam_last_satellite_gps, garantizando que en PetÃ©n (latitud ~16Â°-17Â°N, longitud -89Â°W) se tomen de forma silenciosa e instantÃ¡nea sus coordenadas satelitales autÃ©nticas sin distorsionar la geografÃ­a nacional.
+      - **Purga Satelital Profunda y ErradicaciÃ³n de Puntos Residuales en el Mapa:** Se corrigiÃ³ la funciÃ³n purgeTrackingPoints en 	rackingDb.js y el modal interactivo en LiveVendorTrackingMap.jsx. Ahora la purga satelital no solo elimina los pings de daily_supervision_history y localStorage, sino que tambiÃ©n limpia las coordenadas de latitud/longitud en la tabla isits (las cuales proyectaban pines adicionales de visitas de prueba). El botÃ³n de purga deja el mapa 100% en blanco sin ningÃºn pin fantasma.
+      - **Vaciado Total del Historial de Visitas a CERO (0) en Administrador y Vendedores:** Se ejecutÃ³ la eliminaciÃ³n de todas las 42 visitas de prueba en la tabla isits de Supabase, dejando el conteo en 0. Asimismo, se incorporÃ³ la versiÃ³n de purga olam_visits_reset_v5_20261009 en db.js y la funciÃ³n clearAllVisitsHistory() con botÃ³n administrativo directo en el historial de visitas, asegurando que tanto en la pantalla del Administrador como en los telÃ©fonos de todos los vendedores, todos los contadores de visitas, ventas y cobros comiencen estrictamente en 0.
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
   - Mantener la bitácora viva para que la IA retome exactamente en el punto donde se suspendió la sesión previa.
 - **Próximos Pasos Disponibles:**
   - Continuar con mejoras operativas solicitadas por el usuario en el panel administrativo o formularios de campo.
   - Implementar o refinar reportes, liquidaciones de viáticos o monitoreo de rutas según requerimientos.
+
 
 
 
