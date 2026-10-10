@@ -121,3 +121,16 @@
 
 
 
+
+- **Punto de Pausa Oficial y Clave de Continuidad:**
+  - **Fecha y Hora de Pausa:** 09 de Octubre de 2026 - 21:05.
+  - **CLAVE OFICIAL DE REANUDACIÓN:** OLAM-CONTINUAR-20261009-V129
+  - **Estado al Momento de la Pausa:**
+    - Todas las visitas de prueba vaciadas a CERO (0) en Supabase y local.
+    - Purga satelital profunda completada (mapa limpio sin puntos fantasmas).
+    - Captura GPS real obligatoria configurada (soporte Danny Pérez en Petén sin IP errónea).
+    - Módulo de Conexiones de Vendedores en vivo y exportación a Excel con diseño azul elegante.
+    - Navbar administrativo con scroll horizontal fluido y botones ordenados.
+    - Sincronización en la nube de contraseñas y claves OTP (Login y Cierre).
+    - Repositorio Git en main y despliegue en Vercel actualizados.
+  - **Instrucción al Reanudar:** Al presentar la clave OLAM-CONTINUAR-20261009-V129, la IA validará el estado y retomará de inmediato el desarrollo.
