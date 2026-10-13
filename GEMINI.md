@@ -160,6 +160,12 @@
       - Desacoplado el scroll horizontal del scroll vertical en `AdminOtpVaultModal.jsx` (claves de acceso) y `AdminLogoutOtpModal.jsx` (claves de salida).
       - La tabla cuenta ahora con contenedor directo con `overflow-x-auto`, `touch-pan-x` y scrollbar estilizada y visible (`scrollbar-thin`).
       - Integrados botones interactivos de navegación horizontal tanto en la barra superior (`⬅️ Izq` / `Der ➡️`) como en una barra inferior dedicada (`⬅️ Ver Izquierda (No. y Clave)` / `Ver Derecha (Usuario y Copiar) ➡️`) con desplazamiento suave programático (`scrollBy`), permitiendo al usuario moverse a la izquierda o derecha en cualquier pantalla y dispositivo con total facilidad.
+  37. **Acceso Inmediato al Botón Copiar Sin Requerir Scroll en Bóvedas OTP (Acceso y Salida):**
+      - **Causa Raíz de Inaccesibilidad:** El botón 'Copiar' estaba en la sexta columna (extremo derecho de la tabla), quedando fuera del campo visual en pantallas pequeñas o medianas y obligando al usuario a desplazarse horizontalmente.
+      - **Solución Definitiva:** Se reestructuraron las columnas en `AdminOtpVaultModal.jsx` y `AdminLogoutOtpModal.jsx`:
+        * Columna 2: Clave con botón interactivo (al hacer clic en la propia clave se copia instantáneamente con badge visual).
+        * Columna 3: Botón prominente 'Copiar Clave' inmediatamente contiguo a la clave, visible desde los primeros píxeles de la pantalla sin tener que desplazarse horizontalmente.
+        * Columnas 4, 5 y 6: Estado, Usada Por y Fecha/Hora.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -174,11 +180,11 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 19:55.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V135
+  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 20:20.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V136
   - **Estado al Momento de la Publicación:**
-    - Scroll horizontal táctil y por botones (⬅️ ➡️) implementado en las bóvedas de claves OTP de acceso (`AdminOtpVaultModal.jsx`) y de salida (`AdminLogoutOtpModal.jsx`).
-    - Desplazamiento fluido a la izquierda y derecha tanto en barra superior como en barra inferior dedicada antes del pie de página.
-    - Acceso total de Supervisor para Antonio Celada en registro de visitas, historial general, reportes y navegación.
-    - Repositorio Git en main sincronizado.
+    - Botón de Copiar ubicado inmediatamente al lado de la clave en ambas bóvedas OTP (Acceso y Salida), permitiendo copiar al instante sin scroll.
+    - Clic directo en la propia clave para copiar al portapapeles.
+    - Controles de scroll horizontal y barra de desplazamiento visible integrados.
+    - Repositorio Git en main y despliegue en Vercel actualizados.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

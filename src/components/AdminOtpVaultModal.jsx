@@ -283,15 +283,15 @@ export default function AdminOtpVaultModal({ isOpen, onClose }) {
             className="flex-1 overflow-x-auto overflow-y-auto border-2 border-slate-200 dark:border-slate-700/80 rounded-2xl shadow-sm bg-white dark:bg-slate-900 touch-pan-x overscroll-x-contain scrollbar-thin scrollbar-thumb-amber-500 hover:scrollbar-thumb-amber-600 scrollbar-track-slate-100 dark:scrollbar-track-slate-800"
             style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}
           >
-            <table className="w-full text-left text-xs border-collapse min-w-[720px]">
+            <table className="w-full text-left text-xs border-collapse min-w-[680px]">
               <thead className="sticky top-0 z-10 shadow-sm">
                 <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200 dark:border-slate-700">
                   <th className="py-2.5 px-3 w-12 text-center">No.</th>
-                  <th className="py-2.5 px-4">Clave de 1 Solo Toque</th>
-                  <th className="py-2.5 px-3 text-center w-32">Estado</th>
-                  <th className="py-2.5 px-4">Usada Por</th>
+                  <th className="py-2.5 px-3">Clave de Acceso (OTP)</th>
+                  <th className="py-2.5 px-3 text-center w-32">Copiar Clave</th>
+                  <th className="py-2.5 px-3 text-center w-28">Estado</th>
+                  <th className="py-2.5 px-3">Usada Por</th>
                   <th className="py-2.5 px-3">Fecha y Hora</th>
-                  <th className="py-2.5 px-3 text-right w-28">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -305,14 +305,39 @@ export default function AdminOtpVaultModal({ isOpen, onClose }) {
                     <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-400">
                       #{item.id}
                     </td>
-                    <td className="py-2.5 px-4">
-                      <span className={`font-mono font-black text-sm tracking-widest px-2.5 py-1 rounded-lg border ${
-                        item.used 
-                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700 line-through' 
-                          : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 shadow-sm'
-                      }`}>
-                        {item.key}
-                      </span>
+                    <td className="py-2.5 px-3 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => handleCopyKey(item.key)}
+                        disabled={item.used}
+                        className={`font-mono font-black text-sm tracking-widest px-3 py-1.5 rounded-xl border inline-flex items-center gap-2 transition-all cursor-pointer ${
+                          item.used 
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700 line-through cursor-not-allowed' 
+                            : 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 shadow-sm active:scale-95'
+                        }`}
+                        title={item.used ? 'Clave ya utilizada' : 'Clic para copiar clave'}
+                      >
+                        <span>{item.key}</span>
+                        <Copy size={13} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                      </button>
+                    </td>
+                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => handleCopyKey(item.key)}
+                        disabled={item.used}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
+                          copiedKey === item.key
+                            ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
+                            : item.used
+                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-200 dark:border-slate-700'
+                            : 'bg-amber-500 hover:bg-amber-600 text-white border border-amber-600 active:scale-95'
+                        }`}
+                        title={item.used ? 'Clave ya utilizada' : 'Copiar clave al portapapeles'}
+                      >
+                        <Copy size={13} />
+                        <span>{copiedKey === item.key ? '¡Copiada!' : 'Copiar'}</span>
+                      </button>
                     </td>
                     <td className="py-2.5 px-3 text-center whitespace-nowrap">
                       {item.used ? (
@@ -325,7 +350,7 @@ export default function AdminOtpVaultModal({ isOpen, onClose }) {
                         </span>
                       )}
                     </td>
-                    <td className="py-2.5 px-4 font-bold text-slate-800 dark:text-slate-200">
+                    <td className="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                       {item.usedBy ? (
                         <span className="text-blue-700 dark:text-blue-400 font-extrabold">
                           {item.usedBy}
@@ -336,24 +361,6 @@ export default function AdminOtpVaultModal({ isOpen, onClose }) {
                     </td>
                     <td className="py-2.5 px-3 text-xs text-slate-500 whitespace-nowrap">
                       {item.usedAt || '—'}
-                    </td>
-                    <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => handleCopyKey(item.key)}
-                        disabled={item.used}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1 cursor-pointer ${
-                          copiedKey === item.key
-                            ? 'bg-emerald-600 text-white shadow-sm'
-                            : item.used
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-200 dark:border-slate-700'
-                            : 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 shadow-sm active:scale-95'
-                        }`}
-                        title={item.used ? 'Clave ya utilizada' : 'Copiar clave'}
-                      >
-                        <Copy size={13} />
-                        <span>{copiedKey === item.key ? 'Copiada' : 'Copiar'}</span>
-                      </button>
                     </td>
                   </tr>
                 ))}
