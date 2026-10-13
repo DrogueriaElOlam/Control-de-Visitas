@@ -23,7 +23,6 @@ import VendorSupportChatModal from './components/VendorSupportChatModal';
 import AdminVendorConnectionsModal from './components/AdminVendorConnectionsModal';
 import AdminOtpVaultModal from './components/AdminOtpVaultModal';
 import AdminLogoutOtpModal from './components/AdminLogoutOtpModal';
-import VisualFeedbackSelector from './components/VisualFeedbackSelector';
 
 import { supabase } from './lib/supabase';
 import { 
@@ -678,9 +677,6 @@ export default function App() {
       <footer className="border-t border-slate-200 dark:border-slate-800 py-4 mb-16 md:mb-0 text-center text-xs text-slate-400">
         <p>© 2026 Droguería El Olam • Sistema de Control y Rendimiento de Visitas Diarias</p>
       </footer>
-      {/* Selector / Marcador Visual para Modificar o Eliminar Elementos */}
-      <VisualFeedbackSelector />
-
     </div>
   );
 }

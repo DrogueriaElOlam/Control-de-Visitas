@@ -153,7 +153,9 @@
         * En `VisitRegistration.jsx`, Antonio Celada cuenta con acceso irrestricto al catálogo maestro nacional de 1,286+ clientes de todos los vendedores y todas las rutas.
         * En `VisitsListAndFilters.jsx` (pestañas 'Visitas' del día e 'Información General' / Historial), se integró el permiso `isSuper`, desbloqueando el filtro por vendedor para que Antonio Celada pueda ver todas las visitas de todos los vendedores o filtrar por cualquiera de ellos, con métricas completas y exportación a Excel.
         * En `VendorReportModal.jsx`, el selector de vendedor queda totalmente habilitado para Antonio Celada, permitiéndole auditar y exportar reportes de cualquier vendedor del equipo.
-        * En `Navbar.jsx`, Antonio Celada cuenta con el badge distintivo 'Supervisor' y acceso directo al 'Directorio de Clientes'.
+  35. **Retiro de Selector Visual Flotante (`VisualFeedbackSelector`):**
+      - Desacoplado y removido de la interfaz en `App.jsx` a solicitud del usuario para mantener la pantalla despejada y limpia sin botones flotantes.
+      - El código del componente se conserva intacto en `src/components/VisualFeedbackSelector.jsx` para cuando se decida reactivar posteriormente mediante atajo de teclado o configuración especial.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
