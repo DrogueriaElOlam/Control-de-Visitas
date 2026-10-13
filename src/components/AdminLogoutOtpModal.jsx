@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   LogOut, 
   Download, 
@@ -23,6 +23,19 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
   const [search, setSearch] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
   const [toastMessage, setToastMessage] = useState('');
+  const tableScrollRef = useRef(null);
+
+  const handleScrollLeft = () => {
+    if (tableScrollRef.current) {
+      tableScrollRef.current.scrollBy({ left: -280, behavior: 'smooth' });
+    }
+  };
+
+  const handleScrollRight = () => {
+    if (tableScrollRef.current) {
+      tableScrollRef.current.scrollBy({ left: 280, behavior: 'smooth' });
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -204,41 +217,72 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
             />
           </div>
 
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-            <button
-              type="button"
-              onClick={() => setFilter('all')}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                filter === 'all' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
-              }`}
-            >
-              Todas (50)
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('available')}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                filter === 'available' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'
-              }`}
-            >
-              Disponibles ({stats.available})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('used')}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                filter === 'used' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500'
-              }`}
-            >
-              Quemadas ({stats.used})
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setFilter('all')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  filter === 'all' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
+                }`}
+              >
+                Todas (50)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter('available')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  filter === 'available' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'
+                }`}
+              >
+                Disponibles ({stats.available})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter('used')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  filter === 'used' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500'
+                }`}
+              >
+                Quemadas ({stats.used})
+              </button>
+            </div>
+
+            {/* Controles Rápidos de Scroll Horizontal */}
+            <div className="flex items-center gap-1.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800/60 px-2 py-1 rounded-xl shadow-inner">
+              <span className="text-[11px] font-bold text-rose-800 dark:text-rose-300 hidden sm:inline">
+                ↔️ Scroll:
+              </span>
+              <button
+                type="button"
+                onClick={handleScrollLeft}
+                className="px-2.5 py-1 bg-white dark:bg-slate-900 hover:bg-rose-100 dark:hover:bg-slate-800 text-rose-900 dark:text-rose-200 border border-rose-300 dark:border-rose-700/80 rounded-lg text-xs font-extrabold shadow-sm transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                title="Desplazar tabla a la izquierda"
+              >
+                <span>⬅️</span>
+                <span className="hidden md:inline">Izq</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleScrollRight}
+                className="px-2.5 py-1 bg-white dark:bg-slate-900 hover:bg-rose-100 dark:hover:bg-slate-800 text-rose-900 dark:text-rose-200 border border-rose-300 dark:border-rose-700/80 rounded-lg text-xs font-extrabold shadow-sm transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                title="Desplazar tabla a la derecha"
+              >
+                <span className="hidden md:inline">Der</span>
+                <span>➡️</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Keys Table Container con Scroll Suave */}
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto p-3 sm:p-5">
-          <div className="border border-slate-200 dark:border-slate-700/80 rounded-xl shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-            <table className="w-full text-left text-xs border-collapse min-w-[650px]">
+        {/* Keys Table Container con Scroll Suave Horizontal y Vertical */}
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col p-3 sm:p-5">
+          <div 
+            ref={tableScrollRef}
+            className="flex-1 overflow-x-auto overflow-y-auto border-2 border-slate-200 dark:border-slate-700/80 rounded-2xl shadow-sm bg-white dark:bg-slate-900 touch-pan-x overscroll-x-contain scrollbar-thin scrollbar-thumb-rose-500 hover:scrollbar-thumb-rose-600 scrollbar-track-slate-100 dark:scrollbar-track-slate-800"
+            style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}
+          >
+            <table className="w-full text-left text-xs border-collapse min-w-[720px]">
               <thead className="sticky top-0 z-10 shadow-sm">
                 <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200 dark:border-slate-700">
                   <th className="py-2.5 px-3 w-12 text-center">No.</th>
@@ -314,6 +358,37 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* Barra de Control de Desplazamiento Horizontal (Visible y Cómoda) */}
+        <div className="shrink-0 bg-gradient-to-r from-rose-50 via-slate-50 to-rose-50 dark:from-slate-900 dark:via-slate-850 dark:to-slate-900 border-t border-rose-200 dark:border-slate-800 px-4 py-2 flex items-center justify-between text-xs shadow-inner">
+          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-bold">
+            <span className="text-rose-600 text-sm">↔️</span>
+            <span>Desplazamiento Horizontal:</span>
+            <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400 hidden sm:inline">
+              Desliza la tabla o pulsa las flechas:
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleScrollLeft}
+              className="px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-900 dark:text-rose-200 border border-rose-400/50 rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer text-xs"
+              title="Desplazar tabla hacia la izquierda"
+            >
+              <span>⬅️</span>
+              <span>Ver Izquierda (No. y Clave)</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleScrollRight}
+              className="px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-900 dark:text-rose-200 border border-rose-400/50 rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer text-xs"
+              title="Desplazar tabla hacia la derecha"
+            >
+              <span>Ver Derecha (Usuario y Copiar)</span>
+              <span>➡️</span>
+            </button>
           </div>
         </div>
 

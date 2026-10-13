@@ -156,6 +156,10 @@
   35. **Retiro de Selector Visual Flotante (`VisualFeedbackSelector`):**
       - Desacoplado y removido de la interfaz en `App.jsx` a solicitud del usuario para mantener la pantalla despejada y limpia sin botones flotantes.
       - El código del componente se conserva intacto en `src/components/VisualFeedbackSelector.jsx` para cuando se decida reactivar posteriormente mediante atajo de teclado o configuración especial.
+  36. **Scroll Horizontal Universal y Botones de Desplazamiento en Claves de Acceso y Salida (OTP):**
+      - Desacoplado el scroll horizontal del scroll vertical en `AdminOtpVaultModal.jsx` (claves de acceso) y `AdminLogoutOtpModal.jsx` (claves de salida).
+      - La tabla cuenta ahora con contenedor directo con `overflow-x-auto`, `touch-pan-x` y scrollbar estilizada y visible (`scrollbar-thin`).
+      - Integrados botones interactivos de navegación horizontal tanto en la barra superior (`⬅️ Izq` / `Der ➡️`) como en una barra inferior dedicada (`⬅️ Ver Izquierda (No. y Clave)` / `Ver Derecha (Usuario y Copiar) ➡️`) con desplazamiento suave programático (`scrollBy`), permitiendo al usuario moverse a la izquierda o derecha en cualquier pantalla y dispositivo con total facilidad.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -170,12 +174,11 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 19:35.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V134
+  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 19:55.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V135
   - **Estado al Momento de la Publicación:**
+    - Scroll horizontal táctil y por botones (⬅️ ➡️) implementado en las bóvedas de claves OTP de acceso (`AdminOtpVaultModal.jsx`) y de salida (`AdminLogoutOtpModal.jsx`).
+    - Desplazamiento fluido a la izquierda y derecha tanto en barra superior como en barra inferior dedicada antes del pie de página.
     - Acceso total de Supervisor para Antonio Celada en registro de visitas, historial general, reportes y navegación.
-    - Ingreso de registros y clientes nuevos 100% fluido sin bloqueos ni trabas de autorización externa.
-    - Filtro por vendedor habilitado para Antonio Celada en visitas del día, historial de visitas y reportes.
-    - Catálogo nacional completo de 1,286+ farmacias disponible para Antonio Celada sin restricciones de ruta.
-    - Repositorio Git en main y despliegue en Vercel actualizados.
+    - Repositorio Git en main sincronizado.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.
