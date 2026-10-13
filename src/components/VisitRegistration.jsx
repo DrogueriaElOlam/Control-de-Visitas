@@ -1648,24 +1648,9 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
             {/* Route, Sector Visitado & Modalidad */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Ruta *
-                  </label>
-                  <button
-                    type="button"
-                    onClick={togglePinRoute}
-                    className={`px-2 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 transition-all border cursor-pointer ${
-                      isRoutePinned
-                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
-                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700'
-                    }`}
-                    title={isRoutePinned ? 'Ruta fijada: no cambiará al ingresar nuevos registros' : 'Clic para fijar esta ruta para tus siguientes registros'}
-                  >
-                    <span>📌</span>
-                    <span>{isRoutePinned ? 'Fijada' : 'Fijar'}</span>
-                  </button>
-                </div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Ruta Asignada *
+                </label>
                 <select
                   value={route}
                   onChange={(e) => handleRouteChange(e.target.value)}
@@ -1679,6 +1664,21 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                     </option>
                   ))}
                 </select>
+                <div className="mt-1.5">
+                  <button
+                    type="button"
+                    onClick={togglePinRoute}
+                    className={`w-full py-1.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all border cursor-pointer shadow-sm ${
+                      isRoutePinned
+                        ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 ring-1 ring-amber-400/50'
+                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+                    }`}
+                    title={isRoutePinned ? 'Ruta fijada: no cambiará al ingresar nuevos registros' : 'Clic para fijar esta ruta para tus siguientes registros'}
+                  >
+                    <span>📌</span>
+                    <span>{isRoutePinned ? 'Ruta Fijada (No Cambiará)' : 'Fijar esta Ruta'}</span>
+                  </button>
+                </div>
               </div>
 
               <div>

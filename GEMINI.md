@@ -195,6 +195,9 @@
         * Persistencia en `localStorage` (`olam_is_route_pinned` y `olam_pinned_route`).
         * Al estar activa, la ruta seleccionada se conserva intacta tras el reseteo del formulario (`resetFormComplete()`) y no se sobrescribe al autollenar clientes desde el directorio o buscador.
         * El vendedor puede alternar el botón en cualquier momento para fijar o desfijar la ruta según su necesidad.
+  41. **Reubicación de Botón de Fijar Ruta Directamente Abajo de Ruta Asignada:**
+      - **Ajuste de Interfaz Solicitado:** Se trasladó el botón de fijar ruta directamente abajo del menú desplegable de "Ruta Asignada *".
+      - **Diseño Mejorado:** Se le asignó mayor claridad visual con texto explícito `📌 Fijar esta Ruta` y `📌 Ruta Fijada (No Cambiará)`, ocupando el ancho del campo para fácil acceso táctil en dispositivos móviles sin saturar la etiqueta superior.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -209,10 +212,10 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 20:55.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V139
+  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 21:05.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V140
   - **Estado al Momento de la Publicación:**
-    - Opción de Fijar Ruta implementada exclusivamente en el área de Registro de Visitas con botón '📌 Fijar Ruta' / '📌 Fijada'.
+    - Botón de Fijar Ruta reubicado directamente abajo del menú selector 'Ruta Asignada *' en Registro de Visitas.
     - Persistencia en localStorage: la ruta fijada no se resetea tras guardar registros ni al autollenar clientes.
     - Repositorio Git en main y despliegue en Vercel actualizados.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.
