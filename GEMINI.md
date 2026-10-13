@@ -198,6 +198,10 @@
   41. **Reubicación de Botón de Fijar Ruta Directamente Abajo de Ruta Asignada:**
       - **Ajuste de Interfaz Solicitado:** Se trasladó el botón de fijar ruta directamente abajo del menú desplegable de "Ruta Asignada *".
       - **Diseño Mejorado:** Se le asignó mayor claridad visual con texto explícito `📌 Fijar esta Ruta` y `📌 Ruta Fijada (No Cambiará)`, ocupando el ancho del campo para fácil acceso táctil en dispositivos móviles sin saturar la etiqueta superior.
+  42. **Grabación Dinámica y Sugerencias Inteligentes con Desplazamiento Táctil en Sector Visitado:**
+      - **Grabación y Aprendizaje Continuo:** Cada sector ingresado se registra y persiste automáticamente en memoria local (`olam_known_sectors_v2`), consolidándose con los sectores históricos de los clientes y visitas registradas en el sistema.
+      - **Sugerencias de Nombres Similares en Tiempo Real:** Al enfocar o teclear en el campo 'Sector Visitado', el sistema despliega un menú flotante con las opciones coincidentes y similares, priorizando los sectores que pertenecen a la ruta seleccionada y resaltando las letras escritas.
+      - **Desplazamiento Táctil Nativo Sostenido con el Dedo:** Menú flotante estilizado con `touch-pan-y`, `overscroll-contain`, `-webkit-overflow-scrolling: touch` y `max-h-56 overflow-y-auto`, permitiendo que el vendedor mantenga presionado y deslice el dedo hacia abajo fluidamente en móviles sin bloqueos ni falsos toques.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -212,10 +216,11 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 21:05.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V140
+  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 21:15.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V141
   - **Estado al Momento de la Publicación:**
-    - Botón de Fijar Ruta reubicado directamente abajo del menú selector 'Ruta Asignada *' en Registro de Visitas.
-    - Persistencia en localStorage: la ruta fijada no se resetea tras guardar registros ni al autollenar clientes.
+    - Grabación dinámica de sectores en 'Sector Visitado' (persistencia en localStorage y aprendizaje de visitas históricas).
+    - Desplegable de sugerencias inteligentes con nombres similares, filtro contextual por ruta y resaltado en vivo.
+    - Menú flotante con desplazamiento táctil suave (`touch-pan-y`, `overscroll-contain`) deslizable sostenido por el dedo en celulares y tablets.
     - Repositorio Git en main y despliegue en Vercel actualizados.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

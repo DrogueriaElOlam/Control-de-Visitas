@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Plus, 
   User, 
@@ -37,6 +37,13 @@ import { captureAndReportLocation } from '../lib/silentGpsTracker';
 import { saveGpsPoint } from '../lib/trackingDb';
 import VendorSupportChatModal from './VendorSupportChatModal';
 import ScheduleReminderModal from './ScheduleReminderModal';
+
+const STORAGE_KNOWN_SECTORS_KEY = 'olam_known_sectors_v2';
+const DEFAULT_KNOWN_SECTORS = [
+  'Centro', 'Barrio El Centro', 'Zona 1', 'Zona 2', 'Zona 3', 'Zona 4', 'Zona 5',
+  'Mercado Central', 'Calzada Principal', 'Aldea San Antonio', 'Cantón Central',
+  'Barrio San Sebastián', 'Barrio San Marcos', 'Barrio La Candelaria', 'Terminal', 'Parque Central'
+];
 
 export default function VisitRegistration({ currentUser, onVisitAdded, allVisits = [], onLogout, onNavigate }) {
   const isAdmin = currentUser?.role === 'admin';
@@ -100,6 +107,96 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
   };
 
   const [sector, setSector] = useState('');
+  const [knownSectors, setKnownSectors] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KNOWN_SECTORS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return DEFAULT_KNOWN_SECTORS.map(name => ({ name, route: '' }));
+  });
+  const [showSectorSuggestions, setShowSectorSuggestions] = useState(false);
+  const sectorContainerRef = useRef(null);
+
+  const saveKnownSector = (secName, routeName) => {
+    if (!secName || typeof secName !== 'string') return;
+    const clean = secName.trim();
+    if (clean.length < 2) return;
+    try {
+      setKnownSectors(prev => {
+        const exists = prev.some(s => (s?.name || s || '').toLowerCase() === clean.toLowerCase());
+        if (exists) return prev;
+        const updated = [{ name: clean, route: routeName || '' }, ...prev].slice(0, 500);
+        try {
+          localStorage.setItem(STORAGE_KNOWN_SECTORS_KEY, JSON.stringify(updated));
+        } catch (_) {}
+        return updated;
+      });
+    } catch (_) {}
+  };
+
+  // Consolidar automáticamente sectores únicos de clientes existentes y visitas pasadas
+  useEffect(() => {
+    const extracted = new Map();
+    knownSectors.forEach(s => {
+      const sName = typeof s === 'string' ? s : s?.name;
+      const sRoute = typeof s === 'object' ? s?.route : '';
+      if (sName && sName.trim().length >= 2) {
+        extracted.set(sName.trim().toLowerCase(), { name: sName.trim(), route: sRoute || '' });
+      }
+    });
+
+    if (Array.isArray(pharmacyDirectory)) {
+      pharmacyDirectory.forEach(p => {
+        if (p.sector && typeof p.sector === 'string' && p.sector.trim().length >= 2) {
+          const clean = p.sector.trim();
+          const key = clean.toLowerCase();
+          if (!extracted.has(key)) {
+            extracted.set(key, { name: clean, route: p.route || '' });
+          }
+        }
+      });
+    }
+
+    if (Array.isArray(allVisits)) {
+      allVisits.forEach(v => {
+        const sec = v.sector || v.sectorVisitado;
+        if (sec && typeof sec === 'string' && sec.trim().length >= 2) {
+          const clean = sec.trim();
+          const key = clean.toLowerCase();
+          if (!extracted.has(key)) {
+            extracted.set(key, { name: clean, route: v.route || '' });
+          }
+        }
+      });
+    }
+
+    if (extracted.size > knownSectors.length) {
+      const list = Array.from(extracted.values());
+      setKnownSectors(list);
+      try {
+        localStorage.setItem(STORAGE_KNOWN_SECTORS_KEY, JSON.stringify(list));
+      } catch (_) {}
+    }
+  }, [pharmacyDirectory, allVisits]);
+
+  // Cerrar sugerencias de sector al hacer clic o toque fuera
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (sectorContainerRef.current && !sectorContainerRef.current.contains(e.target)) {
+        setShowSectorSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, []);
+
   const [dayPeriod, setDayPeriod] = useState('mañana');
   const [visitType, setVisitType] = useState('presencial');
   const [visitDate, setVisitDate] = useState(() => getLocalDateString());
@@ -157,6 +254,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
         setRoute(defaultRoute);
       }
       setSector('');
+      setShowSectorSuggestions(false);
 
       captureGPSLocation();
     } catch (e) {
@@ -664,6 +762,67 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     }) || null;
   }, [clientCode, clientName, vendorPharmacyDirectory]);
 
+  // SUGERENCIAS INTERACTIVAS DE SECTOR A MEDIDA QUE SE ESCRIBE (O ENFOCA EL CAMPO)
+  const sectorSuggestions = useMemo(() => {
+    const rawQ = (sector || '').trim();
+    const q = rawQ.toLowerCase();
+    const currentRouteLower = (route || '').toLowerCase().trim();
+
+    const pool = [];
+    const seen = new Set();
+
+    const addSector = (name, sRoute) => {
+      if (!name || typeof name !== 'string') return;
+      const clean = name.trim();
+      if (clean.length < 2) return;
+      const lower = clean.toLowerCase();
+      if (seen.has(lower)) return;
+      seen.add(lower);
+      pool.push({ name: clean, route: sRoute || '' });
+    };
+
+    knownSectors.forEach(s => {
+      if (typeof s === 'string') addSector(s, '');
+      else if (s?.name) addSector(s.name, s.route);
+    });
+
+    if (!q) {
+      if (currentRouteLower) {
+        const byRoute = pool.filter(s => s.route && s.route.toLowerCase().includes(currentRouteLower));
+        if (byRoute.length > 0) return byRoute.slice(0, 30);
+      }
+      return pool.slice(0, 30);
+    }
+
+    const exactMatches = [];
+    const startsWithMatches = [];
+    const containsMatches = [];
+
+    for (const item of pool) {
+      const itemLower = item.name.toLowerCase();
+      if (itemLower === q) {
+        exactMatches.push(item);
+      } else if (itemLower.startsWith(q)) {
+        startsWithMatches.push(item);
+      } else if (itemLower.includes(q)) {
+        containsMatches.push(item);
+      }
+    }
+
+    const sortByRouteAndAlpha = (a, b) => {
+      const aRouteMatch = a.route && currentRouteLower && a.route.toLowerCase().includes(currentRouteLower);
+      const bRouteMatch = b.route && currentRouteLower && b.route.toLowerCase().includes(currentRouteLower);
+      if (aRouteMatch && !bRouteMatch) return -1;
+      if (!aRouteMatch && bRouteMatch) return 1;
+      return a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+    };
+
+    startsWithMatches.sort(sortByRouteAndAlpha);
+    containsMatches.sort(sortByRouteAndAlpha);
+
+    return [...exactMatches, ...startsWithMatches, ...containsMatches].slice(0, 35);
+  }, [sector, route, knownSectors]);
+
   // MANEJO DE CAMBIO EN CÓDIGO (Despliega opciones de inmediato y consulta el directorio en vivo)
   const handleClientCodeChange = (code) => {
     setClientCode(code);
@@ -928,6 +1087,11 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
     try {
       const saved = await addVisitRecord(visitPayload);
+
+      // Guardar el sector visitado en el catálogo para futuras sugerencias
+      if (visitPayload.sector) {
+        saveKnownSector(visitPayload.sector, visitPayload.route);
+      }
 
       // TRANSMISIÓN INMEDIATA DEL PUNTO SATELITAL AL MAPA EN TIEMPO REAL
       if (finalLocation?.lat && finalLocation?.lng) {
@@ -1681,18 +1845,93 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Sector Visitado *
-                </label>
-                <input
-                  type="text"
-                  value={sector}
-                  onChange={(e) => setSector(e.target.value)}
-                  placeholder="Ej: Zona 1, Aldea San Antonio, Centro..."
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
-                  required
-                />
+              <div className="relative" ref={sectorContainerRef}>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Sector Visitado *
+                  </label>
+                  {sectorSuggestions.length > 0 && (
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">
+                      {sector.trim().length > 0 ? `${sectorSuggestions.length} sugerencias` : 'Opciones guardadas'}
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={sector}
+                    onFocus={() => setShowSectorSuggestions(true)}
+                    onChange={(e) => {
+                      setSector(e.target.value);
+                      setShowSectorSuggestions(true);
+                    }}
+                    onBlur={() => {
+                      if (sector.trim().length >= 2) {
+                        saveKnownSector(sector, route);
+                      }
+                    }}
+                    placeholder="Ej: Zona 1, Aldea San Antonio, Centro..."
+                    className="w-full px-3.5 pr-8 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                    required
+                    autoComplete="off"
+                  />
+                  {sector && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSector('');
+                        setShowSectorSuggestions(false);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                      title="Limpiar sector"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* MENÚ FLOTANTE DE OPCIONES DE SECTOR CON SCROLL SUAVE TÁCTIL */}
+                {showSectorSuggestions && sectorSuggestions.length > 0 && (
+                  <div
+                    className="absolute left-0 right-0 top-full mt-1.5 z-[9999] bg-white dark:bg-slate-900 border-2 border-blue-500 dark:border-blue-500 rounded-2xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in slide-in-from-top-1 touch-pan-y overscroll-contain"
+                    style={{ WebkitOverflowScrolling: 'touch' }}
+                  >
+                    <div className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/80 text-[11px] font-bold text-blue-700 dark:text-blue-300 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md border-b border-blue-100 dark:border-blue-900/50">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                        <span>Sectores ({sectorSuggestions.length})</span>
+                      </span>
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">
+                        Desliza con tu dedo ↓
+                      </span>
+                    </div>
+                    {sectorSuggestions.map((item, idx) => (
+                      <button
+                        key={`sector-sug-${item.name}-${idx}`}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          setSector(item.name);
+                          saveKnownSector(item.name, route);
+                          setShowSectorSuggestions(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-blue-50 active:bg-blue-100 dark:hover:bg-slate-800/90 dark:active:bg-slate-700 transition-colors flex items-center justify-between gap-2 cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-blue-500 dark:text-blue-400 text-xs shrink-0">📍</span>
+                          <span className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                            {renderHighlightedText(item.name, sector)}
+                          </span>
+                        </div>
+                        {item.route && (
+                          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full shrink-0">
+                            {item.route}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
