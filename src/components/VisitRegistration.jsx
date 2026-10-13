@@ -27,6 +27,7 @@ import { isSuperUser, normalizeText } from '../lib/formsPermissions';
 import { 
   fetchClientCodes, 
   fetchPharmacyDirectory, 
+  fetchProductsCatalog,
   saveClientRecord, 
   searchClientLive, 
   parseGuatemalaPhoneNumbers 
@@ -62,6 +63,46 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
   // Estado para el Modal de Agendar Recordatorio
   const [showReminderModal, setShowReminderModal] = useState(false);
+
+  // Catálogos y Directorio de Farmacias (declarados al inicio para evitar TDZ en useEffect)
+  const [products, setProducts] = useState([]);
+  const [clientCodesList, setClientCodesList] = useState([]);
+  const [pharmacyDirectory, setPharmacyDirectory] = useState([]);
+
+  // Estados para sugerencias interactivas de autollenado al ingresar dígitos
+  const [showCodeSuggestions, setShowCodeSuggestions] = useState(false);
+  const [showNameSuggestions, setShowNameSuggestions] = useState(false);
+  const [autofillNotice, setAutofillNotice] = useState('');
+
+  // Período, tipo y fecha de visita
+  const [dayPeriod, setDayPeriod] = useState('mañana');
+  const [visitType, setVisitType] = useState('presencial');
+  const [visitDate, setVisitDate] = useState(() => getLocalDateString());
+
+  // Ventas
+  const [hasSale, setHasSale] = useState(false);
+  const [saleType, setSaleType] = useState('presencial');
+  const [saleAmount, setSaleAmount] = useState('');
+  const [cartItems, setCartItems] = useState([]);
+
+  // Cobros
+  const [hasCollection, setHasCollection] = useState(false);
+  const [collectionAmounts, setCollectionAmounts] = useState({
+    efectivo: '',
+    transferencia: '',
+    cheque: '',
+    boleta: ''
+  });
+
+  // GPS
+  const [location, setLocation] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState('');
+
+  // Observaciones y Envío
+  const [observations, setObservations] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [successNotif, setSuccessNotif] = useState(false);
 
   // Vendor's assigned routes (Antonio Celada gets all routes, other vendors get only their assigned routes)
   const assignedVendorRoutes = React.useMemo(() => {
@@ -197,26 +238,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     };
   }, []);
 
-  const [dayPeriod, setDayPeriod] = useState('mañana');
-  const [visitType, setVisitType] = useState('presencial');
-  const [visitDate, setVisitDate] = useState(() => getLocalDateString());
-
   // Sync route when currentUser changes
-  useEffect(() => {
-    if (isRoutePinned) return; // Si la ruta está fijada, no la cambia automáticamente
-    const list = getRoutesForVendor(currentUser?.name);
-    if (list && list.length > 0) {
-      if (!route || !list.includes(route)) {
-        setRoute(list[0]);
-      }
-    }
-  }, [currentUser?.name, isRoutePinned]);
-
-  // Sales
-  const [hasSale, setHasSale] = useState(false);
-  const [saleType, setSaleType] = useState('presencial');
-  const [saleAmount, setSaleAmount] = useState('');
-  const [cartItems, setCartItems] = useState([]);
 
   // Reset completo y garantizado del formulario para el siguiente registro
   const resetFormComplete = () => {
@@ -261,37 +283,6 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       console.warn('Error en resetFormComplete:', e);
     }
   };
-
-  // Collections
-  const [hasCollection, setHasCollection] = useState(false);
-  const [collectionAmounts, setCollectionAmounts] = useState({
-    efectivo: '',
-    transferencia: '',
-    cheque: '',
-    boleta: ''
-  });
-
-  // GPS
-  const [location, setLocation] = useState(null);
-  const [locating, setLocating] = useState(false);
-  const [locError, setLocError] = useState('');
-
-  // Observations
-  const [observations, setObservations] = useState('');
-
-  // Submitting
-  const [submitting, setSubmitting] = useState(false);
-  const [successNotif, setSuccessNotif] = useState(false);
-
-  // Catalogs & Learned Directory
-  const [products, setProducts] = useState([]);
-  const [clientCodesList, setClientCodesList] = useState([]);
-  const [pharmacyDirectory, setPharmacyDirectory] = useState([]);
-
-  // Estados para sugerencias interactivas de autollenado al ingresar dígitos
-  const [showCodeSuggestions, setShowCodeSuggestions] = useState(false);
-  const [showNameSuggestions, setShowNameSuggestions] = useState(false);
-  const [autofillNotice, setAutofillNotice] = useState('');
 
   useEffect(() => {
     loadCatalogs();

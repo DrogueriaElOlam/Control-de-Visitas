@@ -202,6 +202,9 @@
       - **Grabación y Aprendizaje Continuo:** Cada sector ingresado se registra y persiste automáticamente en memoria local (`olam_known_sectors_v2`), consolidándose con los sectores históricos de los clientes y visitas registradas en el sistema.
       - **Sugerencias de Nombres Similares en Tiempo Real:** Al enfocar o teclear en el campo 'Sector Visitado', el sistema despliega un menú flotante con las opciones coincidentes y similares, priorizando los sectores que pertenecen a la ruta seleccionada y resaltando las letras escritas.
       - **Desplazamiento Táctil Nativo Sostenido con el Dedo:** Menú flotante estilizado con `touch-pan-y`, `overscroll-contain`, `-webkit-overflow-scrolling: touch` y `max-h-56 overflow-y-auto`, permitiendo que el vendedor mantenga presionado y deslice el dedo hacia abajo fluidamente en móviles sin bloqueos ni falsos toques.
+  43. **Resolución Definitiva de Pantalla en Blanco al Ingresar (TDZ en `VisitRegistration` & `GlobalErrorBoundary`):**
+      - **Causa Raíz:** En `VisitRegistration.jsx` (vista default al entrar como vendedor), el `useEffect` de consolidación de sectores evaluaba `[pharmacyDirectory, allVisits]` antes de que `pharmacyDirectory` fuese declarado en la línea 289, lanzando `ReferenceError: Cannot access 'pharmacyDirectory' before initialization` (TDZ).
+      - **Solución:** Reorganizadas todas las declaraciones de estado (`useState`) al inicio exacto del componente, importado `fetchProductsCatalog`, e implementado `<GlobalErrorBoundary>` envolviendo `<App />` en `main.jsx` para blindar la aplicación permanentemente contra pantallas en blanco.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
