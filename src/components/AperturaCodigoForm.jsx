@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import FormHeader from './FormHeader';
 import FormButtons from './FormButtons';
 import AperturaCodigoHistory from './AperturaCodigoHistory';
-import { isSuperUser, getPermittedRoutesForUser } from '../lib/formsPermissions';
+import { isSuperUser, getPermittedRoutesForUser, sortRoutes } from '../lib/formsPermissions';
 import { LOGO_DATA_URI } from '../lib/logo';
 
 export default function AperturaCodigoForm({ currentUser }) {
@@ -34,7 +34,7 @@ export default function AperturaCodigoForm({ currentUser }) {
 
   const [showSaveMessage, setShowSaveMessage] = useState(false);
 
-  // Rutas base autorizadas (todas para Antonio Celada/Admin, o solo las asignadas para cada vendedor)
+  // Rutas base autorizadas (todas para Antonio Celada/Admin si no selecciona vendedor, o solo las asignadas para cada vendedor)
   const authorizedRoutes = useMemo(() => {
     return getPermittedRoutesForUser(currentUser, formData.ejecutivoVentas);
   }, [currentUser, formData.ejecutivoVentas]);
@@ -70,10 +70,12 @@ export default function AperturaCodigoForm({ currentUser }) {
     }
   }, [currentUser?.name, currentUser?.route, isSuper, authorizedRoutes]);
 
-  // Para administradores permite conservar rutas personalizadas, para vendedores solo sus rutas permitidas
-  const availableRutas = isSuper
-    ? Array.from(new Set([...rutas, formData.rutaAsignada].filter(Boolean))).sort()
-    : Array.from(new Set(rutas.filter(Boolean))).sort();
+  // Para administradores permite conservar rutas personalizadas, para vendedores solo sus rutas permitidas ordenadas numéricamente
+  const availableRutas = useMemo(() => {
+    return isSuper && !formData.ejecutivoVentas
+      ? sortRoutes(Array.from(new Set([...rutas, formData.rutaAsignada].filter(Boolean))))
+      : sortRoutes(Array.from(new Set(rutas.filter(Boolean))));
+  }, [isSuper, formData.ejecutivoVentas, rutas, formData.rutaAsignada]);
 
   const [ejecutivos, setEjecutivos] = useState([
     'Ana Lucia Marroquin',

@@ -22,6 +22,7 @@ import {
   X
 } from 'lucide-react';
 import { ALL_ROUTES, addVisitRecord, getRoutesForVendor } from '../lib/db';
+import { isSuperUser, normalizeText } from '../lib/formsPermissions';
 import { 
   fetchClientCodes, 
   fetchPharmacyDirectory, 
@@ -37,7 +38,7 @@ import VendorSupportChatModal from './VendorSupportChatModal';
 
 export default function VisitRegistration({ currentUser, onVisitAdded, allVisits = [], onLogout, onNavigate }) {
   const isAdmin = currentUser?.role === 'admin';
-  const isSpecialVendor = isAdmin || (currentUser?.name && currentUser.name.toLowerCase().includes('antonio celada'));
+  const isSpecialVendor = isAdmin || isSuperUser(currentUser) || (currentUser?.role === 'supervisor') || (currentUser?.name && normalizeText(currentUser.name).includes('antonio celada'));
   const [clientType, setClientType] = useState('propio');
   const [clientCode, setClientCode] = useState('');
   const [clientName, setClientName] = useState('');
@@ -759,20 +760,31 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     // REGLA DE VALIDACIÓN ESTRICTA Y DETALLADA PARA ACTUALIZAR EL DIRECTORIO DE LA MEJOR MANERA
     const missing = [];
     const cName = (clientName || '').trim();
-    const cCode = (clientCode || '').trim();
+    let cCode = (clientCode || '').trim();
     const rawPhone = (phone || '').trim();
     const rawPhone2 = (secondaryPhone || '').trim();
-    const cSector = (sector || '').trim();
-    const cRoute = (route || '').trim();
+    let cSector = (sector || '').trim();
+    let cRoute = (route || '').trim();
+
+    // Si es cliente nuevo y el código está vacío, asignar automáticamente '0000' sin generar error
+    if (clientType === 'nuevo' && (!cCode || cCode === '')) {
+      cCode = '0000';
+      setClientCode('0000');
+    }
 
     if (!cName) {
       missing.push('Nombre de la Farmacia / Cliente: Es obligatorio ingresar el nombre del cliente o establecimiento.');
-    } else if (cName.length < 3) {
-      missing.push('Nombre de la Farmacia / Cliente: Debe tener al menos 3 caracteres (no puede estar abreviado o incompleto).');
+    } else if (cName.length < 2) {
+      missing.push('Nombre de la Farmacia / Cliente: Debe tener al menos 2 caracteres.');
     }
 
     if (!cCode) {
-      missing.push('Código de Cliente: Debe indicar el código numérico asignado (o "0000" si se trata de un cliente nuevo).');
+      if (clientType === 'nuevo') {
+        cCode = '0000';
+        setClientCode('0000');
+      } else {
+        missing.push('Código de Cliente: Debe indicar el código numérico asignado (o "0000" si se trata de un cliente nuevo).');
+      }
     }
 
     const parsedPhones = parseGuatemalaPhoneNumbers(rawPhone, rawPhone2);
@@ -780,15 +792,18 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     // Si el usuario ingresa un número, se procesa y guarda normalmente.
 
     if (!cRoute) {
-      missing.push('Ruta Asignada: Debe seleccionar la ruta correspondiente a la visita.');
+      const defaultR = (assignedVendorRoutes && assignedVendorRoutes.length > 0) ? assignedVendorRoutes[0] : (currentUser?.route || 'Quetzaltenango #11');
+      cRoute = defaultR;
+      setRoute(defaultR);
     }
 
     if (!cSector) {
-      missing.push('Sector Visitado: Debe ingresar el sector, zona, aldea o municipio visitado a la par de la ruta.');
+      cSector = cRoute.split('#')[0].trim() || 'Centro';
+      setSector(cSector);
     }
 
-    // BLOQUEO ESTRICTO CONTRA REEMPLAZO INVOLUNTARIO DE CÓDIGO
-    if (cCode && cCode !== '0000') {
+    // BLOQUEO CONTRA REEMPLAZO INVOLUNTARIO DE CÓDIGO (Solo aplica a vendedores regulares; Antonio Celada y Admin tienen permiso total)
+    if (!isSpecialVendor && cCode && cCode !== '0000') {
       const existingByCode = pharmacyDirectory.find(p => (p.code || '').trim().toLowerCase() === cCode.toLowerCase());
       if (existingByCode && cName && existingByCode.name.trim().toLowerCase() !== cName.toLowerCase()) {
         missing.push(
@@ -979,8 +994,8 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-700">
         
         {/* Form Header */}
-        <div className="bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white p-6 sm:p-8 rounded-t-3xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="bg-gradient-to-r from-blue-700 via-blue-800 to-indigo-900 text-white p-6 sm:p-8 rounded-t-3xl shadow-lg">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
                 Formulario de Campo
@@ -988,9 +1003,49 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               <h2 className="text-2xl sm:text-3xl font-black tracking-tight mt-0.5">
                 Registrar Nueva Visita
               </h2>
-              <p className="text-xs text-blue-200 mt-1">
-                Vendedor: <strong>{currentUser?.name}</strong> • Ruta: <strong>{route}</strong>
-              </p>
+
+              {/* Tarjeta de Identificación del Vendedor y Selector de Rutas / Giras */}
+              <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-3 p-2 sm:p-2.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-inner text-xs text-white">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 rounded-xl font-bold">
+                  <User size={14} className="text-blue-200" />
+                  <span>Vendedor:</span>
+                  <span className="text-amber-300 font-extrabold">{currentUser?.name || 'PRUEBAS'}</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 px-1 sm:px-2 py-0.5">
+                  <span className="text-blue-200 font-bold flex items-center gap-1">
+                    <MapPin size={13} className="text-amber-300" />
+                    <span>Ruta / Gira:</span>
+                  </span>
+                  <select
+                    value={route}
+                    onChange={(e) => setRoute(e.target.value)}
+                    className="bg-slate-900/95 hover:bg-slate-900 text-white font-black text-xs px-3 py-1.5 rounded-xl border border-white/30 focus:ring-2 focus:ring-amber-400 focus:outline-none cursor-pointer shadow-sm transition-all"
+                    title="Selecciona una de tus rutas o giras asignadas"
+                  >
+                    {assignedVendorRoutes.map((r) => (
+                      <option key={r} value={r} className="bg-slate-900 text-white font-bold py-1">
+                        {r === 'Oficina' ? '🏢 Oficina' : `📍 ${r}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1.5 px-1 sm:px-2 py-0.5">
+                  <span className="text-blue-200 font-bold flex items-center gap-1">
+                    <Calendar size={13} className="text-blue-200" />
+                    <span>Fecha:</span>
+                  </span>
+                  <input
+                    type="date"
+                    value={visitDate}
+                    max={getLocalDateString()}
+                    onChange={(e) => setVisitDate(e.target.value)}
+                    className="bg-slate-900/95 hover:bg-slate-900 text-white font-bold text-xs px-2.5 py-1 rounded-xl border border-white/30 focus:ring-2 focus:ring-amber-400 focus:outline-none cursor-pointer shadow-sm"
+                    title="Fecha de la visita"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -1006,30 +1061,6 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               >
                 <MessageSquare size={15} />
                 <span>💬 Soporte Admin</span>
-              </button>
-
-              {/* GPS Status pill - Visible para Vendedores y Admin */}
-              <button
-                type="button"
-                onClick={captureGPSLocation}
-                disabled={locating}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
-                  location && location.source !== 'Red/IP (Silencioso)'
-                    ? 'bg-emerald-500/90 hover:bg-emerald-500 text-white'
-                    : locating
-                    ? 'bg-amber-500/90 text-white animate-pulse'
-                    : 'bg-white/20 hover:bg-white/30 text-white'
-                }`}
-                title="Tocar para actualizar satélite GPS de alta precisión"
-              >
-                <Navigation size={15} className={locating ? 'animate-spin' : ''} />
-                <span>
-                  {locating 
-                    ? 'Conectando Satélite GPS...' 
-                    : location && location.source !== 'Red/IP (Silencioso)'
-                    ? `GPS Satelital Activo (±${location.accuracy || 10}m)` 
-                    : '📍 Conectar GPS Satelital'}
-                </span>
               </button>
             </div>
           </div>
@@ -1563,7 +1594,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                   onChange={(e) => setRoute(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
                 >
-                  {Array.from(new Set([...assignedVendorRoutes, route].filter(Boolean))).map(r => (
+                  {assignedVendorRoutes.map(r => (
                     <option key={r} value={r}>
                       {r === 'Oficina' ? '🏢 Oficina' : `📍 ${r}`}
                     </option>

@@ -90,55 +90,87 @@ export function normalizeVendorName(name) {
   return clean;
 }
 
+export function getRouteSortKey(route) {
+  if (!route) return 999999;
+  const str = String(route).trim();
+  if (str.toLowerCase() === 'oficina') return 999990;
+  
+  const match = str.match(/#([A-Za-z0-9]+)/);
+  if (!match) return 999900;
+  
+  const code = match[1].toUpperCase();
+  // Si es numérico puro (ej: 11, 21, 95)
+  if (/^\d+$/.test(code)) {
+    return parseInt(code, 10);
+  }
+  // Si es letra + número (ej: A1, A2, B1, B5)
+  if (/^[A-Z]\d+$/.test(code)) {
+    const letterCode = code.charCodeAt(0); // A=65, B=66...
+    const numPart = parseInt(code.slice(1), 10);
+    return 1000 + (letterCode - 65) * 100 + numPart; // A1=1001, A2=1002, B1=1101, B5=1105
+  }
+  return 5000;
+}
+
+export function sortRoutes(routes) {
+  if (!Array.isArray(routes)) return [];
+  return [...routes].sort((a, b) => {
+    const keyA = getRouteSortKey(a);
+    const keyB = getRouteSortKey(b);
+    if (keyA !== keyB) return keyA - keyB;
+    return String(a).localeCompare(String(b));
+  });
+}
+
 export const ALL_ROUTES = [
+  'Quetzaltenango #11',
+  'Totonicapan #12',
   'Coban #13',
   'Salama #14',
   'Municipios Oriente #15',
-  'Quetzaltenango #11',
-  'Totonicapan #12',
+  'Suchi I #21',
   'Retalhuleu #22',
   'Suchi II #23',
   'Coatepeque #24',
   'Suchi III #25',
-  'Suchi I #21',
   'Sacatepéquez #31',
   'Quiche Centro #32',
   'Quiche Montaña Baja #33',
   'Izabal I #34',
   'Izabal II #35',
+  'Jutiapa I #41',
+  'Jutiapa II #42',
   'Chimaltenango I #43',
   'Chimaltenango II #44',
   'Santa Rosa #45',
-  'Jutiapa I #41',
-  'Jutiapa II #42',
-  'Quiche Montaña Alta #55',
   'San Marcos Montaña Alta #51',
   'Solola I #52',
   'Solola II #53',
   'Nebaj #54',
+  'Quiche Montaña Alta #55',
+  'Chiquimula I #61',
+  'Jalapa #62',
+  'Chiquimula II #63',
   'Capital S1 #64',
   'Capital S2 #65',
-  'Chiquimula I #61',
-  'Chiquimula II #63',
-  'Jalapa #62',
   'Huehuetenango Montaña Baja I #71',
   'Huehuetenango Montaña Baja II #72',
   'Peten I #73',
   'Peten II #74',
-  'Huehuetenango Montaña Alta I #83',
-  'Huehuetenango Montaña Alta II #84',
   'Polochic #81',
   'Zacapa #82',
-  'Capital S3 #94',
-  'Ixcán #95',
+  'Huehuetenango Montaña Alta I #83',
+  'Huehuetenango Montaña Alta II #84',
   'Petapa #91',
   'San Marcos I #92',
   'San Marcos II #93',
-  'Municipios Norte #A5',
+  'Capital S3 #94',
+  'Ixcán #95',
   'Escuintla I #A1',
   'Escuintla II #A2',
   'Villa Nueva #A3',
-  'Huehuetango Centro #A4',
+  'Huehuetenango Centro #A4',
+  'Municipios Norte #A5',
   'Peten III #B1',
   'Peten IV #B2',
   'Transversal I #B3',
@@ -147,14 +179,14 @@ export const ALL_ROUTES = [
   'Oficina'
 ];
 
-// Specific assigned routes per vendor (all vendors include 'Oficina')
+// Specific assigned routes per vendor (strictly their official assigned routes + Oficina)
 export const VENDOR_ASSIGNED_ROUTES = {
   'Ana Lucia Marroquin': [
-    'Salama #14',
     'Quetzaltenango #11',
-    'Municipios Oriente #15',
-    'Coban #13',
     'Totonicapan #12',
+    'Coban #13',
+    'Salama #14',
+    'Municipios Oriente #15',
     'Oficina'
   ],
   'Jessica Noriega': [
@@ -197,6 +229,13 @@ export const VENDOR_ASSIGNED_ROUTES = {
     'Capital S2 #65',
     'Oficina'
   ],
+  'Danny Perez': [
+    'Huehuetenango Montaña Baja I #71',
+    'Huehuetenango Montaña Baja II #72',
+    'Peten I #73',
+    'Peten II #74',
+    'Oficina'
+  ],
   'Dany Perez': [
     'Huehuetenango Montaña Baja I #71',
     'Huehuetenango Montaña Baja II #72',
@@ -205,13 +244,6 @@ export const VENDOR_ASSIGNED_ROUTES = {
     'Oficina'
   ],
   'Dany Peres': [
-    'Huehuetenango Montaña Baja I #71',
-    'Huehuetenango Montaña Baja II #72',
-    'Peten I #73',
-    'Peten II #74',
-    'Oficina'
-  ],
-  'Danny Perez': [
     'Huehuetenango Montaña Baja I #71',
     'Huehuetenango Montaña Baja II #72',
     'Peten I #73',
@@ -249,25 +281,33 @@ export const VENDOR_ASSIGNED_ROUTES = {
     'Amatitlán #B5',
     'Oficina'
   ],
+  'PRUEBAS': [
+    'Quetzaltenango #11',
+    'Totonicapan #12',
+    'Coban #13',
+    'Salama #14',
+    'Municipios Oriente #15',
+    'Oficina'
+  ],
   'Antonio Celada': ALL_ROUTES
 };
 
 export function getRoutesForVendor(vendorName) {
-  if (!vendorName) return ALL_ROUTES;
+  if (!vendorName) return sortRoutes(Array.from(new Set([...ALL_ROUTES, 'Oficina'])));
   const normalized = vendorName.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
   if (normalized.includes('antonio') && normalized.includes('celada')) {
-    return ALL_ROUTES;
+    return sortRoutes(Array.from(new Set([...ALL_ROUTES, 'Oficina'])));
   }
 
   for (const [key, routes] of Object.entries(VENDOR_ASSIGNED_ROUTES)) {
     const normKey = key.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     if (normKey === normalized || normalized.includes(normKey) || normKey.includes(normalized)) {
-      return Array.from(new Set([...routes, 'Oficina']));
+      return sortRoutes(Array.from(new Set([...routes, 'Oficina'])));
     }
   }
 
-  return Array.from(new Set([...ALL_ROUTES, 'Oficina']));
+  return sortRoutes(Array.from(new Set([...ALL_ROUTES, 'Oficina'])));
 }
 
 // Helper to normalize usernames

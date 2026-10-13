@@ -23,6 +23,7 @@ import {
   Key
 } from 'lucide-react';
 import { getOtpKeysStats, getLogoutOtpKeysStats } from '../lib/security';
+import { isSuperUser, normalizeText } from '../lib/formsPermissions';
 
 export default function Navbar({ 
   currentUser, 
@@ -47,6 +48,7 @@ export default function Navbar({
   onlineVendors = {}
 }) {
   const isAdmin = currentUser?.role === 'admin';
+  const isSuper = isAdmin || isSuperUser(currentUser) || (currentUser?.name && normalizeText(currentUser.name).includes('antonio celada')) || currentUser?.role === 'supervisor';
   const onlineVendorsCount = Object.values(onlineVendors || {}).filter(u => u?.role === 'vendor' || (u?.name && u?.name !== 'Administrador')).length;
 
   return (
@@ -78,6 +80,10 @@ export default function Navbar({
                 {isAdmin ? (
                   <span className="bg-amber-400 text-slate-900 text-xs font-bold px-2 py-0.5 rounded-full uppercase shadow">
                     Admin
+                  </span>
+                ) : isSuper ? (
+                  <span className="bg-amber-400 text-slate-900 text-xs font-black px-2.5 py-0.5 rounded-full uppercase shadow border border-amber-300">
+                    Supervisor
                   </span>
                 ) : (
                   <span className="bg-emerald-500/90 text-white text-xs font-medium px-2 py-0.5 rounded-full shadow">
@@ -378,6 +384,18 @@ export default function Navbar({
                 <MessageSquare size={15} />
                 <span>Soporte Admin</span>
               </button>
+
+              {/* Botón Directorio Maestro de Clientes (Supervisor Antonio Celada) */}
+              {isSuper && (
+                <button
+                  onClick={() => onOpenDirectoryModal && onOpenDirectoryModal()}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-indigo-500/25 text-indigo-100 hover:bg-indigo-500 hover:text-white border border-indigo-400/40 shadow-sm cursor-pointer"
+                  title="Directorio Maestro de Clientes de todos los vendedores"
+                >
+                  <Building2 size={15} />
+                  <span>Directorio de Clientes</span>
+                </button>
+              )}
             </>
           )}
         </nav>

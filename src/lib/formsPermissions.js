@@ -51,21 +51,29 @@ export function filterRecordsByUser(records, currentUser, getVendorName) {
   });
 }
 
-import { ALL_ROUTES, getRoutesForVendor } from './db';
+import { ALL_ROUTES, getRoutesForVendor, sortRoutes } from './db';
 
-export { ALL_ROUTES, getRoutesForVendor };
+export { ALL_ROUTES, getRoutesForVendor, sortRoutes };
 
 /**
  * Obtiene las rutas autorizadas para el usuario.
- * Si el usuario es Super Usuario (Antonio Celada o rol admin), tiene acceso a TODAS las rutas.
+ * Si el usuario es Super Usuario (Antonio Celada o rol admin):
+ *  - Si seleccionó un vendedor específico (targetVendorName), muestra SOLO las rutas asignadas a ese vendedor.
+ *  - Si no ha seleccionado ningún vendedor o es Antonio Celada, muestra todas las rutas del catálogo nacional.
  * Si es un vendedor regular, solo tiene acceso a sus rutas asignadas.
  */
 export function getPermittedRoutesForUser(currentUser, targetVendorName = null) {
   if (isSuperUser(currentUser)) {
-    return ALL_ROUTES;
+    if (targetVendorName && String(targetVendorName).trim()) {
+      const normTarget = normalizeText(targetVendorName);
+      if (!normTarget.includes('antonio celada') && !normTarget.includes('todos') && !normTarget.includes('general')) {
+        return sortRoutes(getRoutesForVendor(targetVendorName));
+      }
+    }
+    return sortRoutes(ALL_ROUTES);
   }
   const vendor = targetVendorName || currentUser?.name;
-  return getRoutesForVendor(vendor);
+  return sortRoutes(getRoutesForVendor(vendor));
 }
 
 /**
@@ -79,7 +87,7 @@ export function getDefaultRouteForUser(currentUser, targetVendorName = null) {
     }
   }
   const routes = getPermittedRoutesForUser(currentUser, targetVendorName);
-  return routes && routes.length > 0 ? routes[0] : 'Coban #13';
+  return routes && routes.length > 0 ? routes[0] : 'Quetzaltenango #11';
 }
 
 

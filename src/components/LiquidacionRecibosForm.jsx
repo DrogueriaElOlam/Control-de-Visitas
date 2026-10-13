@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Plus, Trash2, Edit2, X, Save, History } from 'lucide-react';
 import { useFormPersistence } from '../hooks/useFormPersistence';
 import FormHeader from './FormHeader';
@@ -106,10 +106,10 @@ export default function LiquidacionRecibosForm({ currentUser }) {
   const [editingEjecutivoIndex, setEditingEjecutivoIndex] = useState(null);
   const [editingRutaIndex, setEditingRutaIndex] = useState(null);
 
-  // Filtrar rutas según permisos: Antonio Celada / Admin ven todas; vendedores regulares solo las suyas
-  const availableRutas = isSuper
-    ? ALL_ROUTES
-    : getPermittedRoutesForUser(currentUser, formData.ejecutivo);
+  // Filtrar rutas según permisos: cuando se selecciona un ejecutivo/vendedor, se muestran solo las suyas
+  const availableRutas = useMemo(() => {
+    return getPermittedRoutesForUser(currentUser, formData.ejecutivo);
+  }, [currentUser, formData.ejecutivo]);
 
   // Pre-llenar y sincronizar automáticamente los datos del vendedor si no es Antonio Celada ni Admin
   useEffect(() => {

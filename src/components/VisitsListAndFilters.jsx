@@ -37,6 +37,7 @@ import { exportNewClientsToExcel } from '../lib/newClientsExport';
 import { generateGoalComplianceHTMLReport } from '../lib/goalComplianceReport';
 import { generateMonthlyRouteHTMLReport } from '../lib/monthlyRouteReport';
 import { getLocalDateString, getLocalYesterdayString, getLocalStartOfMonthString } from '../lib/dateUtils';
+import { isSuperUser, normalizeText } from '../lib/formsPermissions';
 
 export default function VisitsListAndFilters({ 
   visits = [], 
@@ -49,6 +50,7 @@ export default function VisitsListAndFilters({
   isFirstHandView = false
 }) {
   const isAdmin = currentUser?.role === 'admin';
+  const isSuper = isAdmin || isSuperUser(currentUser) || (currentUser?.name && normalizeText(currentUser.name).includes('antonio celada')) || currentUser?.role === 'supervisor';
   const todayStr = getLocalDateString();
   const yesterdayStr = getLocalYesterdayString();
 
@@ -133,17 +135,17 @@ export default function VisitsListAndFilters({
   // Today's total visits count for current user
   const todayVisitsCount = useMemo(() => {
     return cleanVisits.filter(v => {
-      const vendorMatch = isAdmin ? true : (v.vendorName === currentUser?.name);
+      const vendorMatch = isSuper ? (vendorFilter === 'all' ? true : v.vendorName === vendorFilter) : (v.vendorName === currentUser?.name);
       return vendorMatch && v.visitDate === todayStr;
     }).length;
-  }, [cleanVisits, isAdmin, currentUser, todayStr]);
+  }, [cleanVisits, isSuper, vendorFilter, currentUser, todayStr]);
 
   // Conteo de clientes nuevos en el alcance/filtros activos (para badges y botones)
   const newClientsInScopeCount = useMemo(() => {
     let list = cleanVisits;
-    if (isAdmin && vendorFilter !== 'all') {
+    if (isSuper && vendorFilter !== 'all') {
       list = list.filter(v => v.vendorName === vendorFilter);
-    } else if (!isAdmin && currentUser?.name) {
+    } else if (!isSuper && currentUser?.name) {
       list = list.filter(v => v.vendorName === currentUser.name);
     }
     if (viewMode === 'today') {
@@ -159,16 +161,16 @@ export default function VisitsListAndFilters({
       const type = (v.clientType || '').toString().toLowerCase().trim();
       return type === 'nuevo' || type === 'cliente nuevo';
     }).length;
-  }, [cleanVisits, isAdmin, vendorFilter, currentUser, viewMode, dateFilter, startDate, endDate, todayStr, yesterdayStr]);
+  }, [cleanVisits, isSuper, vendorFilter, currentUser, viewMode, dateFilter, startDate, endDate, todayStr, yesterdayStr]);
 
   // Manejador para exportar reporte exclusivo de Clientes Nuevos a Excel (.xlsx) respetando el rango de fechas
   const handleExportNewClients = async () => {
     let targetVisits = cleanVisits;
 
     // Filtro por Vendedor
-    if (isAdmin && vendorFilter !== 'all') {
+    if (isSuper && vendorFilter !== 'all') {
       targetVisits = targetVisits.filter(v => v.vendorName === vendorFilter);
-    } else if (!isAdmin && currentUser?.name) {
+    } else if (!isSuper && currentUser?.name) {
       targetVisits = targetVisits.filter(v => v.vendorName === currentUser.name);
     }
 
@@ -272,16 +274,16 @@ export default function VisitsListAndFilters({
   // Filtered visits
   const filtered = useMemo(() => {
     return cleanVisits.filter(v => {
-      // Vendor filter
-      if (isAdmin && vendorFilter !== 'all' && v.vendorName !== vendorFilter) {
+      // Vendor filter: Administradores y Supervisor (Antonio Celada) pueden ver todos o filtrar por vendedor
+      if (isSuper && vendorFilter !== 'all' && v.vendorName !== vendorFilter) {
         return false;
       }
-      if (!isAdmin && v.vendorName !== currentUser?.name) {
+      if (!isSuper && v.vendorName !== currentUser?.name) {
         return false;
       }
 
-      // Late submission filter (Admin)
-      if (isAdmin && onlyLateFilter) {
+      // Late submission filter (Admin y Supervisor)
+      if (isSuper && onlyLateFilter) {
         const late = getVisitLateStatus(v);
         if (!late.isLate) return false;
       }
@@ -319,7 +321,7 @@ export default function VisitsListAndFilters({
 
       return true;
     });
-  }, [cleanVisits, isAdmin, vendorFilter, currentUser, viewMode, dateFilter, startDate, endDate, typeFilter, searchTerm, todayStr, yesterdayStr, onlyLateFilter]);
+  }, [cleanVisits, isSuper, vendorFilter, currentUser, viewMode, dateFilter, startDate, endDate, typeFilter, searchTerm, todayStr, yesterdayStr, onlyLateFilter]);
 
   // Quick stats
   const totalCount = filtered.length;
@@ -556,8 +558,8 @@ export default function VisitsListAndFilters({
 
               {/* Export Report Button & Clientes Nuevos Excel & Cumplimiento de Metas & Resumen por Ruta */}
               <div className="flex flex-wrap items-center gap-2 ml-auto">
-                {/* Botón Cumplimiento de Metas (Solo Administrador) */}
-                {isAdmin && (
+                {/* Botón Cumplimiento de Metas (Admin y Supervisor) */}
+                {isSuper && (
                   <button
                     type="button"
                     onClick={handleOpenGoalModal}
@@ -569,8 +571,8 @@ export default function VisitsListAndFilters({
                   </button>
                 )}
 
-                {/* Botón RESUMEN MENSUAL POR RUTA a la par de Cumplimiento de Metas (Solo Administrador) */}
-                {isAdmin && (
+                {/* Botón RESUMEN MENSUAL POR RUTA (Admin y Supervisor) */}
+                {isSuper && (
                   <button
                     type="button"
                     onClick={handleOpenRouteModal}
@@ -606,9 +608,9 @@ export default function VisitsListAndFilters({
             </div>
           </div>
 
-          {/* Sub Row: Filter by Vendor (Admin) and Outcome Filter */}
+          {/* Sub Row: Filter by Vendor (Admin y Supervisor) and Outcome Filter */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
-            {isAdmin && (
+            {isSuper && (
               <div>
                 <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
                   Filtrar por Vendedor

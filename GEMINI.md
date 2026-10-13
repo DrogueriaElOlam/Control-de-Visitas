@@ -1,4 +1,4 @@
-﻿# Instrucciones del Proyecto Droguería El Olam
+# Instrucciones del Proyecto Droguería El Olam
 
 ## 1. Idioma Obligatorio
 - **Todas las comunicaciones, respuestas, explicaciones y preguntas interactivas (incluyendo las ventanas modales de selección múltiple o confirmación) deben ser formuladas 100% en español.**
@@ -14,7 +14,7 @@
 - **Regla de Auto-Actualización:** La IA debe actualizar esta sección en `GEMINI.md` cada vez que se culmine una tarea importante, se tome una decisión arquitectónica o cambie el rumbo del trabajo.
 
 ## 4. Bitácora Activa del Proyecto y Estado Actual
-- **Última Actualización:** 08 de Octubre de 2026.
+- **Última Actualización:** 12 de Octubre de 2026.
 - **Rama Git Actual:** `main` (sincronizada con GitHub: `https://github.com/DrogueriaElOlam/Control-de-Visitas.git`).
 - **URL Oficial de Producción en Vercel:** `https://control-de-visitas-pi.vercel.app/`
 - **Pila Tecnológica:** React + Vite, Supabase (`zqwjhmiavxhswgbgejzx.supabase.co`), Vercel, Tailwind / Vanilla CSS, APK Android para rastreo GPS en segundo plano.
@@ -110,6 +110,51 @@
       - **UbicaciÃ³n Satelital Silenciosa y Real en PetÃ©n (Danny PÃ©rez):** Identificada y erradicada la causa raÃ­z por la cual Danny PÃ©rez aparecÃ­a en el centro de la Ciudad de Guatemala: la funciÃ³n de respaldo captureSilentIPLocation() consultaba APIs de IP (ipapi.co / reeipapi.com), las cuales en Guatemala concentran todas las antenas celulares 3G/4G/5G en la capital (14.64072, -90.51327). Se eliminÃ³ definitivamente el fallback de IP para geolocalizaciÃ³n, se ajustÃ³ obtainPreciseGPSLocation con enableHighAccuracy: true y satÃ©lites reales, se enlazÃ³ el puente nativo window.onNativeGpsPing (Android Bridge) y se persistiÃ³ la Ãºltima posiciÃ³n satelital real comprobada en olam_last_satellite_gps, garantizando que en PetÃ©n (latitud ~16Â°-17Â°N, longitud -89Â°W) se tomen de forma silenciosa e instantÃ¡nea sus coordenadas satelitales autÃ©nticas sin distorsionar la geografÃ­a nacional.
       - **Purga Satelital Profunda y ErradicaciÃ³n de Puntos Residuales en el Mapa:** Se corrigiÃ³ la funciÃ³n purgeTrackingPoints en 	rackingDb.js y el modal interactivo en LiveVendorTrackingMap.jsx. Ahora la purga satelital no solo elimina los pings de daily_supervision_history y localStorage, sino que tambiÃ©n limpia las coordenadas de latitud/longitud en la tabla isits (las cuales proyectaban pines adicionales de visitas de prueba). El botÃ³n de purga deja el mapa 100% en blanco sin ningÃºn pin fantasma.
       - **Vaciado Total del Historial de Visitas a CERO (0) en Administrador y Vendedores:** Se ejecutÃ³ la eliminaciÃ³n de todas las 42 visitas de prueba en la tabla isits de Supabase, dejando el conteo en 0. Asimismo, se incorporÃ³ la versiÃ³n de purga olam_visits_reset_v5_20261009 en db.js y la funciÃ³n clearAllVisitsHistory() con botÃ³n administrativo directo en el historial de visitas, asegurando que tanto en la pantalla del Administrador como en los telÃ©fonos de todos los vendedores, todos los contadores de visitas, ventas y cobros comiencen estrictamente en 0.
+  30. **Ocultamiento de Botón GPS con Rastreo Silencioso Automático & Selector Exclusivo de 5 Rutas Oficiales por Vendedor:**
+      - **Geolocalización GPS 100% Silenciosa:** Se ocultó y retiró del encabezado visual de `VisitRegistration.jsx` el botón interactivo de GPS satelital (`GPS Satelital Activo (±292m)`), manteniendo intacto y reforzado el mecanismo de geolocalización silenciosa: enganche satelital continuo en segundo plano al montar el componente, escucha del puente nativo de Android (`window.onNativeGpsPing`), `watchPosition` de alta fidelidad y captura satelital obligatoria automática al momento exacto en que el vendedor presiona 'Registrar Visita'.
+      - **Tarjeta de Identificación y Selector de Rutas / Giras por Vendedor:** En el encabezado de 'Registrar Nueva Visita', el contenedor estático fue transformado en una tarjeta moderna y elegante que expone:
+        1) Nombre del vendedor logueado (`Vendedor: [Nombre]`).
+        2) Selector desplegable de Rutas / Giras exclusivo, que restringe el acceso estrictamente a sus 5 rutas oficiales (o 4 rutas asignadas según el catálogo del vendedor), eliminando opciones innecesarias como 'Oficina'.
+        3) Selector de fecha integrado y sincronizado con el cuerpo del formulario.
+      - **Asignación Oficial de Rutas Oficiales en `db.js` (`VENDOR_ASSIGNED_ROUTES`):**
+        * **Ana Lucia Marroquin:** Quetzaltenango #11, Totonicapan #12, Coban #13, Salama #14, Municipios Oriente #15.
+        * **Jessica Noriega:** Suchi I #21, Retalhuleu #22, Suchi II #23, Coatepeque #24, Suchi III #25.
+        * **Wally Natareno:** Sacatepéquez #31, Quiche Centro #32, Quiche Montaña Baja #33, Izabal I #34, Izabal II #35.
+        * **Erick Curley:** Jutiapa I #41, Jutiapa II #42, Chimaltenango I #43, Chimaltenango II #44, Santa Rosa #45.
+        * **Estuardo Cordova:** San Marcos Montaña Alta #51, Solola I #52, Solola II #53, Nebaj #54, Quiche Montaña Alta #55.
+        * **Karina Pineda:** Chiquimula I #61, Jalapa #62, Chiquimula II #63, Capital S1 #64, Capital S2 #65.
+        * **Danny Perez:** Huehuetenango Montaña Baja I #71, Huehuetenango Montaña Baja II #72, Peten I #73, Peten II #74.
+        * **Klissman Hernandez:** Polochic #81, Zacapa #82, Huehuetenango Montaña Alta I #83, Huehuetenango Montaña Alta II #84.
+        * **Elio Caceros:** Petapa #91, San Marcos I #92, San Marcos II #93, Capital S3 #94, Ixcán #95.
+        * **Josue Aguilar:** Escuintla I #A1, Escuintla II #A2, Villa Nueva #A3, Huehuetenango Centro #A4, Municipios Norte #A5.
+        * **Elias Quiej:** Peten III #B1, Peten IV #B2, Transversal I #B3, Transversal II #B4, Amatitlán #B5.
+        * **Superusuario (Antonio Celada):** Acceso libre a todas las rutas del sistema.
+
+  31. **Incorporación Universal de la Ruta 'Oficina' para Todos los Vendedores:**
+      - **Disponibilidad Total:** Se integró la opción `🏢 Oficina` en el catálogo asignado de cada uno de los vendedores (`VENDOR_ASSIGNED_ROUTES` y `getRoutesForVendor`).
+      - **Sincronización Inmediata en Desplegables:** La ruta 'Oficina' se encuentra ahora disponible tanto en el selector superior de la tarjeta de identificación del vendedor como en el selector de la sección 1 ("Datos del Cliente & Ruta") de `VisitRegistration.jsx`, con iconografía representativa y enlace reactivo.
+
+  32. **Ordenamiento Numérico Secuencial de Rutas (#11 a #B5, Oficina) y Filtrado Reactivo por Vendedor en Modo Administrador:**
+      - **Secuencia Numérica y Alfanumérica Universal:** Implementadas las funciones `getRouteSortKey` y `sortRoutes` en `db.js` y `formsPermissions.js`. Todas las rutas del sistema ahora siguen estrictamente el orden secuencial por su número (#11 a #95, luego la secuencia #A1 a #A5, #B1 a #B5 y finalmente 'Oficina'). Aplica automáticamente en todos los desplegables del sistema (tanto para vendedores como administradores).
+      - **Filtrado Exclusivo al Seleccionar Vendedor en Formularios (Modo Admin):**
+        * En `SolicitudViaticosForm.jsx` (`vendedor` -> `rutaA`), `LiquidacionViaticosForm.jsx` (`liquidadoPor` -> `ruta`), `LiquidacionRecibosForm.jsx` (`ejecutivo` -> `rutaCubierta`), y `AperturaCodigoForm.jsx` (`ejecutivoVentas` -> `rutaAsignada`), cuando el Administrador selecciona a un vendedor específico, el menú desplegable de rutas se filtra de inmediato para mostrar únicamente las rutas oficiales que tiene asignadas ese vendedor (más Oficina), respetando la numeración ordenada.
+        * Si el Administrador aún no ha seleccionado vendedor o elige a Antonio Celada, se despliega el catálogo nacional completo ordenado de #11 a #B5 + Oficina.
+
+  33. **Resolución de Error 'useMemo is not defined' en Liquidación de Recibos:**
+      - **Causa Raíz:** Al implementar el filtrado reactivo de rutas en `LiquidacionRecibosForm.jsx`, se incorporó `useMemo` para calcular `availableRutas`, pero faltaba añadirlo en la sentencia `import { useState, useEffect } from 'react'`.
+      - **Solución Definitiva:** Se incorporó `useMemo` y `useRef` en los imports de React en `LiquidacionRecibosForm.jsx`. El formulario de Liquidación de Recibos ahora carga de forma instantánea sin errores en pantalla, con el filtrado por ejecutivo activo y sincronizado.
+
+  34. **Acceso Total de Supervisor para Antonio Celada (Visibilidad Universal de Clientes y Registro Sin Bloqueos):**
+      - **Ingreso de Registros Nuevos Fluido y Sin Bloqueos:**
+        * Al registrar un cliente nuevo (`clientType === 'nuevo'`), si el código está vacío se autollena con `'0000'` sin detener el envío ni generar errores.
+        * El bloqueo estricto de reemplazo de código (`⛔ CÓDIGO YA REGISTRADO`) se desactiva para Antonio Celada y supervisores (`!isSpecialVendor`), permitiendo registrar visitas o clientes libremente.
+        * Autollenado preventivo de `sector` (cabecera de ruta o 'Centro') y de `route` si faltaran, evitando que la falta de un campo secundario detenga el guardado.
+      - **Visibilidad Universal de Todos los Clientes y Vendedores:**
+        * En `VisitRegistration.jsx`, Antonio Celada cuenta con acceso irrestricto al catálogo maestro nacional de 1,286+ clientes de todos los vendedores y todas las rutas.
+        * En `VisitsListAndFilters.jsx` (pestañas 'Visitas' del día e 'Información General' / Historial), se integró el permiso `isSuper`, desbloqueando el filtro por vendedor para que Antonio Celada pueda ver todas las visitas de todos los vendedores o filtrar por cualquiera de ellos, con métricas completas y exportación a Excel.
+        * En `VendorReportModal.jsx`, el selector de vendedor queda totalmente habilitado para Antonio Celada, permitiéndole auditar y exportar reportes de cualquier vendedor del equipo.
+        * En `Navbar.jsx`, Antonio Celada cuenta con el badge distintivo 'Supervisor' y acceso directo al 'Directorio de Clientes'.
+
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
   - Mantener la bitácora viva para que la IA retome exactamente en el punto donde se suspendió la sesión previa.
@@ -122,15 +167,13 @@
 
 
 
-- **Punto de Pausa Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Pausa:** 09 de Octubre de 2026 - 21:05.
-  - **CLAVE OFICIAL DE REANUDACIÓN:** OLAM-CONTINUAR-20261009-V129
-  - **Estado al Momento de la Pausa:**
-    - Todas las visitas de prueba vaciadas a CERO (0) en Supabase y local.
-    - Purga satelital profunda completada (mapa limpio sin puntos fantasmas).
-    - Captura GPS real obligatoria configurada (soporte Danny Pérez en Petén sin IP errónea).
-    - Módulo de Conexiones de Vendedores en vivo y exportación a Excel con diseño azul elegante.
-    - Navbar administrativo con scroll horizontal fluido y botones ordenados.
-    - Sincronización en la nube de contraseñas y claves OTP (Login y Cierre).
+- **Punto de Estado Oficial y Clave de Continuidad:**
+  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 19:35.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V134
+  - **Estado al Momento de la Publicación:**
+    - Acceso total de Supervisor para Antonio Celada en registro de visitas, historial general, reportes y navegación.
+    - Ingreso de registros y clientes nuevos 100% fluido sin bloqueos ni trabas de autorización externa.
+    - Filtro por vendedor habilitado para Antonio Celada en visitas del día, historial de visitas y reportes.
+    - Catálogo nacional completo de 1,286+ farmacias disponible para Antonio Celada sin restricciones de ruta.
     - Repositorio Git en main y despliegue en Vercel actualizados.
-  - **Instrucción al Reanudar:** Al presentar la clave OLAM-CONTINUAR-20261009-V129, la IA validará el estado y retomará de inmediato el desarrollo.
+  - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

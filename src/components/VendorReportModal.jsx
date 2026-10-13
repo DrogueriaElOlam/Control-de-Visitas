@@ -40,6 +40,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { addVisitRecord, ALL_ROUTES } from '../lib/db';
+import { isSuperUser, normalizeText } from '../lib/formsPermissions';
 import { LOGO_DATA_URI, LOGO_URL } from '../lib/logo';
 import { getCashReportsForVendor, syncCashFromVisits, createNewCashReport, deleteCashReport } from '../lib/cashCollections';
 import { getLocalDateString } from '../lib/dateUtils';
@@ -58,11 +59,12 @@ export default function VendorReportModal({
   if (!isOpen) return null;
 
   const isAdmin = currentUser?.role === 'admin';
+  const isSuper = isAdmin || isSuperUser(currentUser) || (currentUser?.name && normalizeText(currentUser.name).includes('antonio celada')) || currentUser?.role === 'supervisor';
   const todayStr = getLocalDateString();
 
-  // Vendor selection (Admin can pick vendor, Vendor is locked to self)
+  // Vendor selection (Admin y Supervisor pueden elegir cualquier vendedor, vendedor regular queda bloqueado a sí mismo)
   const [selectedVendorName, setSelectedVendorName] = useState(() => {
-    if (!isAdmin && currentUser?.name) return currentUser.name;
+    if (!isSuper && currentUser?.name) return currentUser.name;
     // If visits exist, prefer the vendor that has visits or first vendor
     const vendorWithVisits = visits.find(v => v.vendorName)?.vendorName;
     return vendorWithVisits || vendors[0]?.name || currentUser?.name || 'Karina Pineda';
@@ -1861,7 +1863,7 @@ export default function VendorReportModal({
                 <label className="block text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">
                   Vendedor
                 </label>
-                {isAdmin ? (
+                {isSuper ? (
                   <select
                     value={selectedVendorName}
                     onChange={(e) => setSelectedVendorName(e.target.value)}

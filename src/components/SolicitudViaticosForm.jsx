@@ -190,13 +190,10 @@ export default function SolicitudViaticosForm({ currentUser }) {
   const [nuevaRuta, setNuevaRuta] = useState('');
   const [showRutasModal, setShowRutasModal] = useState(false);
 
-  // Antonio Celada / Admin ven todas las rutas; vendedores regulares solo sus rutas asignadas
+  // Rutas visibles: cuando se selecciona un vendedor, se muestran solo las rutas que tiene asignadas
   const rutasVisibles = useMemo(() => {
-    if (isSuper) {
-      return ALL_ROUTES;
-    }
     return getPermittedRoutesForUser(currentUser, formData.vendedor);
-  }, [isSuper, currentUser, formData.vendedor]);
+  }, [currentUser, formData.vendedor]);
 
 
   const agregarRuta = () => {

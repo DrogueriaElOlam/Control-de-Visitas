@@ -20,6 +20,7 @@ import {
   exportVisitasToPDF,
   exportVisitasToExcel
 } from '../lib/supervisionExport';
+import { ALL_ROUTES } from '../lib/db';
 import SupervisionHistory from './SupervisionHistory';
 
 import VendorEvaluationForm from './VendorEvaluationForm';
@@ -53,61 +54,7 @@ export default function SupervisionForm() {
     'Wally Natareno'
   ]);
 
-  const [giras, setGiras] = useState([
-    'Amatitlan #B5',
-    'Capital S1 #64',
-    'Capital S2 #65',
-    'Capital S3 #94',
-    'Chimaltenango I #43',
-    'Chimaltenango II #44',
-    'Chiquimula I #61',
-    'Chiquimula II #63',
-    'Coatepeque #24',
-    'Coban #13',
-    'Escuintla I #A1',
-    'Escuintla II #A2',
-    'Huehuetango Centro #A4',
-    'Huehuetenango Montaña Alta I #83',
-    'Huehuetenango Montaña Alta II #84',
-    'Huehuetenango Montaña Baja I #71',
-    'Huehuetenango Montaña Baja II #72',
-    'Ixcan #95',
-    'Izabal I #34',
-    'Izabal II #35',
-    'Jalapa #62',
-    'Jutiapa I #41',
-    'Jutiapa II #42',
-    'Municipios Norte #A5',
-    'Municipios Oriente #15',
-    'Nebaj #54',
-    'Petapa #91',
-    'Peten I #73',
-    'Peten II #74',
-    'Peten III #B1',
-    'Peten IV #B2',
-    'Polochic #81',
-    'Quetzaltenango #11',
-    'Quiche Centro #32',
-    'Quiche Montaña Alta #55',
-    'Quiche Montaña Baja #33',
-    'Retalhuleu #22',
-    'Sacatepequez #31',
-    'Salama #14',
-    'San Marcos I #92',
-    'San Marcos II #93',
-    'San Marcos Montaña Alta #51',
-    'Santa Rosa #45',
-    'Solola I #52',
-    'Solola II #53',
-    'Suchi I #21',
-    'Suchi II #23',
-    'Suchi III #25',
-    'Totonicapan #12',
-    'Transversal I #B3',
-    'Transversal II #B4',
-    'Villa Nueva #A3',
-    'Zacapa #82'
-  ]);
+  const [giras, setGiras] = useState(ALL_ROUTES);
 
   // Estados para gestión de vendedores y giras
   const [showGestionVendedores, setShowGestionVendedores] = useState(false);
@@ -126,61 +73,7 @@ export default function SupervisionForm() {
 
   // Estados para Evaluación de Vendedor
   const [evaluaciones, setEvaluaciones] = useState([]);
-  const [rutas, setRutas] = useState([
-    'Amatitlan #B5',
-    'Capital S1 #64',
-    'Capital S2 #65',
-    'Capital S3 #94',
-    'Chimaltenango I #43',
-    'Chimaltenango II #44',
-    'Chiquimula I #61',
-    'Chiquimula II #63',
-    'Coatepeque #24',
-    'Coban #13',
-    'Escuintla I #A1',
-    'Escuintla II #A2',
-    'Huehuetango Centro #A4',
-    'Huehuetenango Montaña Alta I #83',
-    'Huehuetenango Montaña Alta II #84',
-    'Huehuetenango Montaña Baja I #71',
-    'Huehuetenango Montaña Baja II #72',
-    'Ixcan #95',
-    'Izabal I #34',
-    'Izabal II #35',
-    'Jalapa #62',
-    'Jutiapa I #41',
-    'Jutiapa II #42',
-    'Municipios Norte #A5',
-    'Municipios Oriente #15',
-    'Nebaj #54',
-    'Petapa #91',
-    'Peten I #73',
-    'Peten II #74',
-    'Peten III #B1',
-    'Peten IV #B2',
-    'Polochic #81',
-    'Quetzaltenango #11',
-    'Quiche Centro #32',
-    'Quiche Montaña Alta #55',
-    'Quiche Montaña Baja #33',
-    'Retalhuleu #22',
-    'Sacatepequez #31',
-    'Salama #14',
-    'San Marcos I #92',
-    'San Marcos II #93',
-    'San Marcos Montaña Alta #51',
-    'Santa Rosa #45',
-    'Solola I #52',
-    'Solola II #53',
-    'Suchi I #21',
-    'Suchi II #23',
-    'Suchi III #25',
-    'Totonicapan #12',
-    'Transversal I #B3',
-    'Transversal II #B4',
-    'Villa Nueva #A3',
-    'Zacapa #82'
-  ]);
+  const [rutas, setRutas] = useState(ALL_ROUTES);
 
   // Estados para Visitas Proveedores
   const [visitas, setVisitas] = useState([]);

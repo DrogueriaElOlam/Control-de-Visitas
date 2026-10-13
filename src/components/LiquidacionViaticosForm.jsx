@@ -29,13 +29,10 @@ export default function LiquidacionViaticosForm({ currentUser }) {
     ]
   });
 
-  // Rutas autorizadas (todas para Antonio Celada / Admin, o solo las asignadas para cada vendedor)
+  // Rutas autorizadas: cuando se selecciona un vendedor, se muestran solo las rutas que tiene asignadas
   const rutasFiltradas = useMemo(() => {
-    if (isSuper) {
-      return ALL_ROUTES;
-    }
     return getPermittedRoutesForUser(currentUser, formData.liquidadoPor);
-  }, [isSuper, currentUser, formData.liquidadoPor]);
+  }, [currentUser, formData.liquidadoPor]);
 
   // Sincronizar vendedor y ruta asignada si no es superusuario
   useEffect(() => {
