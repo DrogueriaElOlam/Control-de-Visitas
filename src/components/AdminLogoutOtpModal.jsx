@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LogOut, 
   Download, 
@@ -23,19 +23,6 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
   const [search, setSearch] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
   const [toastMessage, setToastMessage] = useState('');
-  const tableScrollRef = useRef(null);
-
-  const handleScrollLeft = () => {
-    if (tableScrollRef.current) {
-      tableScrollRef.current.scrollBy({ left: -280, behavior: 'smooth' });
-    }
-  };
-
-  const handleScrollRight = () => {
-    if (tableScrollRef.current) {
-      tableScrollRef.current.scrollBy({ left: 280, behavior: 'smooth' });
-    }
-  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -61,61 +48,42 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(''), 3000);
+  const handleCopyKey = (keyString) => {
+    navigator.clipboard.writeText(keyString);
+    setCopiedKey(keyString);
+    setToastMessage(`¡Clave de salida ${keyString} copiada!`);
+    setTimeout(() => {
+      setCopiedKey('');
+      setToastMessage('');
+    }, 2500);
   };
 
-  const handleCopyKey = (key) => {
-    navigator.clipboard.writeText(key);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(''), 2500);
-    showToast(`Clave de cierre "${key}" copiada al portapapeles.`);
-  };
+  const handleDownloadExcel = () => {
+    const freshKeys = getLogoutOtpKeysVault();
+    const rows = freshKeys.map((item) => ({
+      'No.': item.id,
+      'Clave de Cierre de Sesión': item.key,
+      'Estado': item.used ? 'Quemada / Ya Usada' : 'Disponible',
+      'Consumida Por': item.usedBy || '—',
+      'Fecha y Hora de Cierre': item.usedAt || '—',
+      'Propósito': 'Autorización Salida Vendedor Droguería El Olam'
+    }));
 
-  const handleDownloadExcel = async () => {
-    try {
-      showToast('Sincronizando claves de cierre con la nube...');
-      const vault = await getLogoutOtpKeysVaultAsync();
-      const rows = vault.map(k => ({
-        'No.': k.id,
-        'Clave de Cierre de Sesión (OTP)': k.key,
-        'Tipo': 'Autorización de Salida en Dispositivo (1 Solo Uso)',
-        'Estado': k.used ? 'QUEMADA / USADA' : 'DISPONIBLE',
-        'Consumida Por': k.usedBy || '-',
-        'Fecha de Uso': k.usedAt || '-',
-        'Instrucciones': 'Válida exactamente para 1 autorización de salida en teléfono o dispositivo. Al autorizar la salida queda invalidada automáticamente de forma permanente.'
-      }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Claves Cierre Sesión');
 
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(rows);
-      ws['!cols'] = [
-        { wch: 8 },
-        { wch: 30 },
-        { wch: 38 },
-        { wch: 22 },
-        { wch: 26 },
-        { wch: 24 },
-        { wch: 90 }
-      ];
-      XLSX.utils.book_append_sheet(wb, ws, 'Claves Cierre Sesión');
-      const todayStr = getLocalDateString();
-      const fileName = `claves_cierre_sesion_2.0_${todayStr}.xlsx`;
-      XLSX.writeFile(wb, fileName);
+    worksheet['!cols'] = [
+      { wch: 6 },
+      { wch: 26 },
+      { wch: 20 },
+      { wch: 28 },
+      { wch: 22 },
+      { wch: 45 }
+    ];
 
-      const stats = vault.reduce(
-        (acc, k) => {
-          if (k.used) acc.used++;
-          else acc.available++;
-          return acc;
-        },
-        { used: 0, available: 0 }
-      );
-      showToast(`✅ Excel "${fileName}" generado: ${stats.available} disponibles, ${stats.used} consumidas.`);
-    } catch (e) {
-      console.error(e);
-      showToast('Error al generar Excel de claves de cierre');
-    }
+    const todayStr = getLocalDateString();
+    XLSX.writeFile(workbook, `claves cierre sesion 2.0_${todayStr}.xlsx`);
   };
 
   const stats = getLogoutOtpKeysStats();
@@ -133,41 +101,40 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
     });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/75 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl h-[88vh] max-h-[88vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-5 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl h-[92vh] max-h-[92vh] flex flex-col overflow-hidden">
         
-        {/* Modal Header */}
-        <div className="shrink-0 bg-gradient-to-r from-rose-600 via-rose-700 to-rose-800 text-white p-4 sm:p-5 flex items-center justify-between border-b border-rose-600/60 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-white/15 border border-white/20 rounded-xl text-white shadow-sm">
-              <LogOut size={24} />
+        {/* Modal Header Compacto y Elegante */}
+        <div className="shrink-0 bg-gradient-to-r from-rose-600 via-rose-700 to-rose-800 text-white p-3 sm:p-5 flex items-center justify-between border-b border-rose-600/60 shadow-sm">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="p-2 sm:p-2.5 bg-white/15 border border-white/20 rounded-xl text-white shadow-sm shrink-0">
+              <LogOut size={20} className="sm:w-6 sm:h-6" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg sm:text-xl font-black tracking-tight text-white">
-                  Bóveda de Claves de Cierre de Sesión (Logout OTP)
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h3 className="text-sm sm:text-lg font-black tracking-tight text-white">
+                  Claves de Cierre de Sesión (Salida OTP)
                 </h3>
-                <span className="bg-white text-rose-900 text-[10px] font-black px-2 py-0.5 rounded-full uppercase shadow-sm">
-                  Salida / 1 Uso
+                <span className="bg-white text-rose-900 text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-full uppercase shadow-sm shrink-0">
+                  1 Solo Uso
                 </span>
               </div>
-              <p className="text-xs text-rose-100 mt-0.5">
-                50 contraseñas de un toque para autorizar la salida de vendedores en teléfonos. Al autorizarse quedan <strong>quemadas</strong> permanentemente.
+              <p className="text-[11px] sm:text-xs text-rose-100 mt-0.5 hidden sm:block">
+                50 contraseñas para autorizar el cierre de sesión de vendedores en campo.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={handleDownloadExcel}
-              className="flex items-center gap-2 px-3.5 py-2 bg-rose-900/60 hover:bg-rose-900 border border-white/30 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer"
-              title="Descargar archivo Excel oficial de claves de cierre"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer"
+              title="Descargar archivo Excel oficial"
             >
-              <FileSpreadsheet size={16} />
-              <span className="hidden sm:inline">Descargar "claves cierre sesion 2.0.xlsx"</span>
-              <span className="sm:hidden">Excel</span>
-              <Download size={14} />
+              <FileSpreadsheet size={14} />
+              <span className="hidden sm:inline">Excel</span>
+              <Download size={13} className="hidden sm:inline" />
             </button>
             <button
               type="button"
@@ -175,256 +142,189 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
               className="p-1.5 text-rose-100 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
               title="Cerrar modal"
             >
-              <X size={22} />
+              <X size={20} />
             </button>
           </div>
         </div>
 
         {/* Toast Notificación */}
         {toastMessage && (
-          <div className="shrink-0 bg-rose-600 text-white text-xs font-bold py-2 px-4 text-center flex items-center justify-center gap-2 animate-fadeIn shadow-inner">
-            <CheckCircle2 size={15} />
+          <div className="shrink-0 bg-emerald-600 text-white text-xs font-bold py-1.5 px-4 text-center flex items-center justify-center gap-2 animate-fadeIn shadow-inner">
+            <CheckCircle2 size={14} />
             <span>{toastMessage}</span>
           </div>
         )}
 
-        {/* KPI Cards Rápidas */}
-        <div className="shrink-0 p-3 sm:px-6 bg-slate-50 dark:bg-slate-950/40 border-b border-slate-200 dark:border-slate-800 grid grid-cols-3 gap-2.5">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl shadow-sm text-center">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Generadas</span>
-            <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mt-0.5">{stats.total}</div>
+        {/* KPI Cards Compactas */}
+        <div className="shrink-0 p-2 sm:p-3 sm:px-6 bg-slate-50 dark:bg-slate-950/40 border-b border-slate-200 dark:border-slate-800 grid grid-cols-3 gap-2">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1.5 sm:p-2 rounded-xl shadow-sm text-center">
+            <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total</span>
+            <div className="text-base sm:text-xl font-black text-slate-900 dark:text-white mt-0.5">{stats.total}</div>
           </div>
-          <div className="bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800/40 p-2.5 rounded-xl shadow-sm text-center">
-            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Disponibles</span>
-            <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{stats.available}</div>
+          <div className="bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800/40 p-1.5 sm:p-2 rounded-xl shadow-sm text-center">
+            <span className="text-[9px] sm:text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">Disponibles</span>
+            <div className="text-base sm:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{stats.available}</div>
           </div>
-          <div className="bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-800/40 p-2.5 rounded-xl shadow-sm text-center">
-            <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">Quemadas / Usadas</span>
-            <div className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400 mt-0.5">{stats.used}</div>
+          <div className="bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-800/40 p-1.5 sm:p-2 rounded-xl shadow-sm text-center">
+            <span className="text-[9px] sm:text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">Quemadas</span>
+            <div className="text-base sm:text-xl font-black text-rose-600 dark:text-rose-400 mt-0.5">{stats.used}</div>
           </div>
         </div>
 
-        {/* Filtros y Búsqueda */}
-        <div className="shrink-0 p-3 sm:px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap gap-2.5 items-center justify-between">
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+        {/* Filtros y Búsqueda Limpios */}
+        <div className="shrink-0 p-2 sm:p-3 sm:px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap gap-2 items-center justify-between">
+          <div className="relative flex-1 min-w-[140px] max-w-xs">
+            <Search size={13} className="absolute left-3 top-2 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar clave de cierre..."
+              placeholder="Buscar clave o usuario..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none dark:text-white"
+              className="w-full pl-8 pr-3 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none dark:text-white"
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setFilter('all')}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  filter === 'all' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
-                }`}
-              >
-                Todas (50)
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilter('available')}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  filter === 'available' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'
-                }`}
-              >
-                Disponibles ({stats.available})
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilter('used')}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  filter === 'used' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500'
-                }`}
-              >
-                Quemadas ({stats.used})
-              </button>
-            </div>
-
-            {/* Controles Rápidos de Scroll Horizontal */}
-            <div className="flex items-center gap-1.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800/60 px-2 py-1 rounded-xl shadow-inner">
-              <span className="text-[11px] font-bold text-rose-800 dark:text-rose-300 hidden sm:inline">
-                ↔️ Scroll:
-              </span>
-              <button
-                type="button"
-                onClick={handleScrollLeft}
-                className="px-2.5 py-1 bg-white dark:bg-slate-900 hover:bg-rose-100 dark:hover:bg-slate-800 text-rose-900 dark:text-rose-200 border border-rose-300 dark:border-rose-700/80 rounded-lg text-xs font-extrabold shadow-sm transition-all active:scale-95 cursor-pointer flex items-center gap-1"
-                title="Desplazar tabla a la izquierda"
-              >
-                <span>⬅️</span>
-                <span className="hidden md:inline">Izq</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleScrollRight}
-                className="px-2.5 py-1 bg-white dark:bg-slate-900 hover:bg-rose-100 dark:hover:bg-slate-800 text-rose-900 dark:text-rose-200 border border-rose-300 dark:border-rose-700/80 rounded-lg text-xs font-extrabold shadow-sm transition-all active:scale-95 cursor-pointer flex items-center gap-1"
-                title="Desplazar tabla a la derecha"
-              >
-                <span className="hidden md:inline">Der</span>
-                <span>➡️</span>
-              </button>
-            </div>
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setFilter('all')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                filter === 'all' ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              Todas (50)
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter('available')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                filter === 'available' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              Disponibles ({stats.available})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter('used')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                filter === 'used' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              Quemadas ({stats.used})
+            </button>
           </div>
         </div>
 
-        {/* Keys Table Container con Scroll Suave Horizontal y Vertical */}
-        <div className="flex-1 min-h-0 overflow-hidden flex flex-col p-3 sm:p-5">
-          <div 
-            ref={tableScrollRef}
-            className="flex-1 overflow-x-auto overflow-y-auto border-2 border-slate-200 dark:border-slate-700/80 rounded-2xl shadow-sm bg-white dark:bg-slate-900 touch-pan-x overscroll-x-contain scrollbar-thin scrollbar-thumb-rose-500 hover:scrollbar-thumb-rose-600 scrollbar-track-slate-100 dark:scrollbar-track-slate-800"
-            style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'thin' }}
-          >
-            <table className="w-full text-left text-xs border-collapse min-w-[680px]">
-              <thead className="sticky top-0 z-10 shadow-sm">
-                <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200 dark:border-slate-700">
-                  <th className="py-2.5 px-3 w-12 text-center">No.</th>
-                  <th className="py-2.5 px-3">Clave de Cierre (OTP)</th>
-                  <th className="py-2.5 px-3 text-center w-32">Copiar Clave</th>
-                  <th className="py-2.5 px-3 text-center w-28">Estado</th>
-                  <th className="py-2.5 px-3">Consumida Por</th>
-                  <th className="py-2.5 px-3">Fecha de Uso</th>
+        {/* Tabla con Scroll Vertical y Horizontal 100% Táctil con el Dedo */}
+        <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-4">
+          <table className="w-full text-left text-xs border-collapse min-w-[620px]">
+            <thead className="sticky top-0 z-10 shadow-sm bg-slate-100 dark:bg-slate-800">
+              <tr className="text-slate-600 dark:text-slate-300 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200 dark:border-slate-700">
+                <th className="py-2.5 px-3 w-12 text-center">No.</th>
+                <th className="py-2.5 px-3">Clave de Cierre (OTP)</th>
+                <th className="py-2.5 px-3 text-center w-28">Copiar Clave</th>
+                <th className="py-2.5 px-3 text-center w-28">Estado</th>
+                <th className="py-2.5 px-3">Consumida Por</th>
+                <th className="py-2.5 px-3">Fecha de Uso</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+              {filteredKeys.map((item) => (
+                <tr 
+                  key={item.id} 
+                  className={`hover:bg-rose-50/40 dark:hover:bg-slate-800/50 transition-colors ${
+                    item.used ? 'bg-slate-50/60 dark:bg-slate-900/40' : ''
+                  }`}
+                >
+                  <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-400">
+                    #{item.id}
+                  </td>
+                  <td className="py-2.5 px-3 whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyKey(item.key)}
+                      disabled={item.used}
+                      className={`font-mono font-black text-xs sm:text-sm tracking-widest px-2.5 py-1 rounded-xl border inline-flex items-center gap-1.5 transition-all cursor-pointer ${
+                        item.used 
+                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700 line-through cursor-not-allowed' 
+                          : 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700 shadow-sm active:scale-95'
+                      }`}
+                      title={item.used ? 'Clave ya consumida' : 'Clic para copiar clave de salida'}
+                    >
+                      <span>{item.key}</span>
+                      <Copy size={12} className="text-rose-600 dark:text-rose-400 shrink-0" />
+                    </button>
+                  </td>
+                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyKey(item.key)}
+                      disabled={item.used}
+                      className={`px-3 py-1 rounded-xl text-xs font-black transition-all inline-flex items-center justify-center gap-1 cursor-pointer shadow-sm ${
+                        copiedKey === item.key
+                          ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
+                          : item.used
+                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-200 dark:border-slate-700'
+                          : 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-700 active:scale-95'
+                      }`}
+                      title={item.used ? 'Clave ya consumida' : 'Copiar clave'}
+                    >
+                      <Copy size={12} />
+                      <span>{copiedKey === item.key ? '¡Copiada!' : 'Copiar'}</span>
+                    </button>
+                  </td>
+                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                    {item.used ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                        QUEMADA
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                        DISPONIBLE
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                    {item.usedBy ? (
+                      <span className="text-rose-700 dark:text-rose-400 font-extrabold">
+                        {item.usedBy}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-normal italic">—</span>
+                    )}
+                  </td>
+                  <td className="py-2.5 px-3 text-xs text-slate-500 whitespace-nowrap">
+                    {item.usedAt || '—'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredKeys.map((item) => (
-                  <tr 
-                    key={item.id} 
-                    className={`hover:bg-rose-50/40 dark:hover:bg-slate-800/50 transition-colors ${
-                      item.used ? 'bg-slate-50/60 dark:bg-slate-900/40' : ''
-                    }`}
-                  >
-                    <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-400">
-                      #{item.id}
-                    </td>
-                    <td className="py-2.5 px-3 whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => handleCopyKey(item.key)}
-                        disabled={item.used}
-                        className={`font-mono font-black text-sm tracking-widest px-3 py-1.5 rounded-xl border inline-flex items-center gap-2 transition-all cursor-pointer ${
-                          item.used 
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-300 dark:border-slate-700 line-through cursor-not-allowed' 
-                            : 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700 shadow-sm active:scale-95'
-                        }`}
-                        title={item.used ? 'Clave ya consumida' : 'Clic para copiar clave de cierre'}
-                      >
-                        <span>{item.key}</span>
-                        <Copy size={13} className="text-rose-600 dark:text-rose-400 shrink-0" />
-                      </button>
-                    </td>
-                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => handleCopyKey(item.key)}
-                        disabled={item.used}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
-                          copiedKey === item.key
-                            ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
-                            : item.used
-                            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-200 dark:border-slate-700'
-                            : 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-700 active:scale-95'
-                        }`}
-                        title={item.used ? 'Clave ya consumida' : 'Copiar clave de cierre al portapapeles'}
-                      >
-                        <Copy size={13} />
-                        <span>{copiedKey === item.key ? '¡Copiada!' : 'Copiar'}</span>
-                      </button>
-                    </td>
-                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                      {item.used ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-                          QUEMADA
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                          DISPONIBLE
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                      {item.usedBy ? (
-                        <span className="text-rose-700 dark:text-rose-400 font-extrabold">
-                          {item.usedBy}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 font-normal italic">—</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3 text-xs text-slate-500 whitespace-nowrap">
-                      {item.usedAt || '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        {/* Barra de Control de Desplazamiento Horizontal (Visible y Cómoda) */}
-        <div className="shrink-0 bg-gradient-to-r from-rose-50 via-slate-50 to-rose-50 dark:from-slate-900 dark:via-slate-850 dark:to-slate-900 border-t border-rose-200 dark:border-slate-800 px-4 py-2 flex items-center justify-between text-xs shadow-inner">
-          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-bold">
-            <span className="text-rose-600 text-sm">↔️</span>
-            <span>Desplazamiento Horizontal:</span>
-            <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400 hidden sm:inline">
-              Desliza la tabla o pulsa las flechas:
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleScrollLeft}
-              className="px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-900 dark:text-rose-200 border border-rose-400/50 rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer text-xs"
-              title="Desplazar tabla hacia la izquierda"
-            >
-              <span>⬅️</span>
-              <span>Ver Izquierda (No. y Clave)</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleScrollRight}
-              className="px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-900 dark:text-rose-200 border border-rose-400/50 rounded-xl font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95 cursor-pointer text-xs"
-              title="Desplazar tabla hacia la derecha"
-            >
-              <span>Ver Derecha (Usuario y Copiar)</span>
-              <span>➡️</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Modal Footer (Inamovible y Siempre Visible) */}
-        <div className="shrink-0 sticky bottom-0 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-3 sm:px-6 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 shadow-lg z-30">
-          <div className="flex items-center gap-2">
-            <ShieldCheck size={16} className="text-rose-600 shrink-0" />
-            <span className="hidden sm:inline">
-              Protección de salida en campo: cada clave permite exactamente una salida y queda invalidada.
-            </span>
-            <span className="sm:hidden">
-              1 solo cierre por clave.
+        {/* Modal Footer Compacto */}
+        <div className="shrink-0 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-2.5 sm:px-6 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 shadow-lg">
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck size={15} className="text-emerald-600 shrink-0" />
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              1 solo uso por clave.
             </span>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleDownloadExcel}
-              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl transition-colors cursor-pointer text-xs flex items-center gap-1"
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors cursor-pointer text-xs flex items-center gap-1"
             >
-              <FileSpreadsheet size={14} />
+              <FileSpreadsheet size={13} />
               <span>Exportar Excel</span>
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl transition-colors cursor-pointer text-xs"
             >
-              Cerrar Bóveda
+              Cerrar
             </button>
           </div>
         </div>
