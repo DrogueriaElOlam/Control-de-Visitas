@@ -23,6 +23,16 @@ import VendorSupportChatModal from './components/VendorSupportChatModal';
 import AdminVendorConnectionsModal from './components/AdminVendorConnectionsModal';
 import AdminOtpVaultModal from './components/AdminOtpVaultModal';
 import AdminLogoutOtpModal from './components/AdminLogoutOtpModal';
+import SupervisorRemindersModal from './components/SupervisorRemindersModal';
+import ActiveReminderAlertModal from './components/ActiveReminderAlertModal';
+
+import { 
+  getStoredReminders, 
+  fetchRemoteReminders, 
+  subscribeToReminders, 
+  triggerSystemNotification, 
+  playReminderAlarmSound 
+} from './lib/remindersDb';
 
 import { supabase } from './lib/supabase';
 import { 
@@ -75,6 +85,9 @@ export default function App() {
   const prevOnlineVendorsRef = useRef({});
 
   const [showLogoutSupervisorModal, setShowLogoutSupervisorModal] = useState(false);
+  const [showSupervisorRemindersModal, setShowSupervisorRemindersModal] = useState(false);
+  const [activeAlertReminder, setActiveAlertReminder] = useState(null);
+  const triggeredRemindersRef = useRef(new Set());
 
   // Initialize session and theme
   useEffect(() => {
@@ -271,6 +284,45 @@ export default function App() {
     };
   }, [currentUser]);
 
+  // Sincronización y monitoreo periódico de Recordatorios de Seguimiento
+  useEffect(() => {
+    fetchRemoteReminders().catch(() => {});
+    const unsubscribe = subscribeToReminders();
+
+    const checkReminders = () => {
+      if (!currentUser) return;
+      const nowMs = Date.now();
+      const list = getStoredReminders();
+
+      list.forEach((rem) => {
+        if (rem.status === 'completed') return;
+        // Si ya llegó la fecha y hora programada (con anticipación)
+        if (rem.scheduledTimestamp && rem.scheduledTimestamp <= nowMs) {
+          // Verificar si corresponde a este usuario (o si es admin/supervisor)
+          const isAssigned = !rem.vendorName || rem.vendorName === currentUser.name || currentUser.role === 'admin' || currentUser.role === 'supervisor';
+          if (isAssigned && !triggeredRemindersRef.current.has(rem.id)) {
+            triggeredRemindersRef.current.add(rem.id);
+            playReminderAlarmSound();
+            triggerSystemNotification({
+              title: '⏰ RECORDATORIO OLAM: ' + rem.clientName,
+              body: rem.observations || rem.additionalNotes || 'Es momento de atender el compromiso pactado con esta farmacia.',
+              tag: rem.id
+            });
+            setActiveAlertReminder(rem);
+          }
+        }
+      });
+    };
+
+    const intervalId = setInterval(checkReminders, 15000); // Revisar cada 15s
+    checkReminders();
+
+    return () => {
+      clearInterval(intervalId);
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [currentUser]);
+
   // Theme switch effect
   useEffect(() => {
     if (darkMode) {
@@ -403,6 +455,7 @@ export default function App() {
         onOpenConnectionsModal={() => setShowConnectionsModal(true)}
         onOpenOtpModal={() => setShowOtpModal(true)}
         onOpenLogoutOtpModal={() => setShowLogoutOtpModal(true)}
+        onOpenRemindersModal={() => setShowSupervisorRemindersModal(true)}
         pendingTicketsCount={pendingTicketsCount}
         onlineVendors={onlineVendors}
       />
@@ -671,6 +724,23 @@ export default function App() {
       <AdminLogoutOtpModal
         isOpen={showLogoutOtpModal}
         onClose={() => setShowLogoutOtpModal(false)}
+      />
+
+      {/* Modal de Monitoreo de Recordatorios & Seguimiento para Supervisor / Admin */}
+      <SupervisorRemindersModal
+        isOpen={showSupervisorRemindersModal}
+        onClose={() => setShowSupervisorRemindersModal(false)}
+        currentUser={currentUser}
+      />
+
+      {/* Modal de Alerta Activa en Vivo de Recordatorio (Desactivación obligatoria) */}
+      <ActiveReminderAlertModal
+        reminder={activeAlertReminder}
+        onClose={() => setActiveAlertReminder(null)}
+        currentUser={currentUser}
+        onCompleted={(completedRem) => {
+          console.log('Recordatorio completado y desactivado:', completedRem);
+        }}
       />
 
       {/* Footer */}

@@ -166,6 +166,22 @@
         * Columna 2: Clave con botón interactivo (al hacer clic en la propia clave se copia instantáneamente con badge visual).
         * Columna 3: Botón prominente 'Copiar Clave' inmediatamente contiguo a la clave, visible desde los primeros píxeles de la pantalla sin tener que desplazarse horizontalmente.
         * Columnas 4, 5 y 6: Estado, Usada Por y Fecha/Hora.
+  38. **Sistema Universal de Recordatorios y Seguimiento de Clientes (Multi-Dispositivo, Alarma Sonora, Notificaciones de Barra APK y Auditoría de Supervisor):**
+      - **Continuidad de Trabajo Multi-Dispositivo:** Los recordatorios y gestiones se sincronizan bidireccionalmente entre el teléfono celular, tablets y computadoras mediante Supabase (`daily_supervision_history` key `reminders_sync_master`), permitiendo que el vendedor inicie o agende en el móvil y continúe su gestión en la PC al loguearse con su clave u OTP.
+      - **Botón '🔔 Agendar Recordatorio' en Registro de Visita:** Ubicado inmediatamente contiguo a la etiqueta de 'Observaciones / Acuerdos de la Visita' en `VisitRegistration.jsx` con diseño compacto y de acceso directo.
+      - **Modal 'Agendar Recordatorio' (`ScheduleReminderModal.jsx`):**
+        * Selector visual de fecha (con chips rápidos de 'Hoy', 'Mañana', 'En 3 días', 'En 1 semana' y calendario completo).
+        * Selector de hora y período de anticipación de alarma (10 min, 15 min, 30 min, 1 hora, 2 horas, al iniciar labores 8:00 AM o en el momento exacto).
+        * Precarga de observaciones de la visita con campo para añadir notas adicionales específicas de seguimiento.
+      - **Alarma Sonora y Notificaciones en Barra de Estado (APK Android / Web):**
+        * Tono armónico sintetizado con Web Audio API de alta atención sin dependencias externas.
+        * Disparo de notificaciones nativas a la barra de estado de Android (`Notification` API con `requireInteraction: true` y vibración).
+        * Modal en pantalla (`ActiveReminderAlertModal.jsx`) que obliga al vendedor a desactivar la alarma registrando la gestión efectuada ("¿Qué acordaste o qué gestión efectuaste con el cliente?").
+      - **Módulo de Auditoría para el Supervisor y Administrador (`SupervisorRemindersModal.jsx`):**
+        * Acceso directo en la barra de navegación del Supervisor y Administrador.
+        * Panel con métricas en tiempo real (Total, Efectuados, Pendientes y Vencidos sin atención).
+        * Filtros por vendedor, estado y buscador dinámico.
+        * Registro fehaciente con timestamp exacto (`completedAt`), usuario que atendió y notas del resultado del seguimiento para certificar si se cumplió o no. Exportación a Excel con librería XLSX.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -180,11 +196,13 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 20:20.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V136
+  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 20:40.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V137
   - **Estado al Momento de la Publicación:**
-    - Botón de Copiar ubicado inmediatamente al lado de la clave en ambas bóvedas OTP (Acceso y Salida), permitiendo copiar al instante sin scroll.
-    - Clic directo en la propia clave para copiar al portapapeles.
-    - Controles de scroll horizontal y barra de desplazamiento visible integrados.
+    - Sistema de Recordatorios y Seguimiento de Clientes implementado y sincronizado en la nube (celulares, tablets y PC).
+    - Botón '🔔 Agendar Recordatorio' integrado en el área de observaciones del registro de visitas.
+    - Alarma sonora (Web Audio API) y notificaciones de barra de estado en Android APK.
+    - Desactivación obligatoria del vendedor con registro de gestión efectuada.
+    - Módulo de auditoría y monitoreo para Supervisor y Administrador con exportación a Excel.
     - Repositorio Git en main y despliegue en Vercel actualizados.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

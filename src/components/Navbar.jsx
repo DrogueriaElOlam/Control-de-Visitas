@@ -20,6 +20,7 @@ import {
   Settings,
   MessageSquare,
   Wifi,
+  Bell,
   Key
 } from 'lucide-react';
 import { getOtpKeysStats, getLogoutOtpKeysStats } from '../lib/security';
@@ -44,6 +45,7 @@ export default function Navbar({
   onOpenConnectionsModal,
   onOpenOtpModal,
   onOpenLogoutOtpModal,
+  onOpenRemindersModal,
   pendingTicketsCount = 0,
   onlineVendors = {}
 }) {
@@ -305,6 +307,16 @@ export default function Navbar({
                   {getLogoutOtpKeysStats().available} Disp.
                 </span>
               </button>
+
+              {/* Botón Recordatorios & Seguimiento (Admin) */}
+              <button
+                onClick={() => onOpenRemindersModal && onOpenRemindersModal()}
+                className="flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap bg-indigo-500/30 text-indigo-100 hover:bg-indigo-500 hover:text-white border border-indigo-400/50 shadow-sm cursor-pointer"
+                title="Monitoreo y auditoría de recordatorios de seguimiento a clientes"
+              >
+                <Bell size={15} className="text-amber-300 animate-pulse" />
+                <span>Recordatorios & Seguimiento</span>
+              </button>
             </>
           ) : (
             <>
@@ -383,6 +395,16 @@ export default function Navbar({
               >
                 <MessageSquare size={15} />
                 <span>Soporte Admin</span>
+              </button>
+
+              {/* Botón Recordatorios (Vendedor / Supervisor) */}
+              <button
+                onClick={() => onOpenRemindersModal && onOpenRemindersModal()}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-amber-500/30 text-amber-200 hover:bg-amber-500 hover:text-white border border-amber-400/50 shadow-sm cursor-pointer"
+                title="Ver y gestionar recordatorios de clientes agendados"
+              >
+                <Bell size={15} className="text-amber-300 animate-pulse" />
+                <span>Recordatorios</span>
               </button>
 
               {/* Botón Directorio Maestro de Clientes (Supervisor Antonio Celada) */}

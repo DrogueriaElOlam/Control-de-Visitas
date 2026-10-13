@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   Search,
   MessageSquare,
+  Bell,
   X
 } from 'lucide-react';
 import { ALL_ROUTES, addVisitRecord, getRoutesForVendor } from '../lib/db';
@@ -35,6 +36,7 @@ import { getLocalDateString } from '../lib/dateUtils';
 import { captureAndReportLocation } from '../lib/silentGpsTracker';
 import { saveGpsPoint } from '../lib/trackingDb';
 import VendorSupportChatModal from './VendorSupportChatModal';
+import ScheduleReminderModal from './ScheduleReminderModal';
 
 export default function VisitRegistration({ currentUser, onVisitAdded, allVisits = [], onLogout, onNavigate }) {
   const isAdmin = currentUser?.role === 'admin';
@@ -50,6 +52,9 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
   // Estados para el Chat Interno de Soporte con el Administrador
   const [showSupportChat, setShowSupportChat] = useState(false);
   const [supportTicketData, setSupportTicketData] = useState(null);
+
+  // Estado para el Modal de Agendar Recordatorio
+  const [showReminderModal, setShowReminderModal] = useState(false);
 
   // Vendor's assigned routes (Antonio Celada gets all routes, other vendors get only their assigned routes)
   const assignedVendorRoutes = React.useMemo(() => {
@@ -1808,9 +1813,20 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
           {/* Section 4: Observations & Submit */}
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Observaciones / Acuerdos de la Visita
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Observaciones / Acuerdos de la Visita
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowReminderModal(true)}
+                  className="px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-400/50 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-sm hover:scale-[1.02]"
+                  title="Agendar recordatorio con alarma y notificación en celular"
+                >
+                  <Bell size={13} className="text-amber-600 dark:text-amber-400 animate-pulse" />
+                  <span>🔔 Agendar Recordatorio</span>
+                </button>
+              </div>
               <textarea
                 rows={2}
                 placeholder="Ej: Cliente solicitó cotización de antibióticos; se dejó catálogo..."
@@ -1900,6 +1916,23 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
         onClose={() => setShowSupportChat(false)}
         currentUser={currentUser}
         initialTicketData={supportTicketData}
+      />
+
+      {/* Modal de Agendar Recordatorio de Seguimiento */}
+      <ScheduleReminderModal
+        isOpen={showReminderModal}
+        onClose={() => setShowReminderModal(false)}
+        clientData={{
+          clientCode,
+          clientName,
+          route,
+          vendorName: currentUser?.name
+        }}
+        initialObservations={observations}
+        currentUser={currentUser}
+        onReminderSaved={(newReminder) => {
+          console.log('Recordatorio agendado exitosamente:', newReminder);
+        }}
       />
 
     </div>
