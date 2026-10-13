@@ -61,10 +61,44 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     return getRoutesForVendor(currentUser?.name);
   }, [currentUser?.name]);
 
+  const [isRoutePinned, setIsRoutePinned] = useState(() => {
+    try {
+      return localStorage.getItem('olam_is_route_pinned') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
   const [route, setRoute] = useState(() => {
+    try {
+      const isPinned = localStorage.getItem('olam_is_route_pinned') === 'true';
+      const savedPinned = localStorage.getItem('olam_pinned_route');
+      if (isPinned && savedPinned) return savedPinned;
+    } catch (_) {}
     const list = getRoutesForVendor(currentUser?.name);
     return list[0] || 'Coban #13';
   });
+
+  const togglePinRoute = () => {
+    const nextState = !isRoutePinned;
+    setIsRoutePinned(nextState);
+    try {
+      localStorage.setItem('olam_is_route_pinned', String(nextState));
+      if (nextState) {
+        localStorage.setItem('olam_pinned_route', route);
+      }
+    } catch (_) {}
+  };
+
+  const handleRouteChange = (newRoute) => {
+    setRoute(newRoute);
+    if (isRoutePinned) {
+      try {
+        localStorage.setItem('olam_pinned_route', newRoute);
+      } catch (_) {}
+    }
+  };
+
   const [sector, setSector] = useState('');
   const [dayPeriod, setDayPeriod] = useState('mañana');
   const [visitType, setVisitType] = useState('presencial');
@@ -72,13 +106,14 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
   // Sync route when currentUser changes
   useEffect(() => {
+    if (isRoutePinned) return; // Si la ruta está fijada, no la cambia automáticamente
     const list = getRoutesForVendor(currentUser?.name);
     if (list && list.length > 0) {
       if (!route || !list.includes(route)) {
         setRoute(list[0]);
       }
     }
-  }, [currentUser?.name]);
+  }, [currentUser?.name, isRoutePinned]);
 
   // Sales
   const [hasSale, setHasSale] = useState(false);
@@ -114,8 +149,13 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       setShowNameSuggestions(false);
       setAutofillNotice('');
       
-      const defaultRoute = (assignedVendorRoutes && assignedVendorRoutes.length > 0) ? assignedVendorRoutes[0] : (currentUser?.route || 'Coban #13');
-      setRoute(defaultRoute);
+      if (isRoutePinned) {
+        const savedPinned = localStorage.getItem('olam_pinned_route') || route;
+        setRoute(savedPinned);
+      } else {
+        const defaultRoute = (assignedVendorRoutes && assignedVendorRoutes.length > 0) ? assignedVendorRoutes[0] : (currentUser?.route || 'Coban #13');
+        setRoute(defaultRoute);
+      }
       setSector('');
 
       captureGPSLocation();
@@ -444,13 +484,15 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       setShowSecondaryPhone(false);
     }
 
-    if (client.route) {
-      setRoute(client.route);
+    if (!isRoutePinned) {
+      if (client.route) {
+        setRoute(client.route);
+      } else if (client.sector) {
+        setRoute(client.sector);
+      }
     }
     if (client.sector) {
       setSector(client.sector);
-    } else if (!client.route && client.sector) {
-      setRoute(client.sector);
     }
     if (client.code && client.code !== '0000') {
       setClientType('propio');
@@ -1024,8 +1066,10 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                   </span>
                   <select
                     value={route}
-                    onChange={(e) => setRoute(e.target.value)}
-                    className="bg-slate-900/95 hover:bg-slate-900 text-white font-black text-xs px-3 py-1.5 rounded-xl border border-white/30 focus:ring-2 focus:ring-amber-400 focus:outline-none cursor-pointer shadow-sm transition-all"
+                    onChange={(e) => handleRouteChange(e.target.value)}
+                    className={`bg-slate-900/95 hover:bg-slate-900 text-white font-black text-xs px-3 py-1.5 rounded-xl border focus:ring-2 focus:ring-amber-400 focus:outline-none cursor-pointer shadow-sm transition-all ${
+                      isRoutePinned ? 'border-amber-400 ring-1 ring-amber-300' : 'border-white/30'
+                    }`}
                     title="Selecciona una de tus rutas o giras asignadas"
                   >
                     {assignedVendorRoutes.map((r) => (
@@ -1034,6 +1078,19 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                       </option>
                     ))}
                   </select>
+                  <button
+                    type="button"
+                    onClick={togglePinRoute}
+                    className={`px-2 py-1 rounded-xl text-[11px] font-black flex items-center gap-1 transition-all border cursor-pointer ${
+                      isRoutePinned
+                        ? 'bg-amber-500 text-white border-amber-400 shadow-sm'
+                        : 'bg-white/10 hover:bg-white/20 text-blue-100 border-white/20'
+                    }`}
+                    title={isRoutePinned ? 'Ruta fijada para tus siguientes registros' : 'Fijar esta ruta para tus siguientes registros'}
+                  >
+                    <span>📌</span>
+                    <span>{isRoutePinned ? 'Fijada' : 'Fijar'}</span>
+                  </button>
                 </div>
 
                 <div className="flex items-center gap-1.5 px-1 sm:px-2 py-0.5">
@@ -1591,13 +1648,30 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
             {/* Route, Sector Visitado & Modalidad */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Ruta *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Ruta *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={togglePinRoute}
+                    className={`px-2 py-0.5 rounded-lg text-[11px] font-black flex items-center gap-1 transition-all border cursor-pointer ${
+                      isRoutePinned
+                        ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+                    }`}
+                    title={isRoutePinned ? 'Ruta fijada: no cambiará al ingresar nuevos registros' : 'Clic para fijar esta ruta para tus siguientes registros'}
+                  >
+                    <span>📌</span>
+                    <span>{isRoutePinned ? 'Fijada' : 'Fijar'}</span>
+                  </button>
+                </div>
                 <select
                   value={route}
-                  onChange={(e) => setRoute(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                  onChange={(e) => handleRouteChange(e.target.value)}
+                  className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white transition-all ${
+                    isRoutePinned ? 'border-amber-500 ring-2 ring-amber-400/50 bg-amber-50/20' : 'border-slate-300 dark:border-slate-700'
+                  }`}
                 >
                   {assignedVendorRoutes.map(r => (
                     <option key={r} value={r}>

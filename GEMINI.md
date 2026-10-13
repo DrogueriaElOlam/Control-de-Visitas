@@ -188,6 +188,13 @@
         * Eliminadas al 100% todas las flechas y la barra inferior de desplazamiento en `AdminOtpVaultModal.jsx` y `AdminLogoutOtpModal.jsx`.
         * Encabezado y tarjetas KPI compactadas para liberar el 85% de la altura vertical de la pantalla exclusivamente para la tabla de 50 claves.
         * Contenedor directo con `overflow-auto` sin restricciones: el usuario ahora puede deslizar suavemente hacia arriba y abajo para ver todas las filas con cabecera fija, y mantener presionado o deslizar el dedo a los lados de forma totalmente nativa con su dedo táctil.
+  40. **Opción de Fijar Ruta en Registro de Visitas (Persistencia entre Registros Sucesivos):**
+      - **Requerimiento Operativo:** Evitar que los vendedores tengan que seleccionar la ruta en cada visita ingresada durante una misma gira o jornada de trabajo.
+      - **Implementación Exclusiva en Registro:**
+        * Botón interactivo `📌 Fijar Ruta` / `📌 Fijada` ubicado junto a la etiqueta `Ruta *` (y en la barra superior rápida de `VisitRegistration.jsx`).
+        * Persistencia en `localStorage` (`olam_is_route_pinned` y `olam_pinned_route`).
+        * Al estar activa, la ruta seleccionada se conserva intacta tras el reseteo del formulario (`resetFormComplete()`) y no se sobrescribe al autollenar clientes desde el directorio o buscador.
+        * El vendedor puede alternar el botón en cualquier momento para fijar o desfijar la ruta según su necesidad.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -202,11 +209,10 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 20:50.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V138
+  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 20:55.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V139
   - **Estado al Momento de la Publicación:**
-    - Flechas y barras invasivas removidas al 100% de ambas bóvedas de claves OTP.
-    - Altura vertical restablecida para mostrar ampliamente las filas de claves.
-    - Desplazamiento táctil con el dedo (arriba/abajo e izquierda/derecha) 100% nativo y fluido.
+    - Opción de Fijar Ruta implementada exclusivamente en el área de Registro de Visitas con botón '📌 Fijar Ruta' / '📌 Fijada'.
+    - Persistencia en localStorage: la ruta fijada no se resetea tras guardar registros ni al autollenar clientes.
     - Repositorio Git en main y despliegue en Vercel actualizados.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.
