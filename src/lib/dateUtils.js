@@ -42,3 +42,67 @@ export function getLocalStartOfMonthString() {
   const [year, month] = todayStr.split('-');
   return `${year}-${month}-01`;
 }
+
+// Retorna la hora actual (0-23) en zona horaria de Guatemala
+export function getGuatemalaHour(d = new Date()) {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: GUATEMALA_TIMEZONE,
+      hour: 'numeric',
+      hour12: false
+    });
+    return parseInt(formatter.format(d), 10);
+  } catch (e) {
+    return d.getHours();
+  }
+}
+
+// Retorna 'mañana' o 'tarde' según la hora actual de Guatemala (12:00 PM o más = tarde)
+export function getDefaultDayPeriod(d = new Date()) {
+  const hour = getGuatemalaHour(d);
+  return hour >= 12 ? 'tarde' : 'mañana';
+}
+
+/**
+ * Evalúa expresiones matemáticas de suma, resta, multiplicación o división
+ * Ejemplos: "1200+2500+1000" -> "4700"
+ *           "500 + 250.50"    -> "750.5"
+ *           "1500 - 300"      -> "1200"
+ */
+export function evaluateMathExpression(input) {
+  if (input === null || input === undefined) return '';
+  const str = String(input).trim();
+  if (!str) return '';
+
+  // Si no contiene operadores aritméticos (+, -, *, x, /), retornar directamente
+  if (!/[+\-*\/xX]/.test(str)) {
+    return str;
+  }
+
+  try {
+    // Normalizar: remover comas y cambiar 'x' o 'X' por '*'
+    let clean = str.replace(/,/g, '').replace(/[xX]/g, '*').trim();
+    
+    // Si termina en un operador incompleto (ej: "1200+"), no evaluar aún
+    if (/[+\-*\/]$/.test(clean)) {
+      return str;
+    }
+
+    // Validar estrictamente caracteres permitidos (números, operadores, espacios y puntos)
+    if (!/^[0-9+\-*\/.\s()]+$/.test(clean)) {
+      return str;
+    }
+
+    // Evaluar de forma segura
+    const result = Function(`"use strict"; return (${clean})`)();
+    
+    if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+      const rounded = Math.round(result * 100) / 100;
+      return String(rounded);
+    }
+  } catch (e) {
+    // Expresión malformada, conservar el texto original
+  }
+  return str;
+}
+

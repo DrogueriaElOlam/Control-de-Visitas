@@ -208,6 +208,16 @@
   44. **Consolidación Definitiva del Botón Fijar Ruta en el Encabezado Superior y Retiro del Botón Inferior:**
       - **Requerimiento Operativo:** El botón '📌 Fijar esta Ruta' debe estar ubicado exclusivamente en la parte superior del registro, directamente debajo del selector de 'Ruta / Gira' (bajo el nombre del vendedor). Este único botón es el que controla y fija la ruta para todo el registro y las visitas sucesivas. Por otro lado, se retiró por completo el botón duplicado que estaba dentro del cuerpo del formulario bajo 'Ruta Asignada *'.
       - **Ajuste Automático de Ancho:** El botón superior adopta de forma automática el mismo ancho exacto del selector de ruta (`w-full` dentro de `inline-flex flex-col gap-1 w-auto`), adaptándose armónicamente si la ruta es ancha o corta para visualización óptima en celulares.
+  45. **Evaluación Aritmética Automática en Venta y Cobros & Jornada Automática 12:00 PM (Guatemala):**
+      - **Cálculo Matemático en Monto de Venta y Rubros de Cobro:**
+        * En el campo **Monto de Venta** y en los 4 rubros de **Registro de Cobro** (*Efectivo*, *Transferencia*, *Cheque* y *Boleta de Depósito*), el sistema reconoce secuencias matemáticas como `1200+2500+1000`.
+        * Al perder el foco (`onBlur`) o presionar Enter (`onKeyDown`), la expresión es evaluada automáticamente por `evaluateMathExpression()` y reemplazada de inmediato por su total numérico.
+        * El cálculo del total recaudado en tiempo real y el guardado en base de datos también procesan cualquier expresión pendiente de forma segura.
+        * Los campos numéricos fueron convertidos a `type="text"` con `inputMode="decimal"` para permitir la captura fluida del signo `+` y operadores en teclados móviles y de escritorio.
+      - **Detección Automática de Jornada 'Tarde' a las 12:00 PM (Guatemala):**
+        * Funciones `getGuatemalaHour()` y `getDefaultDayPeriod()` calculan la hora exacta en zona horaria oficial `America/Guatemala` (UTC-6).
+        * Si la hora es menor a las 12:00 PM, se selecciona 'Mañana'; a partir de las 12:00 PM cambia automáticamente a 'Tarde'.
+        * Monitoreo reactivo en vivo cada 30 segundos que actualiza la jornada al mediodía sin necesidad de recargar la página.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -222,10 +232,10 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 13 de Octubre de 2026 - 20:20.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261013-V143
+  - **Fecha y Hora de Publicación:** 13 de Octubre de 2026 - 20:48.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261013-V144
   - **Estado al Momento de la Publicación:**
-    - Botón '📌 Fijar esta Ruta' ubicado exclusivamente en el encabezado superior bajo 'Ruta / Gira' con auto-dimensionamiento al ancho del selector.
-    - Botón inferior bajo 'Ruta Asignada *' retirado por completo del cuerpo del formulario.
+    - Monto de venta y cobros (efectivo, transferencia, cheque, boleta de depósito) con evaluación automática de secuencias matemáticas como `1200+2500+1000`.
+    - Jornada/Horario con cambio automático a 'Tarde' a partir de las 12:00 PM en hora de Guatemala.
     - Repositorio Git en main sincronizado y desplegado en Vercel.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

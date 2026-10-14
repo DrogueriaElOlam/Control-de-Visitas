@@ -33,7 +33,7 @@ import {
   parseGuatemalaPhoneNumbers 
 } from '../lib/catalog';
 import { addCashRecordFromVisit } from '../lib/cashCollections';
-import { getLocalDateString } from '../lib/dateUtils';
+import { getLocalDateString, getDefaultDayPeriod, evaluateMathExpression } from '../lib/dateUtils';
 import { captureAndReportLocation } from '../lib/silentGpsTracker';
 import { saveGpsPoint } from '../lib/trackingDb';
 import VendorSupportChatModal from './VendorSupportChatModal';
@@ -74,10 +74,19 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
   const [showNameSuggestions, setShowNameSuggestions] = useState(false);
   const [autofillNotice, setAutofillNotice] = useState('');
 
-  // Período, tipo y fecha de visita
-  const [dayPeriod, setDayPeriod] = useState('mañana');
+  // Período, tipo y fecha de visita (automático: mañana si es antes de 12pm, tarde a partir de 12pm)
+  const [dayPeriod, setDayPeriod] = useState(() => getDefaultDayPeriod());
   const [visitType, setVisitType] = useState('presencial');
   const [visitDate, setVisitDate] = useState(() => getLocalDateString());
+
+  // Sincronizar automáticamente la jornada/horario según la hora de Guatemala (cambio automático a tarde a las 12pm)
+  useEffect(() => {
+    setDayPeriod(getDefaultDayPeriod());
+    const interval = setInterval(() => {
+      setDayPeriod(getDefaultDayPeriod());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Ventas
   const [hasSale, setHasSale] = useState(false);
@@ -262,7 +271,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       });
       setObservations('');
       setVisitDate(getLocalDateString());
-      setDayPeriod('mañana');
+      setDayPeriod(getDefaultDayPeriod());
       setVisitType('presencial');
       setShowCodeSuggestions(false);
       setShowNameSuggestions(false);
@@ -943,12 +952,12 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     });
   };
 
-  // CALCULATE COLLECTION TOTAL
+  // CALCULATE COLLECTION TOTAL (soporta expresiones matemáticas como 1200+2500+1000)
   const totalCollectionAmount = 
-    (parseFloat(collectionAmounts.efectivo) || 0) +
-    (parseFloat(collectionAmounts.transferencia) || 0) +
-    (parseFloat(collectionAmounts.cheque) || 0) +
-    (parseFloat(collectionAmounts.boleta) || 0);
+    (parseFloat(evaluateMathExpression(collectionAmounts.efectivo)) || 0) +
+    (parseFloat(evaluateMathExpression(collectionAmounts.transferencia)) || 0) +
+    (parseFloat(evaluateMathExpression(collectionAmounts.cheque)) || 0) +
+    (parseFloat(evaluateMathExpression(collectionAmounts.boleta)) || 0);
 
   // SUBMIT
   const handleSubmit = async (e) => {
@@ -1061,12 +1070,12 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       dayPeriod,
       hasSale,
       saleType: hasSale ? saleType : null,
-      saleAmount: hasSale ? parseFloat(saleAmount) || 0 : 0,
+      saleAmount: hasSale ? parseFloat(evaluateMathExpression(saleAmount)) || 0 : 0,
       hasCollection,
-      collectionCash: parseFloat(collectionAmounts.efectivo) || 0,
-      collectionTransfer: parseFloat(collectionAmounts.transferencia) || 0,
-      collectionCheck: parseFloat(collectionAmounts.cheque) || 0,
-      collectionBoleta: parseFloat(collectionAmounts.boleta) || 0,
+      collectionCash: parseFloat(evaluateMathExpression(collectionAmounts.efectivo)) || 0,
+      collectionTransfer: parseFloat(evaluateMathExpression(collectionAmounts.transferencia)) || 0,
+      collectionCheck: parseFloat(evaluateMathExpression(collectionAmounts.cheque)) || 0,
+      collectionBoleta: parseFloat(evaluateMathExpression(collectionAmounts.boleta)) || 0,
       collectionAmount: hasCollection ? totalCollectionAmount : 0,
       observations: observations.trim(),
       location: finalLocation || location,
@@ -1967,12 +1976,21 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                     <div className="relative">
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-emerald-600">Q</span>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0.00 (ej: 1200+2500+1000)"
                         value={saleAmount}
                         onChange={(e) => setSaleAmount(e.target.value)}
+                        onBlur={() => {
+                          const res = evaluateMathExpression(saleAmount);
+                          if (res !== saleAmount) setSaleAmount(res);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const res = evaluateMathExpression(saleAmount);
+                            if (res !== saleAmount) setSaleAmount(res);
+                          }
+                        }}
                         className="w-full pl-8 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-xl text-base font-black text-emerald-700 dark:text-emerald-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         required={hasSale}
                       />
@@ -2030,12 +2048,25 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                       💵 Efectivo (Q)
                     </label>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00 (ej: 1200+2500)"
                       value={collectionAmounts.efectivo}
                       onChange={(e) => setCollectionAmounts({ ...collectionAmounts, efectivo: e.target.value })}
+                      onBlur={() => {
+                        const res = evaluateMathExpression(collectionAmounts.efectivo);
+                        if (res !== collectionAmounts.efectivo) {
+                          setCollectionAmounts(prev => ({ ...prev, efectivo: res }));
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const res = evaluateMathExpression(collectionAmounts.efectivo);
+                          if (res !== collectionAmounts.efectivo) {
+                            setCollectionAmounts(prev => ({ ...prev, efectivo: res }));
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
                   </div>
@@ -2045,12 +2076,25 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                       🏦 Transferencia (Q)
                     </label>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00 (ej: 1200+2500)"
                       value={collectionAmounts.transferencia}
                       onChange={(e) => setCollectionAmounts({ ...collectionAmounts, transferencia: e.target.value })}
+                      onBlur={() => {
+                        const res = evaluateMathExpression(collectionAmounts.transferencia);
+                        if (res !== collectionAmounts.transferencia) {
+                          setCollectionAmounts(prev => ({ ...prev, transferencia: res }));
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const res = evaluateMathExpression(collectionAmounts.transferencia);
+                          if (res !== collectionAmounts.transferencia) {
+                            setCollectionAmounts(prev => ({ ...prev, transferencia: res }));
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
                   </div>
@@ -2060,12 +2104,25 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                       📝 Cheque (Q)
                     </label>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00 (ej: 1200+2500)"
                       value={collectionAmounts.cheque}
                       onChange={(e) => setCollectionAmounts({ ...collectionAmounts, cheque: e.target.value })}
+                      onBlur={() => {
+                        const res = evaluateMathExpression(collectionAmounts.cheque);
+                        if (res !== collectionAmounts.cheque) {
+                          setCollectionAmounts(prev => ({ ...prev, cheque: res }));
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const res = evaluateMathExpression(collectionAmounts.cheque);
+                          if (res !== collectionAmounts.cheque) {
+                            setCollectionAmounts(prev => ({ ...prev, cheque: res }));
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
                   </div>
@@ -2075,12 +2132,25 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                       📄 Boleta Depósito (Q)
                     </label>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="0.00"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00 (ej: 1200+2500)"
                       value={collectionAmounts.boleta}
                       onChange={(e) => setCollectionAmounts({ ...collectionAmounts, boleta: e.target.value })}
+                      onBlur={() => {
+                        const res = evaluateMathExpression(collectionAmounts.boleta);
+                        if (res !== collectionAmounts.boleta) {
+                          setCollectionAmounts(prev => ({ ...prev, boleta: res }));
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const res = evaluateMathExpression(collectionAmounts.boleta);
+                          if (res !== collectionAmounts.boleta) {
+                            setCollectionAmounts(prev => ({ ...prev, boleta: res }));
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
                   </div>
