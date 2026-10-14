@@ -1214,38 +1214,40 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                   <span className="text-amber-300 font-extrabold">{currentUser?.name || 'PRUEBAS'}</span>
                 </div>
 
-                <div className="flex items-center gap-1.5 px-1 sm:px-2 py-0.5">
-                  <span className="text-blue-200 font-bold flex items-center gap-1">
+                <div className="flex items-center gap-2 px-1 sm:px-2 py-0.5">
+                  <span className="text-blue-200 font-bold flex items-center gap-1 shrink-0">
                     <MapPin size={13} className="text-amber-300" />
                     <span>Ruta / Gira:</span>
                   </span>
-                  <select
-                    value={route}
-                    onChange={(e) => handleRouteChange(e.target.value)}
-                    className={`bg-slate-900/95 hover:bg-slate-900 text-white font-black text-xs px-3 py-1.5 rounded-xl border focus:ring-2 focus:ring-amber-400 focus:outline-none cursor-pointer shadow-sm transition-all ${
-                      isRoutePinned ? 'border-amber-400 ring-1 ring-amber-300' : 'border-white/30'
-                    }`}
-                    title="Selecciona una de tus rutas o giras asignadas"
-                  >
-                    {assignedVendorRoutes.map((r) => (
-                      <option key={r} value={r} className="bg-slate-900 text-white font-bold py-1">
-                        {r === 'Oficina' ? '🏢 Oficina' : `📍 ${r}`}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={togglePinRoute}
-                    className={`px-2 py-1 rounded-xl text-[11px] font-black flex items-center gap-1 transition-all border cursor-pointer ${
-                      isRoutePinned
-                        ? 'bg-amber-500 text-white border-amber-400 shadow-sm'
-                        : 'bg-white/10 hover:bg-white/20 text-blue-100 border-white/20'
-                    }`}
-                    title={isRoutePinned ? 'Ruta fijada para tus siguientes registros' : 'Fijar esta ruta para tus siguientes registros'}
-                  >
-                    <span>📌</span>
-                    <span>{isRoutePinned ? 'Fijada' : 'Fijar'}</span>
-                  </button>
+                  <div className="inline-flex flex-col gap-1 w-auto">
+                    <select
+                      value={route}
+                      onChange={(e) => handleRouteChange(e.target.value)}
+                      className={`w-full bg-slate-900/95 hover:bg-slate-900 text-white font-black text-xs px-3 py-1.5 rounded-xl border focus:ring-2 focus:ring-amber-400 focus:outline-none cursor-pointer shadow-sm transition-all ${
+                        isRoutePinned ? 'border-amber-400 ring-1 ring-amber-300' : 'border-white/30'
+                      }`}
+                      title="Selecciona una de tus rutas o giras asignadas"
+                    >
+                      {assignedVendorRoutes.map((r) => (
+                        <option key={r} value={r} className="bg-slate-900 text-white font-bold py-1">
+                          {r === 'Oficina' ? '🏢 Oficina' : `📍 ${r}`}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={togglePinRoute}
+                      className={`w-full py-1 px-2 rounded-xl text-[11px] font-black flex items-center justify-center gap-1 transition-all border cursor-pointer shadow-sm ${
+                        isRoutePinned
+                          ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-400 ring-1 ring-amber-300'
+                          : 'bg-white/15 hover:bg-white/25 text-white border-white/30'
+                      }`}
+                      title={isRoutePinned ? 'Ruta fijada para tus siguientes registros' : 'Fijar esta ruta para tus siguientes registros'}
+                    >
+                      <span>📌</span>
+                      <span className="truncate">{isRoutePinned ? 'Ruta Fijada' : 'Fijar esta Ruta'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 px-1 sm:px-2 py-0.5">
@@ -1819,21 +1821,6 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                     </option>
                   ))}
                 </select>
-                <div className="mt-1.5">
-                  <button
-                    type="button"
-                    onClick={togglePinRoute}
-                    className={`w-full py-1.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all border cursor-pointer shadow-sm ${
-                      isRoutePinned
-                        ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 ring-1 ring-amber-400/50'
-                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700'
-                    }`}
-                    title={isRoutePinned ? 'Ruta fijada: no cambiará al ingresar nuevos registros' : 'Clic para fijar esta ruta para tus siguientes registros'}
-                  >
-                    <span>📌</span>
-                    <span>{isRoutePinned ? 'Ruta Fijada (No Cambiará)' : 'Fijar esta Ruta'}</span>
-                  </button>
-                </div>
               </div>
 
               <div className="relative" ref={sectorContainerRef}>

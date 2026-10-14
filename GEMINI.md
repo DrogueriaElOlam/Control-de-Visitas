@@ -205,6 +205,9 @@
   43. **Resolución Definitiva de Pantalla en Blanco al Ingresar (TDZ en `VisitRegistration` & `GlobalErrorBoundary`):**
       - **Causa Raíz:** En `VisitRegistration.jsx` (vista default al entrar como vendedor), el `useEffect` de consolidación de sectores evaluaba `[pharmacyDirectory, allVisits]` antes de que `pharmacyDirectory` fuese declarado en la línea 289, lanzando `ReferenceError: Cannot access 'pharmacyDirectory' before initialization` (TDZ).
       - **Solución:** Reorganizadas todas las declaraciones de estado (`useState`) al inicio exacto del componente, importado `fetchProductsCatalog`, e implementado `<GlobalErrorBoundary>` envolviendo `<App />` en `main.jsx` para blindar la aplicación permanentemente contra pantallas en blanco.
+  44. **Consolidación Definitiva del Botón Fijar Ruta en el Encabezado Superior y Retiro del Botón Inferior:**
+      - **Requerimiento Operativo:** El botón '📌 Fijar esta Ruta' debe estar ubicado exclusivamente en la parte superior del registro, directamente debajo del selector de 'Ruta / Gira' (bajo el nombre del vendedor). Este único botón es el que controla y fija la ruta para todo el registro y las visitas sucesivas. Por otro lado, se retiró por completo el botón duplicado que estaba dentro del cuerpo del formulario bajo 'Ruta Asignada *'.
+      - **Ajuste Automático de Ancho:** El botón superior adopta de forma automática el mismo ancho exacto del selector de ruta (`w-full` dentro de `inline-flex flex-col gap-1 w-auto`), adaptándose armónicamente si la ruta es ancha o corta para visualización óptima en celulares.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -219,11 +222,10 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 12 de Octubre de 2026 - 21:15.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261012-V141
+  - **Fecha y Hora de Publicación:** 13 de Octubre de 2026 - 20:20.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261013-V143
   - **Estado al Momento de la Publicación:**
-    - Grabación dinámica de sectores en 'Sector Visitado' (persistencia en localStorage y aprendizaje de visitas históricas).
-    - Desplegable de sugerencias inteligentes con nombres similares, filtro contextual por ruta y resaltado en vivo.
-    - Menú flotante con desplazamiento táctil suave (`touch-pan-y`, `overscroll-contain`) deslizable sostenido por el dedo en celulares y tablets.
-    - Repositorio Git en main y despliegue en Vercel actualizados.
+    - Botón '📌 Fijar esta Ruta' ubicado exclusivamente en el encabezado superior bajo 'Ruta / Gira' con auto-dimensionamiento al ancho del selector.
+    - Botón inferior bajo 'Ruta Asignada *' retirado por completo del cuerpo del formulario.
+    - Repositorio Git en main sincronizado y desplegado en Vercel.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

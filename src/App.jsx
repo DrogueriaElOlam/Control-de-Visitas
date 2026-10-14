@@ -25,6 +25,7 @@ import AdminOtpVaultModal from './components/AdminOtpVaultModal';
 import AdminLogoutOtpModal from './components/AdminLogoutOtpModal';
 import SupervisorRemindersModal from './components/SupervisorRemindersModal';
 import ActiveReminderAlertModal from './components/ActiveReminderAlertModal';
+import VisualFeedbackSelector from './components/VisualFeedbackSelector';
 
 import { 
   getStoredReminders, 
@@ -430,7 +431,12 @@ export default function App() {
 
   // If not logged in, show Login
   if (!currentUser) {
-    return <LoginModal onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <>
+        <LoginModal onLoginSuccess={handleLoginSuccess} />
+        <VisualFeedbackSelector />
+      </>
+    );
   }
 
   return (
@@ -742,6 +748,9 @@ export default function App() {
           console.log('Recordatorio completado y desactivado:', completedRem);
         }}
       />
+
+      {/* Herramienta Visual para Seleccionar y Marcar Cambios Específicos */}
+      <VisualFeedbackSelector />
 
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 py-4 mb-16 md:mb-0 text-center text-xs text-slate-400">
