@@ -218,6 +218,16 @@
         * Funciones `getGuatemalaHour()` y `getDefaultDayPeriod()` calculan la hora exacta en zona horaria oficial `America/Guatemala` (UTC-6).
         * Si la hora es menor a las 12:00 PM, se selecciona 'Mañana'; a partir de las 12:00 PM cambia automáticamente a 'Tarde'.
         * Monitoreo reactivo en vivo cada 30 segundos que actualiza la jornada al mediodía sin necesidad de recargar la página.
+  46. **Teclado Táctil de Calculadora con Operadores (+, −, ×, ÷) y Botones Rápidos para Celulares y Tablets:**
+      - **Solución al Teclado Numérico Nativo Móvil:** En teléfonos y tablets (Android/iOS), el teclado numérico nativo oculta los operadores matemáticos (`+`, `-`, `*`, `/`). Para evitar que el vendedor tenga que abrir la app de calculadora externa o cambiar de teclado, se desarrolló una solución táctil dual integrada.
+      - **Modal de Teclado de Calculadora Completo (`QuickMathPadModal.jsx`):**
+        * Botón interactivo `🧮 Teclado` añadido en **Monto de la Venta (Q)** y en los 4 rubros de cobro (*Efectivo*, *Transferencia*, *Cheque* y *Boleta de Depósito*).
+        * Pantalla LCD con la expresión en tiempo real y el total acumulado en Quetzales.
+        * Teclado numérico táctil de botones grandes con dígitos `0-9`, punto, operadores `+`, `−`, `×`, `÷`, paréntesis, tecla de retroceso `⌫` y limpieza `C`.
+        * Feedback táctil con micro-vibración y botón prominente `✔ Aplicar Total: Q X,XXX.XX` que traslada el resultado directamente al formulario.
+      - **Botonera de Operadores Táctiles Directos en el Formulario:**
+        * Debajo de cada campo se integró una barra táctil con botones rápidos `[ + ] [ − ] [ × ] [ ÷ ] [ = Total ]`.
+        * El vendedor puede usar su teclado numérico nativo e insertar el operador con un solo toque del pulgar para sumar rápidamente (ej: teclea `1200` ➔ toca `[ + ]` ➔ teclea `2500` ➔ toca `[ + ]` ➔ teclea `1000` ➔ toca `[ = Total ]`).
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -232,10 +242,10 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 13 de Octubre de 2026 - 20:48.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261013-V144
+  - **Fecha y Hora de Publicación:** 14 de Octubre de 2026 - 07:35.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261014-V145
   - **Estado al Momento de la Publicación:**
-    - Monto de venta y cobros (efectivo, transferencia, cheque, boleta de depósito) con evaluación automática de secuencias matemáticas como `1200+2500+1000`.
-    - Jornada/Horario con cambio automático a 'Tarde' a partir de las 12:00 PM en hora de Guatemala.
+    - Teclado táctil de calculadora completo (`QuickMathPadModal.jsx`) con operadores (+, −, ×, ÷) para celulares y tablets.
+    - Botonera rápida de operadores táctiles en Monto de Venta y los 4 rubros de Cobro (efectivo, transferencia, cheque, boleta de depósito).
     - Repositorio Git en main sincronizado y desplegado en Vercel.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

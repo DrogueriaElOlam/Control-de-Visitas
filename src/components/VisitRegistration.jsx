@@ -20,6 +20,7 @@ import {
   Search,
   MessageSquare,
   Bell,
+  Calculator,
   X
 } from 'lucide-react';
 import { ALL_ROUTES, addVisitRecord, getRoutesForVendor } from '../lib/db';
@@ -38,6 +39,7 @@ import { captureAndReportLocation } from '../lib/silentGpsTracker';
 import { saveGpsPoint } from '../lib/trackingDb';
 import VendorSupportChatModal from './VendorSupportChatModal';
 import ScheduleReminderModal from './ScheduleReminderModal';
+import QuickMathPadModal from './QuickMathPadModal';
 
 const STORAGE_KNOWN_SECTORS_KEY = 'olam_known_sectors_v2';
 const DEFAULT_KNOWN_SECTORS = [
@@ -102,6 +104,72 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     cheque: '',
     boleta: ''
   });
+
+  // Estado para Teclado de Calculadora Táctil (Celular / Tablet)
+  const [mathPadConfig, setMathPadConfig] = useState({
+    isOpen: false,
+    field: '',
+    title: '',
+    initialValue: '',
+    accentColor: 'blue'
+  });
+
+  const openMathPad = (field, title, initialValue, accentColor = 'blue') => {
+    setMathPadConfig({
+      isOpen: true,
+      field,
+      title,
+      initialValue: initialValue || '',
+      accentColor
+    });
+  };
+
+  const handleApplyMathPad = (calculatedValue) => {
+    const { field } = mathPadConfig;
+    if (field === 'saleAmount') {
+      setSaleAmount(calculatedValue);
+    } else if (['efectivo', 'transferencia', 'cheque', 'boleta'].includes(field)) {
+      setCollectionAmounts(prev => ({ ...prev, [field]: calculatedValue }));
+    }
+  };
+
+  const appendOperatorToField = (field, operator) => {
+    if (field === 'saleAmount') {
+      setSaleAmount(prev => {
+        const trimmed = (prev || '').trim();
+        if (!trimmed) return operator === '-' ? '-' : '';
+        if (['+', '-', '*', '/'].includes(trimmed.slice(-1))) {
+          return trimmed.slice(0, -1) + operator;
+        }
+        return trimmed + operator;
+      });
+    } else if (['efectivo', 'transferencia', 'cheque', 'boleta'].includes(field)) {
+      setCollectionAmounts(prev => {
+        const current = (prev[field] || '').trim();
+        if (!current) return operator === '-' ? { ...prev, [field]: '-' } : prev;
+        let next = current;
+        if (['+', '-', '*', '/'].includes(current.slice(-1))) {
+          next = current.slice(0, -1) + operator;
+        } else {
+          next = current + operator;
+        }
+        return { ...prev, [field]: next };
+      });
+    }
+  };
+
+  const evaluateFieldMath = (field) => {
+    if (field === 'saleAmount') {
+      const res = evaluateMathExpression(saleAmount);
+      if (res !== saleAmount) setSaleAmount(res);
+    } else if (['efectivo', 'transferencia', 'cheque', 'boleta'].includes(field)) {
+      const current = collectionAmounts[field];
+      const res = evaluateMathExpression(current);
+      if (res !== current) {
+        setCollectionAmounts(prev => ({ ...prev, [field]: res }));
+      }
+    }
+  };
 
   // GPS
   const [location, setLocation] = useState(null);
@@ -1970,9 +2038,20 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-emerald-800 dark:text-emerald-300 mb-1">
-                      Monto de la Venta (Q) *
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                        Monto de la Venta (Q) *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openMathPad('saleAmount', 'Monto de la Venta (Q)', saleAmount, 'emerald')}
+                        className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 active:bg-emerald-300 dark:bg-emerald-950/70 dark:hover:bg-emerald-900 text-emerald-800 dark:text-emerald-300 font-bold text-[11px] rounded-lg border border-emerald-300 dark:border-emerald-700/60 active:scale-95 transition-transform flex items-center gap-1 cursor-pointer shadow-2xs"
+                        title="Abrir teclado de calculadora táctil"
+                      >
+                        <Calculator size={12} />
+                        <span>🧮 Teclado / Sumar</span>
+                      </button>
+                    </div>
                     <div className="relative">
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-emerald-600">Q</span>
                       <input
@@ -1991,9 +2070,42 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                             if (res !== saleAmount) setSaleAmount(res);
                           }
                         }}
-                        className="w-full pl-8 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-xl text-base font-black text-emerald-700 dark:text-emerald-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        className="w-full pl-8 pr-28 py-2.5 bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-xl text-base font-black text-emerald-700 dark:text-emerald-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         required={hasSale}
                       />
+                      <button
+                        type="button"
+                        onClick={() => openMathPad('saleAmount', 'Monto de la Venta (Q)', saleAmount, 'emerald')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black text-xs rounded-lg transition-transform active:scale-95 flex items-center gap-1 cursor-pointer shadow-sm"
+                        title="Lanzar calculadora táctil"
+                      >
+                        <Calculator size={13} />
+                        <span>Teclado</span>
+                      </button>
+                    </div>
+
+                    {/* Botones de Operadores Táctiles Directos para Celulares y Tablets */}
+                    <div className="flex flex-wrap items-center gap-1 mt-1.5 select-none">
+                      <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300">Operadores:</span>
+                      {['+', '-', '*', '/'].map(op => (
+                        <button
+                          key={op}
+                          type="button"
+                          onClick={() => appendOperatorToField('saleAmount', op)}
+                          className="w-7 h-6 bg-white dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-slate-700 active:bg-emerald-200 text-emerald-900 dark:text-emerald-200 font-black text-xs rounded-lg border border-emerald-300 dark:border-emerald-700/60 active:scale-95 transition-transform flex items-center justify-center cursor-pointer shadow-2xs"
+                          title={`Agregar ${op}`}
+                        >
+                          {op === '*' ? '×' : op === '/' ? '÷' : op}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => evaluateFieldMath('saleAmount')}
+                        className="px-2 h-6 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-[11px] rounded-lg active:scale-95 transition-transform flex items-center justify-center cursor-pointer shadow-2xs"
+                        title="Calcular total"
+                      >
+                        = Total
+                      </button>
                     </div>
                   </div>
 
@@ -2042,11 +2154,23 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
             {hasCollection && (
               <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 p-5 rounded-2xl space-y-4 animate-in fade-in">
                 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-amber-900 dark:text-amber-300 mb-1">
-                      💵 Efectivo (Q)
-                    </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* 1. Efectivo */}
+                  <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-900/40">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-black text-amber-950 dark:text-amber-300">
+                        💵 Efectivo (Q)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openMathPad('efectivo', '💵 Efectivo (Q)', collectionAmounts.efectivo, 'amber')}
+                        className="px-1.5 py-0.5 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-300 rounded text-[10px] font-black flex items-center gap-1 transition-transform active:scale-95 cursor-pointer border border-amber-300/80 dark:border-amber-700/60"
+                        title="Abrir teclado de calculadora táctil"
+                      >
+                        <Calculator size={11} />
+                        <span>🧮 Teclado</span>
+                      </button>
+                    </div>
                     <input
                       type="text"
                       inputMode="decimal"
@@ -2069,12 +2193,45 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                       }}
                       className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
+                    <div className="flex items-center gap-1 mt-1.5 select-none">
+                      {['+', '-', '*', '/'].map(op => (
+                        <button
+                          key={op}
+                          type="button"
+                          onClick={() => appendOperatorToField('efectivo', op)}
+                          className="flex-1 h-6 bg-slate-50 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-700 active:bg-amber-200 text-amber-900 dark:text-amber-200 font-black text-xs rounded border border-amber-300/80 dark:border-amber-700/60 active:scale-90 transition-transform flex items-center justify-center cursor-pointer shadow-2xs"
+                          title={`Agregar ${op}`}
+                        >
+                          {op === '*' ? '×' : op === '/' ? '÷' : op}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => evaluateFieldMath('efectivo')}
+                        className="px-2 h-6 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-[10px] rounded active:scale-90 transition-transform cursor-pointer shadow-2xs"
+                        title="Calcular total"
+                      >
+                        =
+                      </button>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-amber-900 dark:text-amber-300 mb-1">
-                      🏦 Transferencia (Q)
-                    </label>
+                  {/* 2. Transferencia */}
+                  <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-900/40">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-black text-amber-950 dark:text-amber-300">
+                        🏦 Transferencia (Q)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openMathPad('transferencia', '🏦 Transferencia (Q)', collectionAmounts.transferencia, 'amber')}
+                        className="px-1.5 py-0.5 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-300 rounded text-[10px] font-black flex items-center gap-1 transition-transform active:scale-95 cursor-pointer border border-amber-300/80 dark:border-amber-700/60"
+                        title="Abrir teclado de calculadora táctil"
+                      >
+                        <Calculator size={11} />
+                        <span>🧮 Teclado</span>
+                      </button>
+                    </div>
                     <input
                       type="text"
                       inputMode="decimal"
@@ -2097,12 +2254,45 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                       }}
                       className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
+                    <div className="flex items-center gap-1 mt-1.5 select-none">
+                      {['+', '-', '*', '/'].map(op => (
+                        <button
+                          key={op}
+                          type="button"
+                          onClick={() => appendOperatorToField('transferencia', op)}
+                          className="flex-1 h-6 bg-slate-50 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-700 active:bg-amber-200 text-amber-900 dark:text-amber-200 font-black text-xs rounded border border-amber-300/80 dark:border-amber-700/60 active:scale-90 transition-transform flex items-center justify-center cursor-pointer shadow-2xs"
+                          title={`Agregar ${op}`}
+                        >
+                          {op === '*' ? '×' : op === '/' ? '÷' : op}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => evaluateFieldMath('transferencia')}
+                        className="px-2 h-6 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-[10px] rounded active:scale-90 transition-transform cursor-pointer shadow-2xs"
+                        title="Calcular total"
+                      >
+                        =
+                      </button>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-amber-900 dark:text-amber-300 mb-1">
-                      📝 Cheque (Q)
-                    </label>
+                  {/* 3. Cheque */}
+                  <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-900/40">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-black text-amber-950 dark:text-amber-300">
+                        📝 Cheque (Q)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openMathPad('cheque', '📝 Cheque (Q)', collectionAmounts.cheque, 'amber')}
+                        className="px-1.5 py-0.5 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-300 rounded text-[10px] font-black flex items-center gap-1 transition-transform active:scale-95 cursor-pointer border border-amber-300/80 dark:border-amber-700/60"
+                        title="Abrir teclado de calculadora táctil"
+                      >
+                        <Calculator size={11} />
+                        <span>🧮 Teclado</span>
+                      </button>
+                    </div>
                     <input
                       type="text"
                       inputMode="decimal"
@@ -2125,12 +2315,45 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                       }}
                       className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
+                    <div className="flex items-center gap-1 mt-1.5 select-none">
+                      {['+', '-', '*', '/'].map(op => (
+                        <button
+                          key={op}
+                          type="button"
+                          onClick={() => appendOperatorToField('cheque', op)}
+                          className="flex-1 h-6 bg-slate-50 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-700 active:bg-amber-200 text-amber-900 dark:text-amber-200 font-black text-xs rounded border border-amber-300/80 dark:border-amber-700/60 active:scale-90 transition-transform flex items-center justify-center cursor-pointer shadow-2xs"
+                          title={`Agregar ${op}`}
+                        >
+                          {op === '*' ? '×' : op === '/' ? '÷' : op}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => evaluateFieldMath('cheque')}
+                        className="px-2 h-6 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-[10px] rounded active:scale-90 transition-transform cursor-pointer shadow-2xs"
+                        title="Calcular total"
+                      >
+                        =
+                      </button>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-amber-900 dark:text-amber-300 mb-1">
-                      📄 Boleta Depósito (Q)
-                    </label>
+                  {/* 4. Boleta Depósito */}
+                  <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-200/80 dark:border-amber-900/40">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-black text-amber-950 dark:text-amber-300">
+                        📄 Boleta Depósito (Q)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => openMathPad('boleta', '📄 Boleta Depósito (Q)', collectionAmounts.boleta, 'amber')}
+                        className="px-1.5 py-0.5 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 dark:bg-amber-950/80 dark:hover:bg-amber-900 text-amber-900 dark:text-amber-300 rounded text-[10px] font-black flex items-center gap-1 transition-transform active:scale-95 cursor-pointer border border-amber-300/80 dark:border-amber-700/60"
+                        title="Abrir teclado de calculadora táctil"
+                      >
+                        <Calculator size={11} />
+                        <span>🧮 Teclado</span>
+                      </button>
+                    </div>
                     <input
                       type="text"
                       inputMode="decimal"
@@ -2153,6 +2376,27 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                       }}
                       className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
+                    <div className="flex items-center gap-1 mt-1.5 select-none">
+                      {['+', '-', '*', '/'].map(op => (
+                        <button
+                          key={op}
+                          type="button"
+                          onClick={() => appendOperatorToField('boleta', op)}
+                          className="flex-1 h-6 bg-slate-50 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-700 active:bg-amber-200 text-amber-900 dark:text-amber-200 font-black text-xs rounded border border-amber-300/80 dark:border-amber-700/60 active:scale-90 transition-transform flex items-center justify-center cursor-pointer shadow-2xs"
+                          title={`Agregar ${op}`}
+                        >
+                          {op === '*' ? '×' : op === '/' ? '÷' : op}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => evaluateFieldMath('boleta')}
+                        className="px-2 h-6 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-[10px] rounded active:scale-90 transition-transform cursor-pointer shadow-2xs"
+                        title="Calcular total"
+                      >
+                        =
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -2294,6 +2538,16 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
         onReminderSaved={(newReminder) => {
           console.log('Recordatorio agendado exitosamente:', newReminder);
         }}
+      />
+
+      {/* Teclado de Calculadora Táctil (Celular y Tablet) */}
+      <QuickMathPadModal
+        isOpen={mathPadConfig.isOpen}
+        onClose={() => setMathPadConfig(prev => ({ ...prev, isOpen: false }))}
+        title={mathPadConfig.title}
+        initialValue={mathPadConfig.initialValue}
+        accentColor={mathPadConfig.accentColor}
+        onApply={handleApplyMathPad}
       />
 
     </div>
