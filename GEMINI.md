@@ -242,10 +242,10 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 14 de Octubre de 2026 - 07:35.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261014-V145
+  - **Fecha y Hora de Publicación:** 14 de Octubre de 2026 - 20:17.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261014-V146
   - **Estado al Momento de la Publicación:**
-    - Teclado táctil de calculadora completo (`QuickMathPadModal.jsx`) con operadores (+, −, ×, ÷) para celulares y tablets.
-    - Botonera rápida de operadores táctiles en Monto de Venta y los 4 rubros de Cobro (efectivo, transferencia, cheque, boleta de depósito).
+    - Selector/Marcar Cambios (`VisualFeedbackSelector`) desactivado temporalmente de la pantalla a solicitud del usuario.
+    - Teclado táctil de calculadora (`QuickMathPadModal.jsx`) y botones de operadores rápidos activos en venta y cobros.
     - Repositorio Git en main sincronizado y desplegado en Vercel.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

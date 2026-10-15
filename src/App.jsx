@@ -749,8 +749,8 @@ export default function App() {
         }}
       />
 
-      {/* Herramienta Visual para Seleccionar y Marcar Cambios Específicos */}
-      <VisualFeedbackSelector />
+      {/* Herramienta Visual para Seleccionar y Marcar Cambios Específicos (Desactivada temporalmente por el usuario) */}
+      {/* <VisualFeedbackSelector /> */}
 
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 py-4 mb-16 md:mb-0 text-center text-xs text-slate-400">
