@@ -238,6 +238,19 @@
         * **Reporte de Rendimiento de Vendedores (`VendorReportModal.jsx`):** Hoja `Detalle_Visitas` de Excel y reporte HTML incorporan las columnas 'Teléfono' y 'Teléfono 2 / Celular' con los números manuales.
         * **Listado de Visitas (`VisitsListAndFilters.jsx`):** Tanto en vista móvil como de escritorio, las tarjetas reflejan en tiempo real el teléfono manual sin requerir reingresar la visita.
       - **Sincronización Retroactiva al Guardar en Directorio:** Al guardar o editar un cliente en el Administrador, se actualizan retroactivamente las visitas existentes del cliente en memoria local.
+  48. **Visualización en Tiempo Real de Notificaciones de Conexión en la Barra Superior (Navbar):**
+      - **Requerimiento Operativo:** Notificaciones de conexión al sistema integradas en la barra de navegación superior (Header/Navbar) para ver en tiempo real quién se conecta.
+      - **Centro de Notificaciones en Vivo en el Header (`Navbar.jsx`):**
+        * Icono interactivo de campana `Bell` con indicador de pulso verde y badge numérico de notificaciones no leídas (`unreadNotifsCount`).
+        * Cápsula interactiva en la barra superior con la última conexión detectada (ej. `🟢 Danny Perez: 11:25 PM`) y el conteo de vendedores activos en tiempo real.
+      - **Menú Desplegable Flotante Anclado a la Barra:**
+        * Panel moderno con efecto de cristal y gradiente oscuro que lista las conexiones en vivo con avatar, estado (`🟢 En línea` / `⚪ Desconectado`), nombre, ruta, hora exacta y dispositivo.
+        * Botón directo `📍 Mapa` para ubicar satelitalmente al vendedor en el mapa GPS.
+        * Acceso directo a la auditoría completa de conexiones y exportación a Excel.
+      - **Persistencia y Realtime en `App.jsx`:**
+        * Estado `connectionNotifications` alimentado desde Supabase Realtime (`olam_vendor_events_listener`), presencia satelital y eventos locales con deduplicación inteligente.
+      - **Badges de Conteo en Navegación:**
+        * Badges dinámicos con el total de vendedores activos en la barra secundaria de escritorio y en la barra móvil inferior.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -252,10 +265,9 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 14 de Octubre de 2026 - 21:50.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261014-V147
+  - **Fecha y Hora de Publicación:** 15 de Octubre de 2026 - 00:10.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261015-V148
   - **Estado al Momento de la Publicación:**
-    - Teléfonos ingresados manualmente por el Administrador en el directorio son tomados automáticamente al exportar a Excel (Reporte de Clientes Nuevos, Reporte de Visitas de Vendedor y Exportación General).
-    - Resolución y fallback en tiempo real por código y nombre en `newClientsExport.js`, `ExportModal.jsx`, `VendorReportModal.jsx` y `VisitsListAndFilters.jsx`.
+    - Notificaciones de conexión al sistema integradas en la barra superior (Navbar) con monitoreo en tiempo real.
     - Repositorio Git en main sincronizado y desplegado en Vercel.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

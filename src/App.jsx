@@ -83,12 +83,49 @@ export default function App() {
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [showLogoutOtpModal, setShowLogoutOtpModal] = useState(false);
   const [vendorOnlineToast, setVendorOnlineToast] = useState(null);
+  const [connectionNotifications, setConnectionNotifications] = useState([]);
   const prevOnlineVendorsRef = useRef({});
 
   const [showLogoutSupervisorModal, setShowLogoutSupervisorModal] = useState(false);
   const [showSupervisorRemindersModal, setShowSupervisorRemindersModal] = useState(false);
   const [activeAlertReminder, setActiveAlertReminder] = useState(null);
   const triggeredRemindersRef = useRef(new Set());
+
+  // Función unificada para registrar y notificar conexiones en tiempo real
+  const recordConnectionNotification = (notif) => {
+    const timeStr = notif.time || new Date().toLocaleTimeString('es-GT', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+    const newEntry = {
+      id: `${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      name: notif.name || notif.vendor_name || 'Vendedor',
+      route: notif.route || 'Ruta asignada',
+      time: timeStr,
+      device: notif.device || 'Dispositivo en campo',
+      timestamp: Date.now(),
+      unread: true
+    };
+
+    setConnectionNotifications(prev => {
+      const isRecentDup = prev.some(
+        n => n.name === newEntry.name && Math.abs(n.timestamp - newEntry.timestamp) < 12000
+      );
+      if (isRecentDup) return prev;
+      return [newEntry, ...prev].slice(0, 30);
+    });
+
+    setVendorOnlineToast({
+      name: newEntry.name,
+      route: newEntry.route,
+      time: newEntry.time,
+      device: newEntry.device
+    });
+
+    playVendorOnlineSound();
+  };
 
   // Initialize session and theme
   useEffect(() => {
@@ -173,26 +210,37 @@ export default function App() {
     const cleanup = subscribeToOnlinePresence(currentUser, (presenceMap) => {
       setOnlineVendors(presenceMap || {});
 
-      // Si el usuario actual es Administrador, detectar nuevos vendedores que se conectan
-      if (currentUser.role === 'admin') {
+      // Sembrar notificaciones si está vacío y hay vendedores conectados
+      if (presenceMap && Object.keys(presenceMap).length > 0) {
+        setConnectionNotifications(prev => {
+          if (prev.length > 0) return prev;
+          const initialList = Object.entries(presenceMap)
+            .filter(([_, info]) => info?.role === 'vendor' || (info?.name && info?.name !== 'Administrador'))
+            .map(([key, info]) => ({
+              id: `init_${key}_${Date.now()}`,
+              name: info.name || key,
+              route: info.route || 'Ruta asignada',
+              time: info.time || new Date().toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', hour12: true }),
+              device: info.device || 'En línea',
+              timestamp: Date.now(),
+              unread: false
+            }));
+          return initialList;
+        });
+      }
+
+      // Si el usuario actual es Administrador o Supervisor, detectar nuevos vendedores que se conectan
+      if (currentUser.role === 'admin' || currentUser.role === 'supervisor') {
         const prev = prevOnlineVendorsRef.current || {};
         Object.entries(presenceMap || {}).forEach(([key, info]) => {
           const isVendor = info?.role === 'vendor' || (info?.name && info?.name !== 'Administrador');
           if (isVendor && !prev[key]) {
             // Se acaba de conectar un nuevo vendedor
-            const nowTime = new Date().toLocaleTimeString('es-GT', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: true
-            });
-            setVendorOnlineToast({
+            recordConnectionNotification({
               name: info.name || key,
               route: info.route || 'Ruta asignada',
-              time: nowTime,
               device: info.device || 'Dispositivo en campo'
             });
-            playVendorOnlineSound();
           }
         });
       }
@@ -203,29 +251,16 @@ export default function App() {
     const channel = supabase.channel('olam_vendor_events_listener');
     channel
       .on('broadcast', { event: 'vendor_online_event' }, (payload) => {
-        if (currentUser.role === 'admin' && payload?.payload) {
-          const data = payload.payload;
-          setVendorOnlineToast({
-            name: data.vendor_name,
-            route: data.route,
-            time: data.time || new Date().toLocaleTimeString('es-GT', { hour: '2-digit', minute: '2-digit', hour12: true }),
-            device: data.device
-          });
-          playVendorOnlineSound();
+        if ((currentUser.role === 'admin' || currentUser.role === 'supervisor') && payload?.payload) {
+          recordConnectionNotification(payload.payload);
         }
       })
       .subscribe();
 
     // Escuchar evento local si se conecta en la misma ventana
     const handleLocalVendorConn = (e) => {
-      if (currentUser.role === 'admin' && e.detail) {
-        setVendorOnlineToast({
-          name: e.detail.vendor_name,
-          route: e.detail.route,
-          time: e.detail.time,
-          device: e.detail.device
-        });
-        playVendorOnlineSound();
+      if ((currentUser.role === 'admin' || currentUser.role === 'supervisor') && e.detail) {
+        recordConnectionNotification(e.detail);
       }
     };
     window.addEventListener('olam_vendor_connected', handleLocalVendorConn);
@@ -464,6 +499,11 @@ export default function App() {
         onOpenRemindersModal={() => setShowSupervisorRemindersModal(true)}
         pendingTicketsCount={pendingTicketsCount}
         onlineVendors={onlineVendors}
+        connectionNotifications={connectionNotifications}
+        onClearConnectionNotifications={() => setConnectionNotifications([])}
+        onMarkNotificationsRead={() => {
+          setConnectionNotifications(prev => prev.map(n => ({ ...n, unread: false })));
+        }}
       />
 
       {/* Notificación Toast Flotante: Vendedor en Línea (Visible para Administrador) */}

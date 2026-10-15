@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Building2, 
   LogOut, 
@@ -21,7 +21,8 @@ import {
   MessageSquare,
   Wifi,
   Bell,
-  Key
+  Key,
+  X
 } from 'lucide-react';
 import { getOtpKeysStats, getLogoutOtpKeysStats } from '../lib/security';
 import { isSuperUser, normalizeText } from '../lib/formsPermissions';
@@ -47,11 +48,35 @@ export default function Navbar({
   onOpenLogoutOtpModal,
   onOpenRemindersModal,
   pendingTicketsCount = 0,
-  onlineVendors = {}
+  onlineVendors = {},
+  connectionNotifications = [],
+  onClearConnectionNotifications,
+  onMarkNotificationsRead
 }) {
   const isAdmin = currentUser?.role === 'admin';
   const isSuper = isAdmin || isSuperUser(currentUser) || (currentUser?.name && normalizeText(currentUser.name).includes('antonio celada')) || currentUser?.role === 'supervisor';
   const onlineVendorsCount = Object.values(onlineVendors || {}).filter(u => u?.role === 'vendor' || (u?.name && u?.name !== 'Administrador')).length;
+
+  const [showNotifMenu, setShowNotifMenu] = useState(false);
+  const notifMenuRef = useRef(null);
+
+  // Cerrar el menú desplegable al hacer clic fuera
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (notifMenuRef.current && !notifMenuRef.current.contains(event.target)) {
+        setShowNotifMenu(false);
+      }
+    }
+    if (showNotifMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotifMenu]);
+
+  const unreadNotifsCount = connectionNotifications.filter(n => n.unread).length;
+  const latestNotif = connectionNotifications[0];
 
   return (
     <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800 text-white shadow-xl backdrop-blur-md border-b border-blue-700/50">
@@ -111,19 +136,215 @@ export default function Navbar({
               </span>
             </div>
 
-            {/* Indicador de Vendedores en Línea (Solo Administrador) */}
-            {isAdmin && (
-              <button 
-                onClick={() => onOpenConnectionsModal && onOpenConnectionsModal()} 
-                className="cursor-pointer hidden sm:flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-400/40 rounded-full text-xs font-bold text-emerald-300 shadow-sm transition-all hover:scale-105 active:scale-95"
-                title="Ver registro y auditoría de conexiones de vendedores en línea"
-              >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-                </span>
-                <span>{onlineVendorsCount} {onlineVendorsCount === 1 ? 'vendedor en línea' : 'vendedores en línea'}</span>
-              </button>
+            {/* Centro de Notificaciones de Conexión en Tiempo Real (Admin / Supervisor) */}
+            {isSuper && (
+              <div className="relative" ref={notifMenuRef}>
+                <button 
+                  onClick={() => {
+                    const nextState = !showNotifMenu;
+                    setShowNotifMenu(nextState);
+                    if (nextState && onMarkNotificationsRead) {
+                      onMarkNotificationsRead();
+                    }
+                  }} 
+                  className={`cursor-pointer flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold shadow-md transition-all hover:scale-105 active:scale-95 border ${
+                    unreadNotifsCount > 0
+                      ? 'bg-emerald-500/30 hover:bg-emerald-500/40 border-emerald-400 text-emerald-200 animate-pulse'
+                      : 'bg-emerald-500/15 hover:bg-emerald-500/30 border-emerald-400/40 text-emerald-300'
+                  }`}
+                  title="Ver notificaciones de conexión en tiempo real"
+                >
+                  {/* Campana con indicador de estado y badge */}
+                  <div className="relative flex items-center justify-center">
+                    <Bell size={16} className={unreadNotifsCount > 0 ? 'text-emerald-300 animate-bounce' : 'text-emerald-400'} />
+                    {unreadNotifsCount > 0 ? (
+                      <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-emerald-400 text-[9px] font-black text-slate-950 shadow border border-emerald-200 animate-ping">
+                        {unreadNotifsCount}
+                      </span>
+                    ) : (
+                      <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Texto interactivo de la última conexión en tiempo real */}
+                  <div className="hidden sm:flex items-center gap-1.5 max-w-[210px] truncate text-left">
+                    {latestNotif ? (
+                      <span className="truncate">
+                        <span className="text-emerald-200 font-black">🟢 {latestNotif.name.split(' ')[0]}:</span>{' '}
+                        <span className="text-blue-100 font-semibold">{latestNotif.time}</span>
+                      </span>
+                    ) : (
+                      <span>{onlineVendorsCount} {onlineVendorsCount === 1 ? 'en línea' : 'en línea'}</span>
+                    )}
+                  </div>
+
+                  {/* En dispositivos móviles pequeños: conteo rápido */}
+                  <span className="sm:hidden text-[11px] font-bold text-emerald-300">
+                    {onlineVendorsCount}
+                  </span>
+                </button>
+
+                {/* Panel Desplegable de Notificaciones de Conexión en Vivo */}
+                {showNotifMenu && (
+                  <div className="absolute right-0 mt-2 w-[92vw] sm:w-[410px] max-w-md bg-slate-900/95 backdrop-blur-2xl text-white rounded-2xl shadow-2xl border-2 border-emerald-500/40 z-[9999] overflow-hidden animate-fadeIn">
+                    
+                    {/* Encabezado del Dropdown */}
+                    <div className="p-3.5 bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 border-b border-slate-700/80 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-emerald-500/20 text-emerald-300 rounded-xl border border-emerald-400/40 shadow-inner">
+                          <Wifi size={17} className="animate-pulse" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs sm:text-sm font-black text-white tracking-wide">
+                              Conexiones al Sistema
+                            </h4>
+                            <span className="bg-emerald-500/25 text-emerald-300 text-[9px] font-black px-2 py-0.5 rounded-full border border-emerald-400/50 shadow-sm animate-pulse">
+                              🟢 EN VIVO
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-blue-200/80 mt-0.5">
+                            {onlineVendorsCount} {onlineVendorsCount === 1 ? 'vendedor activo en este momento' : 'vendedores activos en este momento'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        {connectionNotifications.length > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onClearConnectionNotifications && onClearConnectionNotifications();
+                            }}
+                            className="text-[10px] font-semibold text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                            title="Limpiar lista de notificaciones"
+                          >
+                            Limpiar
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setShowNotifMenu(false)}
+                          className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                          title="Cerrar notificaciones"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Lista con scroll de conexiones en tiempo real */}
+                    <div className="max-h-[360px] overflow-y-auto divide-y divide-slate-800/80 p-1.5 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
+                      {connectionNotifications.length === 0 ? (
+                        <div className="py-10 text-center text-slate-400 px-4">
+                          <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-slate-800/80 flex items-center justify-center text-slate-500">
+                            <Wifi size={24} />
+                          </div>
+                          <p className="text-xs font-bold text-slate-300">
+                            No hay notificaciones de conexión recientes
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-1 max-w-xs mx-auto">
+                            Cuando un vendedor inicie sesión en el sistema, lo verás reflejado aquí inmediatamente en tiempo real.
+                          </p>
+                        </div>
+                      ) : (
+                        connectionNotifications.map((notif) => {
+                          const isCurrentlyOnline = Object.values(onlineVendors || {}).some(
+                            v => v?.name?.trim().toLowerCase() === notif.name?.trim().toLowerCase()
+                          );
+
+                          return (
+                            <div 
+                              key={notif.id}
+                              className={`p-3 rounded-xl transition-all hover:bg-slate-800/70 flex items-start justify-between gap-3 ${
+                                notif.unread ? 'bg-blue-950/40 border-l-4 border-emerald-400' : ''
+                              }`}
+                            >
+                              <div className="flex items-start gap-2.5 min-w-0">
+                                {/* Avatar con estado en vivo */}
+                                <div className="relative shrink-0 mt-0.5">
+                                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-700 via-indigo-600 to-emerald-600 flex items-center justify-center text-white text-xs font-black shadow-md border border-white/20">
+                                    {notif.name ? notif.name.slice(0, 2).toUpperCase() : 'VN'}
+                                  </div>
+                                  <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
+                                    {isCurrentlyOnline && (
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    )}
+                                    <span className={`relative inline-flex rounded-full h-3 w-3 border-2 border-slate-900 ${
+                                      isCurrentlyOnline ? 'bg-emerald-400' : 'bg-slate-500'
+                                    }`}></span>
+                                  </span>
+                                </div>
+
+                                {/* Detalles del Vendedor */}
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <p className="text-xs sm:text-sm font-bold text-white truncate">
+                                      {notif.name}
+                                    </p>
+                                    <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full ${
+                                      isCurrentlyOnline 
+                                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/50' 
+                                        : 'bg-slate-800 text-slate-400'
+                                    }`}>
+                                      {isCurrentlyOnline ? '🟢 En línea' : '⚪ Desconectado'}
+                                    </span>
+                                  </div>
+
+                                  <p className="text-[11px] text-blue-200 truncate mt-0.5 font-medium">
+                                    📍 {notif.route || 'Ruta asignada en campo'}
+                                  </p>
+
+                                  <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-1 flex-wrap">
+                                    <span className="font-semibold text-slate-300">🕒 {notif.time}</span>
+                                    <span className="text-slate-600">•</span>
+                                    <span className="truncate max-w-[150px] text-slate-400">
+                                      {notif.device || 'Dispositivo móvil'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Botón Ver en Mapa */}
+                              <div className="shrink-0 flex flex-col items-end gap-1.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowNotifMenu(false);
+                                    setActiveTab('map');
+                                  }}
+                                  className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white rounded-lg text-[10px] font-bold transition-all border border-emerald-500/40 flex items-center gap-1 shadow-sm cursor-pointer"
+                                  title="Ver ubicación en el Mapa de Rastreo GPS"
+                                >
+                                  <MapPin size={12} />
+                                  <span>Mapa</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Pie de Panel con Acceso a Auditoría */}
+                    <div className="p-2.5 bg-slate-950 border-t border-slate-800/80 flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowNotifMenu(false);
+                          onOpenConnectionsModal && onOpenConnectionsModal();
+                        }}
+                        className="w-full py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                      >
+                        <Wifi size={14} className="text-emerald-300" />
+                        <span>Auditoría Completa de Conexiones & Excel</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Sync Status indicator */}
@@ -280,6 +501,9 @@ export default function Navbar({
               >
                 <Wifi size={15} />
                 <span>Registro Conexiones</span>
+                <span className="bg-emerald-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm ml-0.5">
+                  {onlineVendorsCount} En Línea
+                </span>
               </button>
 
               {/* Botón Bóveda Claves 2.0 (OTP) en Navbar */}
@@ -506,10 +730,17 @@ export default function Navbar({
 
             <button
               onClick={() => onOpenConnectionsModal && onOpenConnectionsModal()}
-              className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all text-emerald-600 dark:text-emerald-400 hover:text-emerald-700"
+              className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 relative"
               title="Registro de Conexiones de Vendedores"
             >
-              <Wifi size={20} />
+              <div className="relative">
+                <Wifi size={20} />
+                {onlineVendorsCount > 0 && (
+                  <span className="absolute -top-1 -right-2 bg-emerald-500 text-white text-[8px] font-black px-1 rounded-full border border-slate-900 shadow">
+                    {onlineVendorsCount}
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] mt-0.5 font-bold">Conexión</span>
             </button>
 
