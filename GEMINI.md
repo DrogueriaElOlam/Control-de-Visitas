@@ -227,7 +227,17 @@
         * Feedback táctil con micro-vibración y botón prominente `✔ Aplicar Total: Q X,XXX.XX` que traslada el resultado directamente al formulario.
       - **Botonera de Operadores Táctiles Directos en el Formulario:**
         * Debajo de cada campo se integró una barra táctil con botones rápidos `[ + ] [ − ] [ × ] [ ÷ ] [ = Total ]`.
-        * El vendedor puede usar su teclado numérico nativo e insertar el operador con un solo toque del pulgar para sumar rápidamente (ej: teclea `1200` ➔ toca `[ + ]` ➔ teclea `2500` ➔ toca `[ + ]` ➔ teclea `1000` ➔ toca `[ = Total ]`).
+  47. **Sincronización Inteligente de Teléfonos Manuales en Exportaciones a Excel y Reportes:**
+      - **Requerimiento Operativo:** Si un vendedor registra una visita a un cliente nuevo (o existente) sin tener el número de teléfono a la mano en campo, pero posteriormente el Administrador ingresa el teléfono de forma manual en el Directorio Maestro de Clientes (`AdminClientDirectoryModal`), el sistema debe tomar automáticamente el número ingresado manualmente al exportar cualquier reporte a Excel.
+      - **Función Universal `resolveClientPhoneForVisit(visit, directory)` (`catalog.js`):**
+        * Cruza en vivo el código de cliente (o el nombre de la farmacia) con el Directorio Maestro de Clientes.
+        * Si la visita original no traía número o tenía 'No registrado', rescata automáticamente el teléfono y celular ingresados manualmente por el Administrador.
+      - **Integración en Todos los Exportadores a Excel:**
+        * **Reporte de Clientes Nuevos (`newClientsExport.js`):** Columna 'Teléfono/Celular' ahora resuelve y muestra el número ingresado manualmente en vez de 'No registrado'.
+        * **Exportación General de Visitas (`ExportModal.jsx`):** Columnas 'Teléfono' y 'Teléfono 2 / Celular' actualizadas con la información fresca del directorio.
+        * **Reporte de Rendimiento de Vendedores (`VendorReportModal.jsx`):** Hoja `Detalle_Visitas` de Excel y reporte HTML incorporan las columnas 'Teléfono' y 'Teléfono 2 / Celular' con los números manuales.
+        * **Listado de Visitas (`VisitsListAndFilters.jsx`):** Tanto en vista móvil como de escritorio, las tarjetas reflejan en tiempo real el teléfono manual sin requerir reingresar la visita.
+      - **Sincronización Retroactiva al Guardar en Directorio:** Al guardar o editar un cliente en el Administrador, se actualizan retroactivamente las visitas existentes del cliente en memoria local.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -242,10 +252,10 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 14 de Octubre de 2026 - 20:17.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261014-V146
+  - **Fecha y Hora de Publicación:** 14 de Octubre de 2026 - 21:50.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261014-V147
   - **Estado al Momento de la Publicación:**
-    - Selector/Marcar Cambios (`VisualFeedbackSelector`) desactivado temporalmente de la pantalla a solicitud del usuario.
-    - Teclado táctil de calculadora (`QuickMathPadModal.jsx`) y botones de operadores rápidos activos en venta y cobros.
+    - Teléfonos ingresados manualmente por el Administrador en el directorio son tomados automáticamente al exportar a Excel (Reporte de Clientes Nuevos, Reporte de Visitas de Vendedor y Exportación General).
+    - Resolución y fallback en tiempo real por código y nombre en `newClientsExport.js`, `ExportModal.jsx`, `VendorReportModal.jsx` y `VisitsListAndFilters.jsx`.
     - Repositorio Git en main sincronizado y desplegado en Vercel.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

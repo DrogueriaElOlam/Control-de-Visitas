@@ -14,6 +14,7 @@ import {
   UserPlus
 } from 'lucide-react';
 import { exportNewClientsToExcel } from '../lib/newClientsExport';
+import { resolveClientPhoneForVisit } from '../lib/catalog';
 import { getLocalDateString } from '../lib/dateUtils';
 import { LOGO_DATA_URI } from '../lib/logo';
 
@@ -56,31 +57,35 @@ export default function ExportModal({ visits = [], vendors = [] }) {
     setDownloading(true);
 
     try {
-      const rows = dataset.map((v, i) => ({
-        'No.': i + 1,
-        'Fecha': v.visitDate || '',
-        'Vendedor': v.vendorName || '',
-        'Ruta / Sector': v.sector || v.route || '',
-        'Código Cliente': v.clientCode || '0000',
-        'Nombre del Cliente': v.clientName || '',
-        'Tipo Cliente': v.clientType === 'nuevo' ? 'Nuevo' : 'Propio',
-        'Teléfono': v.phone || '',
-        'Jornada': v.dayPeriod || '',
-        'Modalidad': v.visitType || '',
-        '¿Venta?': v.hasSale || v.saleAmount > 0 ? 'SÍ' : 'NO',
-        'Monto Venta (Q)': Number(v.saleAmount) || 0,
-        'Tipo Venta': v.saleType || '',
-        '¿Cobro?': v.hasCollection || v.collectionAmount > 0 ? 'SÍ' : 'NO',
-        'Cobro Efectivo (Q)': Number(v.collectionCash) || 0,
-        'Cobro Transferencia (Q)': Number(v.collectionTransfer) || 0,
-        'Cobro Cheque (Q)': Number(v.collectionCheck) || 0,
-        'Cobro Boleta (Q)': Number(v.collectionBoleta) || 0,
-        'Cobro Total (Q)': Number(v.collectionAmount) || 0,
-        'GPS Latitud': v.location?.lat || '',
-        'GPS Longitud': v.location?.lng || '',
-        'Precisión GPS': v.location?.accuracy ? `±${v.location.accuracy}m` : '',
-        'Observaciones': v.observations || ''
-      }));
+      const rows = dataset.map((v, i) => {
+        const resolvedPhone = resolveClientPhoneForVisit(v);
+        return {
+          'No.': i + 1,
+          'Fecha': v.visitDate || '',
+          'Vendedor': v.vendorName || '',
+          'Ruta / Sector': v.sector || v.route || '',
+          'Código Cliente': v.clientCode || '0000',
+          'Nombre del Cliente': v.clientName || '',
+          'Tipo Cliente': v.clientType === 'nuevo' ? 'Nuevo' : 'Propio',
+          'Teléfono': resolvedPhone.phone || '',
+          'Teléfono 2 / Celular': resolvedPhone.secondaryPhone || '',
+          'Jornada': v.dayPeriod || '',
+          'Modalidad': v.visitType || '',
+          '¿Venta?': v.hasSale || v.saleAmount > 0 ? 'SÍ' : 'NO',
+          'Monto Venta (Q)': Number(v.saleAmount) || 0,
+          'Tipo Venta': v.saleType || '',
+          '¿Cobro?': v.hasCollection || v.collectionAmount > 0 ? 'SÍ' : 'NO',
+          'Cobro Efectivo (Q)': Number(v.collectionCash) || 0,
+          'Cobro Transferencia (Q)': Number(v.collectionTransfer) || 0,
+          'Cobro Cheque (Q)': Number(v.collectionCheck) || 0,
+          'Cobro Boleta (Q)': Number(v.collectionBoleta) || 0,
+          'Cobro Total (Q)': Number(v.collectionAmount) || 0,
+          'GPS Latitud': v.location?.lat || '',
+          'GPS Longitud': v.location?.lng || '',
+          'Precisión GPS': v.location?.accuracy ? `±${v.location.accuracy}m` : '',
+          'Observaciones': v.observations || ''
+        };
+      });
 
       const worksheet = XLSX.utils.json_to_sheet(rows);
       

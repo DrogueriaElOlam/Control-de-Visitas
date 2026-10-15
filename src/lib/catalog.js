@@ -519,7 +519,124 @@ export async function updateClientInDirectory({ originalCode, originalName, code
     console.warn('Supabase updateClientInDirectory note:', e);
   }
 
+  // Sincronizar retroactivamente el teléfono y datos en las visitas ya registradas del cliente
+  try {
+    const rawVisits = localStorage.getItem('olam_visits_v2');
+    if (rawVisits) {
+      const parsedVisits = JSON.parse(rawVisits);
+      let changed = false;
+      parsedVisits.forEach(v => {
+        const matchOrigCode = origC && origC !== '0000' && (v.clientCode || '').trim().toLowerCase() === origC;
+        const matchNewCode = newC && newC !== '0000' && (v.clientCode || '').trim().toLowerCase() === newC.toLowerCase();
+        const matchOrigName = origN && (v.clientName || '').trim().toLowerCase() === origN;
+        const matchNewName = newN && (v.clientName || '').trim().toLowerCase() === newN.toLowerCase();
+
+        if (matchOrigCode || matchNewCode || matchOrigName || matchNewName) {
+          if (newC && newC !== '0000' && v.clientCode !== newC) {
+            v.clientCode = newC;
+            changed = true;
+          }
+          if (newN && v.clientName !== newN) {
+            v.clientName = newN;
+            changed = true;
+          }
+          if (parsedPhones.phone && (!v.phone || v.phone === 'No registrado' || v.phone !== parsedPhones.phone)) {
+            v.phone = parsedPhones.phone;
+            changed = true;
+          }
+          if (parsedPhones.secondaryPhone && v.secondaryPhone !== parsedPhones.secondaryPhone) {
+            v.secondaryPhone = parsedPhones.secondaryPhone;
+            changed = true;
+          }
+        }
+      });
+      if (changed) {
+        localStorage.setItem('olam_visits_v2', JSON.stringify(parsedVisits));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('olam_visits_data_changed', { detail: parsedVisits }));
+        }
+      }
+    }
+  } catch (_) {}
+
   return { success: true, client: updatedRecord };
+}
+
+/**
+ * Resuelve de forma inteligente el teléfono más actualizado para una visita.
+ * Si el registro original de la visita no tenía teléfono (por ejemplo, si el vendedor
+ * no lo tenía a la mano en campo), pero el Administrador lo ingresó manualmente
+ * en el Directorio Maestro de Clientes (por código o por nombre), esta función obtiene
+ * y garantiza que al exportar a Excel / PDF / HTML se tome siempre el número ingresado manualmente.
+ */
+export function resolveClientPhoneForVisit(visit = {}, directory = null) {
+  if (!visit) return { phone: '', secondaryPhone: '', formatted: '' };
+
+  const dir = (directory && Array.isArray(directory) && directory.length > 0)
+    ? directory
+    : getStoredPharmacyDirectory();
+
+  const vCode = String(visit.clientCode || '').trim().toLowerCase();
+  const vName = String(visit.clientName || '').trim().toLowerCase();
+
+  let visitPhone = String(visit.phone || '').trim();
+  let visitSecPhone = String(visit.secondaryPhone || '').trim();
+
+  // Buscar coincidencia en el directorio maestro de clientes
+  let clientInDir = null;
+
+  // 1. Prioridad: Búsqueda por código de cliente (si no es '0000')
+  if (vCode && vCode !== '0000') {
+    clientInDir = dir.find(c => String(c.code || '').trim().toLowerCase() === vCode);
+  }
+
+  // 2. Búsqueda por nombre de la farmacia / cliente si no se halló por código o es cliente nuevo
+  if (!clientInDir && vName) {
+    clientInDir = dir.find(c => {
+      const cName = String(c.name || '').trim().toLowerCase();
+      if (!cName) return false;
+      if (cName === vName) return true;
+      if (vName.length >= 4 && cName.includes(vName)) return true;
+      if (cName.length >= 4 && vName.includes(cName)) return true;
+      return false;
+    });
+  }
+
+  // Si encontramos el registro en el directorio maestro con teléfono ingresado por el administrador:
+  if (clientInDir) {
+    const dirPhone = String(clientInDir.phone || '').trim();
+    const dirSecPhone = String(clientInDir.secondaryPhone || '').trim();
+
+    // Si la visita no tenía teléfono, o era genérico/vacío, tomar el del administrador
+    const rawDigits = visitPhone.replace(/\D/g, '');
+    if (!visitPhone || visitPhone.toLowerCase() === 'no registrado' || rawDigits.length < 7) {
+      if (dirPhone) {
+        visitPhone = dirPhone;
+      }
+    }
+
+    if (!visitSecPhone && dirSecPhone) {
+      visitSecPhone = dirSecPhone;
+    }
+  }
+
+  // Normalizar y separar teléfonos guatemaltecos
+  const parsed = parseGuatemalaPhoneNumbers(visitPhone, visitSecPhone);
+  const p1 = parsed.phone || (visitPhone.toLowerCase() !== 'no registrado' ? visitPhone : '');
+  const p2 = parsed.secondaryPhone || visitSecPhone || '';
+
+  let formatted = p1;
+  if (p2 && p2 !== p1) {
+    formatted = formatted ? `${formatted} / ${p2}` : p2;
+  }
+
+  return {
+    phone: p1 || '',
+    secondaryPhone: p2 || '',
+    primary: p1 || '',
+    secondary: p2 || '',
+    formatted: formatted || ''
+  };
 }
 
 // Helper: Calcular nivel de completitud de campos de un cliente

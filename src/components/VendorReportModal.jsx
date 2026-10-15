@@ -44,6 +44,7 @@ import { isSuperUser, normalizeText } from '../lib/formsPermissions';
 import { LOGO_DATA_URI, LOGO_URL } from '../lib/logo';
 import { getCashReportsForVendor, syncCashFromVisits, createNewCashReport, deleteCashReport } from '../lib/cashCollections';
 import { getLocalDateString } from '../lib/dateUtils';
+import { resolveClientPhoneForVisit } from '../lib/catalog';
 
 const CHART_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#64748b'];
 
@@ -622,10 +623,13 @@ export default function VendorReportModal({
       const cTypeLabel = (v.clientType || 'propio').toLowerCase() === 'nuevo' ? 'Nuevo' : 'Propio';
       const periodLabel = (v.dayPeriod || 'mañana').toLowerCase().includes('tarde') || (v.dayPeriod || '').toUpperCase() === 'PM' ? 'PM' : 'AM';
 
+      const resolvedPhone = resolveClientPhoneForVisit(v);
+
       return `
         <tr>
           <td>${v.clientCode || '0000'}</td>
           <td><strong>${v.clientName || 'Cliente'}</strong></td>
+          <td>${resolvedPhone.formatted || '—'}</td>
           <td>${v.sector || v.route || routeInput}</td>
           <td>${vTypeLabel}</td>
           <td>${cTypeLabel}</td>
@@ -857,6 +861,7 @@ export default function VendorReportModal({
       <tr>
         <th>Código</th>
         <th>Cliente</th>
+        <th>Teléfono</th>
         <th>Sector</th>
         <th>Tipo Visita</th>
         <th>Tipo Cliente</th>
@@ -872,9 +877,9 @@ export default function VendorReportModal({
       </tr>
     </thead>
     <tbody>
-      ${rowsHtml || `<tr><td colspan="${isAdmin ? 14 : 13}" style="text-align:center; padding:15px; color:#64748b;">No se encontraron visitas registradas en este período.</td></tr>`}
+      ${rowsHtml || `<tr><td colspan="${isAdmin ? 15 : 14}" style="text-align:center; padding:15px; color:#64748b;">No se encontraron visitas registradas en este período.</td></tr>`}
       <tr class="totals">
-        <td colspan="8" style="text-align: right; padding-right:8px;">TOTAL VENTAS:</td>
+        <td colspan="9" style="text-align: right; padding-right:8px;">TOTAL VENTAS:</td>
         <td class="currency">Q${metrics.totalSales.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
         <td colspan="2" style="text-align: right; padding-right:8px;">TOTAL COBROS:</td>
         <td class="currency">Q${metrics.totalCollections.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -1356,11 +1361,15 @@ export default function VendorReportModal({
           ? (cCash + cTrans + cCheck + cBoleta) 
           : (Number(v.collectionAmount) || 0);
 
+        const resolvedPhone = resolveClientPhoneForVisit(v);
+
         return {
           'No.': i + 1,
           'Fecha': v.visitDate || '',
           'Código': v.clientCode || '0000',
           'Cliente': v.clientName || '',
+          'Teléfono': resolvedPhone.phone || '',
+          'Teléfono 2 / Celular': resolvedPhone.secondaryPhone || '',
           'Sector / Gira': v.sector || v.route || '',
           'Tipo Visita': (v.visitType || 'presencial').toUpperCase(),
           'Tipo Cliente': (v.clientType || 'propio').toUpperCase(),

@@ -38,6 +38,7 @@ import { generateGoalComplianceHTMLReport } from '../lib/goalComplianceReport';
 import { generateMonthlyRouteHTMLReport } from '../lib/monthlyRouteReport';
 import { getLocalDateString, getLocalYesterdayString, getLocalStartOfMonthString } from '../lib/dateUtils';
 import { isSuperUser, normalizeText } from '../lib/formsPermissions';
+import { resolveClientPhoneForVisit } from '../lib/catalog';
 
 export default function VisitsListAndFilters({ 
   visits = [], 
@@ -794,7 +795,10 @@ export default function VisitsListAndFilters({
                           </span>
                         </div>
                         <div className="text-xs text-slate-400 font-mono mt-0.5">
-                          Cód: <span className="font-bold text-slate-600 dark:text-slate-300">{visit.clientCode || '0000'}</span> {visit.phone ? `• Tel: ${visit.phone}` : ''}
+                          Cód: <span className="font-bold text-slate-600 dark:text-slate-300">{visit.clientCode || '0000'}</span> {(() => {
+                            const resPh = resolveClientPhoneForVisit(visit);
+                            return resPh.formatted ? `• Tel: ${resPh.formatted}` : '';
+                          })()}
                         </div>
                       </div>
 
@@ -969,7 +973,10 @@ export default function VisitsListAndFilters({
                             </span>
                           </div>
                           <div className="text-xs text-slate-400 font-mono mt-0.5">
-                            Código: {visit.clientCode || '0000'} • {visit.phone || 'Sin tel'}
+                            Código: {visit.clientCode || '0000'} • {(() => {
+                              const resPh = resolveClientPhoneForVisit(visit);
+                              return resPh.formatted || 'Sin tel';
+                            })()}
                           </div>
                           {visit.observations && (
                             <p className="text-[11px] text-slate-500 italic mt-1 max-w-xs truncate">

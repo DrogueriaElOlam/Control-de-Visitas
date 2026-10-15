@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { resolveClientPhoneForVisit } from './catalog';
 
 /**
  * Normaliza nombres para archivos de Excel (ej: "Erick Curley" -> "Erick_Curley")
@@ -158,11 +159,9 @@ export async function exportNewClientsToExcel(visits = [], options = {}) {
       ? 'Telemarketing'
       : 'Presencial';
 
-    let phoneDisplay = v.phone ? v.phone.trim() : '';
-    if (v.secondaryPhone && !phoneDisplay.includes(v.secondaryPhone)) {
-      phoneDisplay = phoneDisplay ? `${phoneDisplay} / ${v.secondaryPhone}` : v.secondaryPhone;
-    }
-    if (!phoneDisplay) phoneDisplay = 'No registrado';
+    // Resolver teléfono actualizado (toma automáticamente el ingresado de manera manual por el Administrador si la visita no lo tenía)
+    const resolvedPhoneObj = resolveClientPhoneForVisit(v);
+    const phoneDisplay = resolvedPhoneObj.formatted || 'No registrado';
 
     const ruta = v.route || v.sector || 'Sin ruta asignada';
 
