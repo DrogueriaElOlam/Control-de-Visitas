@@ -260,6 +260,11 @@
         * Inputs de la cuadrícula semanal: recibo, código, cliente, boletas, efectivo, cheque y observaciones actualizados a `text-blue-700 dark:text-blue-400 font-bold bg-white dark:bg-slate-900`.
         * Campos de control y firmas: ejecutivo, ruta, fechas y firmas configurados con la misma tipografía azul legible.
         * Disponible universalmente tanto para Vendedores como para el Administrador.
+  50. **Regla Universal de Visibilidad Total con Letra Negra en Todos los Formularios y Tablas:**
+      - **Causa Raíz Identificada:** En tablas de formularios (como 'Detalle de Gastos' en Liquidación de Viáticos) con fondo blanco, la herencia de estilos de modo oscuro y WebKit pintaba el texto ingresado en blanco/gris tenue (`color: inherit`), haciéndolo invisible.
+      - **Solución Universal en `src/index.css`:** Creada regla CSS global que abarca todo input, select y textarea dentro de `.bg-white`, `table`, `.bg-blue-50`, `.bg-slate-50` y `form`, forzando `color: #000000 !important`, `-webkit-text-fill-color: #000000 !important`, `background-color: #ffffff !important` y `font-weight: 700 !important`, con placeholders nítidos en `#64748b`.
+      - **Ajuste Específico en `LiquidacionViaticosForm.jsx`:** Todas las celdas de fecha, no. doc, establecimiento y los 6 rubros de gastos (alimentación, hotel, combustible, peaje, fotocopias, varios), así como fechas de salida/regreso actualizados con fondo blanco y letra negra intensa.
+      - **Alcance Universal:** Garantizada visibilidad total y alto contraste para Vendedores y Administrador en todos los formularios del sistema.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.

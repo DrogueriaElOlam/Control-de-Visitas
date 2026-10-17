@@ -35,3 +35,48 @@
   font-family: inherit !important;
   z-index: 10 !important;
 }
+
+/* ========================================================
+   REGLA UNIVERSAL: TEXTO NEGRO VISIBLE AL 100% EN FORMULARIOS
+   Garantiza que en modo claro o modo oscuro, al ingresar datos
+   o verlos en cualquier formulario (vendedores y administrador),
+   la letra sea SIEMPRE negra, nítida y visible sobre fondo blanco.
+   ======================================================== */
+.bg-white input:not([type="checkbox"]):not([type="radio"]),
+.bg-white select,
+.bg-white textarea,
+table input:not([type="checkbox"]):not([type="radio"]),
+table select,
+table textarea,
+.bg-blue-50 input,
+.bg-slate-50 input,
+form input:not([type="checkbox"]):not([type="radio"]),
+form select,
+form textarea {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+  background-color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* Placeholders visibles en gris medio sin desaparecer */
+.bg-white input::placeholder,
+.bg-white textarea::placeholder,
+table input::placeholder,
+table textarea::placeholder,
+form input::placeholder,
+form textarea::placeholder {
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+/* Excepciones específicas para barras oscuras de navegación */
+nav input,
+header input,
+.leaflet-container input {
+  color: inherit !important;
+  -webkit-text-fill-color: initial !important;
+  background-color: transparent !important;
+}
+

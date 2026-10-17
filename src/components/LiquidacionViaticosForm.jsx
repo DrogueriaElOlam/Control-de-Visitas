@@ -778,7 +778,8 @@ export default function LiquidacionViaticosForm({ currentUser }) {
             name="fechaSalida"
             value={formData.fechaSalida}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-blue-900/30 focus:border-blue-700 rounded-lg text-sm text-blue-950 font-medium bg-white"
+            className="w-full px-3 py-2 border border-blue-900/30 focus:border-blue-700 rounded-lg text-sm text-black font-bold bg-white"
+            style={{ color: '#000000', WebkitTextFillColor: '#000000', backgroundColor: '#ffffff' }}
             required
           />
         </div>
@@ -792,7 +793,8 @@ export default function LiquidacionViaticosForm({ currentUser }) {
             name="fechaRegreso"
             value={formData.fechaRegreso}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-blue-900/30 focus:border-blue-700 rounded-lg text-sm text-blue-950 font-medium bg-white"
+            className="w-full px-3 py-2 border border-blue-900/30 focus:border-blue-700 rounded-lg text-sm text-black font-bold bg-white"
+            style={{ color: '#000000', WebkitTextFillColor: '#000000', backgroundColor: '#ffffff' }}
             required
           />
         </div>
@@ -842,7 +844,8 @@ export default function LiquidacionViaticosForm({ currentUser }) {
                       type="date"
                       value={gasto.fecha}
                       onChange={(e) => handleGastoChange(index, 'fecha', e.target.value)}
-                      className="w-full px-1 py-1 text-xs border-0 focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-600 bg-white text-black font-bold focus:outline-none"
+                      style={{ color: '#000000', WebkitTextFillColor: '#000000', backgroundColor: '#ffffff' }}
                     />
                   </td>
                   <td className="border border-gray-300 px-1 py-1">
@@ -850,9 +853,9 @@ export default function LiquidacionViaticosForm({ currentUser }) {
                       type="text"
                       value={gasto.numeroDocumento}
                       onChange={(e) => handleGastoChange(index, 'numeroDocumento', e.target.value)}
-                      className="w-full px-1 py-1 text-xs border-0 focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-600 bg-white text-black font-bold focus:outline-none"
+                      style={{ color: '#000000', WebkitTextFillColor: '#000000', backgroundColor: '#ffffff', minWidth: gasto.numeroDocumento ? `${gasto.numeroDocumento.length + 2}ch` : '6rem' }}
                       placeholder="No. Doc"
-                      style={{ minWidth: gasto.numeroDocumento ? `${gasto.numeroDocumento.length + 2}ch` : '6rem' }}
                     />
                   </td>
                   <td className="border border-gray-300 px-1 py-1">
@@ -861,7 +864,8 @@ export default function LiquidacionViaticosForm({ currentUser }) {
                       list="establecimientos-list"
                       value={gasto.establecimiento}
                       onChange={(e) => handleGastoChange(index, 'establecimiento', e.target.value)}
-                      className="w-full px-1 py-1 text-xs border-0 focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-600 bg-white text-black font-bold focus:outline-none"
+                      style={{ color: '#000000', WebkitTextFillColor: '#000000', backgroundColor: '#ffffff' }}
                       placeholder="Establecimiento"
                     />
                   </td>
@@ -871,7 +875,8 @@ export default function LiquidacionViaticosForm({ currentUser }) {
                       step="0.01"
                       value={gasto.alimentacion}
                       onChange={(e) => handleGastoChange(index, 'alimentacion', e.target.value)}
-                      className="w-full px-1 py-1 text-xs border-0 focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-600 bg-white text-black font-bold focus:outline-none"
+                      style={{ color: '#000000', WebkitTextFillColor: '#000000', backgroundColor: '#ffffff' }}
                       placeholder="0.00"
                     />
                   </td>
@@ -881,7 +886,8 @@ export default function LiquidacionViaticosForm({ currentUser }) {
                       step="0.01"
                       value={gasto.hotel}
                       onChange={(e) => handleGastoChange(index, 'hotel', e.target.value)}
-                      className="w-full px-1 py-1 text-xs border-0 focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-600 bg-white text-black font-bold focus:outline-none"
+                      style={{ color: '#000000', WebkitTextFillColor: '#000000', backgroundColor: '#ffffff' }}
                       placeholder="0.00"
                     />
                   </td>
@@ -891,7 +897,8 @@ export default function LiquidacionViaticosForm({ currentUser }) {
                       step="0.01"
                       value={gasto.combustible}
                       onChange={(e) => handleGastoChange(index, 'combustible', e.target.value)}
-                      className="w-full px-1 py-1 text-xs border-0 focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-600 bg-white text-black font-bold focus:outline-none"
+                      style={{ color: '#000000', WebkitTextFillColor: '#000000', backgroundColor: '#ffffff' }}
                       placeholder="0.00"
                     />
                   </td>
@@ -901,7 +908,8 @@ export default function LiquidacionViaticosForm({ currentUser }) {
                       step="0.01"
                       value={gasto.peajeParqueo}
                       onChange={(e) => handleGastoChange(index, 'peajeParqueo', e.target.value)}
-                      className="w-full px-1 py-1 text-xs border-0 focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-600 bg-white text-black font-bold focus:outline-none"
+                      style={{ color: '#000000', WebkitTextFillColor: '#000000', backgroundColor: '#ffffff' }}
                       placeholder="0.00"
                     />
                   </td>
@@ -911,7 +919,8 @@ export default function LiquidacionViaticosForm({ currentUser }) {
                       step="0.01"
                       value={gasto.fotocopias}
                       onChange={(e) => handleGastoChange(index, 'fotocopias', e.target.value)}
-                      className="w-full px-1 py-1 text-xs border-0 focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-600 bg-white text-black font-bold focus:outline-none"
+                      style={{ color: '#000000', WebkitTextFillColor: '#000000', backgroundColor: '#ffffff' }}
                       placeholder="0.00"
                     />
                   </td>
@@ -921,7 +930,8 @@ export default function LiquidacionViaticosForm({ currentUser }) {
                       step="0.01"
                       value={gasto.varios}
                       onChange={(e) => handleGastoChange(index, 'varios', e.target.value)}
-                      className="w-full px-1 py-1 text-xs border-0 focus:ring-1 focus:ring-blue-500"
+                      className="w-full px-1.5 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-600 bg-white text-black font-bold focus:outline-none"
+                      style={{ color: '#000000', WebkitTextFillColor: '#000000', backgroundColor: '#ffffff' }}
                       placeholder="0.00"
                     />
                   </td>
