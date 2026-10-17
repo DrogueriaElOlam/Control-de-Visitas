@@ -3,6 +3,7 @@ import { X, Edit2, Eye, Printer, Trash2, Calendar, Filter, Share2, ShieldCheck, 
 import { supabase } from '../lib/supabase';
 import { isSuperUser, matchesVendorUser } from '../lib/formsPermissions';
 import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
+import { generateLiquidacionRecibosHtml } from '../lib/liquidacionRecibosHtml';
 
 export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser }) {
   const isSuper = isSuperUser(currentUser);
@@ -137,284 +138,34 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser
 
   const handleExportHTML = (record) => {
     console.log('Exportando a HTML:', record);
-
-    const datos = record.datos;
-    const blueColor = '#1E3A8A';
-    const darkBlueColor = '#1E40AF';
-    const logoUrl = '/logo.png';
-    const LOGO_SIZE = '130pt';
-
+    const datos = record.datos || {};
     const receipts = datos.receipts || [];
-    const totals = calculateTotals(receipts);
+    const html = generateLiquidacionRecibosHtml(datos, receipts);
 
-    const tableRows = receipts.map(receipt => `
-      <tr>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: left; font-size: 9pt;">${receipt.recibo || '&nbsp;'}</td>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: left; font-size: 9pt;">${receipt.codigo || '&nbsp;'}</td>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: left; font-size: 9pt;">${receipt.cliente || '&nbsp;'}</td>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: right; font-size: 9pt;">${receipt.boletas ? formatCurrency(parseFloat(receipt.boletas)) : '&nbsp;'}</td>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: right; font-size: 9pt;">${receipt.efectivo ? formatCurrency(parseFloat(receipt.efectivo)) : '&nbsp;'}</td>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: right; font-size: 9pt;">${receipt.cheque ? formatCurrency(parseFloat(receipt.cheque)) : '&nbsp;'}</td>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: left; font-size: 9pt;">${receipt.observaciones || '&nbsp;'}</td>
-      </tr>
-    `).join('');
-
-    const html = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Liquidación de Recibos</title>
-  <style>
-    @page {
-      size: letter portrait;
-      margin: 0.75in;
-    }
-
-    body {
-      font-family: Arial, sans-serif;
-      font-size: 10pt;
-      line-height: 1.2;
-      margin: 0;
-      padding: 20pt;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    .header-container {
-      display: flex;
-      align-items: flex-start;
-      margin-bottom: 15pt;
-      gap: 15pt;
-    }
-
-    .logo-section {
-      flex-shrink: 0;
-    }
-
-    .logo {
-      width: ${LOGO_SIZE};
-      height: auto;
-    }
-
-    .title-section {
-      flex: 1;
-      text-align: center;
-    }
-
-    h1 {
-      color: ${blueColor};
-      font-size: 16pt;
-      font-weight: bold;
-      margin: 0 0 5pt 0;
-      text-transform: uppercase;
-    }
-
-    h2 {
-      color: ${blueColor};
-      font-size: 13pt;
-      font-weight: bold;
-      margin: 0;
-      text-transform: uppercase;
-    }
-
-    .info-box {
-      border: 2pt solid ${blueColor};
-      padding: 10pt;
-      margin-bottom: 15pt;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8pt;
-    }
-
-    .info-field {
-      font-size: 10pt;
-    }
-
-    .info-field strong {
-      font-weight: bold;
-    }
-
-    .info-field span {
-      border-bottom: 1pt solid #000;
-      display: inline-block;
-      min-width: 150pt;
-      padding: 0 5pt;
-    }
-
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 15pt;
-    }
-
-    .data-table th {
-      background-color: ${darkBlueColor};
-      color: white;
-      font-weight: bold;
-      text-align: center;
-      border: 1pt solid #000;
-      padding: 8pt 5pt;
-      font-size: 10pt;
-    }
-
-    .data-table td {
-      border: 1pt solid #000;
-      padding: 6pt 5pt;
-      vertical-align: middle;
-      font-size: 9pt;
-    }
-
-    .totals-row {
-      background-color: black;
-      color: white;
-      font-weight: bold;
-      font-size: 10pt;
-    }
-
-    .totals-row td {
-      padding: 8pt 5pt;
-      border: 1pt solid #000;
-    }
-
-    .signatures {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 40pt;
-    }
-
-    .signature-block {
-      text-align: center;
-      width: 45%;
-    }
-
-    .signature-label {
-      font-weight: bold;
-      font-size: 10pt;
-      margin-bottom: 20pt;
-    }
-
-    .signature-name {
-      font-size: 9pt;
-    }
-
-    .print-button {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background-color: ${blueColor};
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 14pt;
-      font-weight: bold;
-      cursor: pointer;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .print-button:hover {
-      background-color: ${darkBlueColor};
-    }
-
-    @media print {
-      .print-button {
-        display: none;
-      }
-      body {
-        padding: 0;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="header-container">
-    <div class="logo-section">
-      <img src="${logoUrl}" alt="Logo" class="logo">
-    </div>
-    <div class="title-section">
-      <h1>DROGUERIA EL OLAM</h1>
-      <h2>LIQUIDACION SEMANAL DE RECIBOS DE CAJA</h2>
-    </div>
-  </div>
-
-  <div class="info-box">
-    <div class="info-field">
-      <strong>Ejecutivo:</strong> <span>${datos.ejecutivo || ''}</span>
-    </div>
-    <div class="info-field">
-      <strong>Ruta Cubierta:</strong> <span>${datos.rutaCubierta || ''}</span>
-    </div>
-    <div class="info-field" style="grid-column: 1 / -1;">
-      <strong>Semana del:</strong> <span>${formatDateSimple(datos.semanaDesde)}</span>
-      <strong style="margin-left: 20pt;">al</strong> <span>${formatDateSimple(datos.semanaHasta)}</span>
-    </div>
-  </div>
-
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th style="width: 8%;">Recibo</th>
-        <th style="width: 8%;">Código</th>
-        <th style="width: 25%;">Cliente</th>
-        <th style="width: 12%;">Boletas</th>
-        <th style="width: 12%;">Efectivo</th>
-        <th style="width: 12%;">Cheque</th>
-        <th style="width: 23%;">Observaciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${tableRows}
-    </tbody>
-    <tfoot>
-      <tr class="totals-row">
-        <td colspan="3" style="text-align: center;"><strong>TOTALES:</strong></td>
-        <td style="text-align: right;">${formatCurrency(totals.boletas)}</td>
-        <td style="text-align: right;">${formatCurrency(totals.efectivo)}</td>
-        <td style="text-align: right;">${formatCurrency(totals.cheque)}</td>
-        <td style="text-align: right;"><strong>${formatCurrency(totals.total)}</strong></td>
-      </tr>
-    </tfoot>
-  </table>
-
-  <div class="signatures">
-    <div class="signature-block">
-      <div class="signature-label">Liquidado Por: ________________</div>
-      <div class="signature-name">${datos.liquidadoPor || ''}</div>
-      <div class="signature-name">${datos.cargoLiquidado || ''}</div>
-    </div>
-    <div class="signature-block">
-      <div class="signature-label">Revisado Por: ________________</div>
-      <div class="signature-name">${datos.revisadoPor || ''}</div>
-    </div>
-  </div>
-
-  <button class="print-button" onclick="window.print()">
-    🖨️ Imprimir
-  </button>
-</body>
-</html>
-    `;
-
-    const cleanName = (datos.ejecutivo || 'recibos').replace(/\s+/g, '_');
-    const filename = `liquidacion-${cleanName}-${formatDate(record.fecha_creacion).replace(/[/:]/g, '-')}`;
+    const cleanName = (datos.ejecutivo || 'recibos')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '');
+    const filename = `Liquidacion_${cleanName}_${formatDate(record.fecha_creacion).replace(/[/:]/g, '-')}`;
     openAndPrintHtml(html, filename);
   };
 
   const handleShare = async (record) => {
     console.log('Compartiendo registro:', record);
 
-    const datos = record.datos;
-    const receipts = datos.receipts || [];
-    const totals = calculateTotals(receipts);
-
+    const datos = record.datos || {};
     const html = generateHTML(record);
     const blob = new Blob([html], { type: 'text/html' });
-    const file = new File([blob], `liquidacion-${datos.ejecutivo || 'recibos'}-${formatDate(record.fecha_creacion).replace(/[/:]/g, '-')}.html`, { type: 'text/html' });
+    const cleanName = (datos.ejecutivo || 'recibos')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '');
+    const fileName = `Liquidacion_${cleanName}_${formatDate(record.fecha_creacion).replace(/[/:]/g, '-')}.html`;
+    const file = new File([blob], fileName, { type: 'text/html' });
 
     if (navigator.share && navigator.canShare({ files: [file] })) {
       try {
@@ -426,275 +177,17 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser
         console.log('Compartido exitosamente');
       } catch (error) {
         console.error('Error al compartir:', error);
-        downloadHTML(html, file.name);
+        downloadHTML(html, fileName);
       }
     } else {
-      downloadHTML(html, file.name);
+      downloadHTML(html, fileName);
     }
   };
 
   const generateHTML = (record) => {
-    const datos = record.datos;
-    const blueColor = '#1E3A8A';
-    const darkBlueColor = '#1E40AF';
-    const logoUrl = '/logo.png';
-    const LOGO_SIZE = '130pt';
-
+    const datos = record.datos || {};
     const receipts = datos.receipts || [];
-    const totals = calculateTotals(receipts);
-
-    const tableRows = receipts.map(receipt => `
-      <tr>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: left; font-size: 9pt;">${receipt.recibo || '&nbsp;'}</td>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: left; font-size: 9pt;">${receipt.codigo || '&nbsp;'}</td>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: left; font-size: 9pt;">${receipt.cliente || '&nbsp;'}</td>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: right; font-size: 9pt;">${receipt.boletas ? formatCurrency(parseFloat(receipt.boletas)) : '&nbsp;'}</td>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: right; font-size: 9pt;">${receipt.efectivo ? formatCurrency(parseFloat(receipt.efectivo)) : '&nbsp;'}</td>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: right; font-size: 9pt;">${receipt.cheque ? formatCurrency(parseFloat(receipt.cheque)) : '&nbsp;'}</td>
-        <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: left; font-size: 9pt;">${receipt.observaciones || '&nbsp;'}</td>
-      </tr>
-    `).join('');
-
-    return `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Liquidación de Recibos</title>
-  <style>
-    @page {
-      size: letter portrait;
-      margin: 0.75in;
-    }
-
-    body {
-      font-family: Arial, sans-serif;
-      font-size: 10pt;
-      line-height: 1.2;
-      margin: 0;
-      padding: 20pt;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    .header-container {
-      display: flex;
-      align-items: flex-start;
-      margin-bottom: 15pt;
-      gap: 15pt;
-    }
-
-    .logo-section {
-      flex-shrink: 0;
-    }
-
-    .logo {
-      width: ${LOGO_SIZE};
-      height: auto;
-    }
-
-    .title-section {
-      flex: 1;
-      text-align: center;
-    }
-
-    h1 {
-      color: ${blueColor};
-      font-size: 16pt;
-      font-weight: bold;
-      margin: 0 0 5pt 0;
-      text-transform: uppercase;
-    }
-
-    h2 {
-      color: ${blueColor};
-      font-size: 13pt;
-      font-weight: bold;
-      margin: 0;
-      text-transform: uppercase;
-    }
-
-    .info-box {
-      border: 2pt solid ${blueColor};
-      padding: 10pt;
-      margin-bottom: 15pt;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8pt;
-    }
-
-    .info-field {
-      font-size: 10pt;
-    }
-
-    .info-field strong {
-      font-weight: bold;
-    }
-
-    .info-field span {
-      border-bottom: 1pt solid #000;
-      display: inline-block;
-      min-width: 150pt;
-      padding: 0 5pt;
-    }
-
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 15pt;
-    }
-
-    .data-table th {
-      background-color: ${darkBlueColor};
-      color: white;
-      font-weight: bold;
-      text-align: center;
-      border: 1pt solid #000;
-      padding: 8pt 5pt;
-      font-size: 10pt;
-    }
-
-    .data-table td {
-      border: 1pt solid #000;
-      padding: 6pt 5pt;
-      vertical-align: middle;
-      font-size: 9pt;
-    }
-
-    .totals-row {
-      background-color: black;
-      color: white;
-      font-weight: bold;
-      font-size: 10pt;
-    }
-
-    .totals-row td {
-      padding: 8pt 5pt;
-      border: 1pt solid #000;
-    }
-
-    .signatures {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 40pt;
-    }
-
-    .signature-block {
-      text-align: center;
-      width: 45%;
-    }
-
-    .signature-label {
-      font-weight: bold;
-      font-size: 10pt;
-      margin-bottom: 20pt;
-    }
-
-    .signature-name {
-      font-size: 9pt;
-    }
-
-    .print-button {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background-color: ${blueColor};
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 14pt;
-      font-weight: bold;
-      cursor: pointer;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .print-button:hover {
-      background-color: ${darkBlueColor};
-    }
-
-    @media print {
-      .print-button {
-        display: none;
-      }
-      body {
-        padding: 0;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="header-container">
-    <div class="logo-section">
-      <img src="${logoUrl}" alt="Logo" class="logo">
-    </div>
-    <div class="title-section">
-      <h1>DROGUERIA EL OLAM</h1>
-      <h2>LIQUIDACION SEMANAL DE RECIBOS DE CAJA</h2>
-    </div>
-  </div>
-
-  <div class="info-box">
-    <div class="info-field">
-      <strong>Ejecutivo:</strong> <span>${datos.ejecutivo || ''}</span>
-    </div>
-    <div class="info-field">
-      <strong>Ruta Cubierta:</strong> <span>${datos.rutaCubierta || ''}</span>
-    </div>
-    <div class="info-field" style="grid-column: 1 / -1;">
-      <strong>Semana del:</strong> <span>${formatDateSimple(datos.semanaDesde)}</span>
-      <strong style="margin-left: 20pt;">al</strong> <span>${formatDateSimple(datos.semanaHasta)}</span>
-    </div>
-  </div>
-
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th style="width: 8%;">Recibo</th>
-        <th style="width: 8%;">Código</th>
-        <th style="width: 25%;">Cliente</th>
-        <th style="width: 12%;">Boletas</th>
-        <th style="width: 12%;">Efectivo</th>
-        <th style="width: 12%;">Cheque</th>
-        <th style="width: 23%;">Observaciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${tableRows}
-    </tbody>
-    <tfoot>
-      <tr class="totals-row">
-        <td colspan="3" style="text-align: center;"><strong>TOTALES:</strong></td>
-        <td style="text-align: right;">${formatCurrency(totals.boletas)}</td>
-        <td style="text-align: right;">${formatCurrency(totals.efectivo)}</td>
-        <td style="text-align: right;">${formatCurrency(totals.cheque)}</td>
-        <td style="text-align: right;"><strong>${formatCurrency(totals.total)}</strong></td>
-      </tr>
-    </tfoot>
-  </table>
-
-  <div class="signatures">
-    <div class="signature-block">
-      <div class="signature-label">Liquidado Por: ________________</div>
-      <div class="signature-name">${datos.liquidadoPor || ''}</div>
-      <div class="signature-name">${datos.cargoLiquidado || ''}</div>
-    </div>
-    <div class="signature-block">
-      <div class="signature-label">Revisado Por: ________________</div>
-      <div class="signature-name">${datos.revisadoPor || ''}</div>
-    </div>
-  </div>
-
-  <button class="print-button" onclick="window.print()">
-    🖨️ Imprimir
-  </button>
-</body>
-</html>
-    `;
+    return generateLiquidacionRecibosHtml(datos, receipts);
   };
 
   const downloadHTML = (html, filename) => {
@@ -784,21 +277,26 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser
                     <th className="border px-4 py-2">Boletas</th>
                     <th className="border px-4 py-2">Efectivo</th>
                     <th className="border px-4 py-2">Cheque</th>
+                    <th className="border px-4 py-2 bg-blue-800 text-amber-300">Total (Q)</th>
                     <th className="border px-4 py-2">Observaciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {receipts.map((receipt, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="border px-4 py-2">{receipt.recibo}</td>
-                      <td className="border px-4 py-2">{receipt.codigo}</td>
-                      <td className="border px-4 py-2">{receipt.cliente}</td>
-                      <td className="border px-4 py-2 text-right">{formatCurrency(parseFloat(receipt.boletas) || 0)}</td>
-                      <td className="border px-4 py-2 text-right">{formatCurrency(parseFloat(receipt.efectivo) || 0)}</td>
-                      <td className="border px-4 py-2 text-right">{formatCurrency(parseFloat(receipt.cheque) || 0)}</td>
-                      <td className="border px-4 py-2">{receipt.observaciones}</td>
-                    </tr>
-                  ))}
+                  {receipts.map((receipt, index) => {
+                    const rowTotal = (parseFloat(receipt.boletas) || 0) + (parseFloat(receipt.efectivo) || 0) + (parseFloat(receipt.cheque) || 0);
+                    return (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="border px-4 py-2 font-bold">{receipt.recibo}</td>
+                        <td className="border px-4 py-2 font-mono">{receipt.codigo}</td>
+                        <td className="border px-4 py-2 font-semibold">{receipt.cliente}</td>
+                        <td className="border px-4 py-2 text-right">{formatCurrency(parseFloat(receipt.boletas) || 0)}</td>
+                        <td className="border px-4 py-2 text-right">{formatCurrency(parseFloat(receipt.efectivo) || 0)}</td>
+                        <td className="border px-4 py-2 text-right">{formatCurrency(parseFloat(receipt.cheque) || 0)}</td>
+                        <td className="border px-4 py-2 text-right font-bold text-emerald-700 bg-emerald-50/50">{formatCurrency(rowTotal)}</td>
+                        <td className="border px-4 py-2 text-gray-700">{receipt.observaciones}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot className="bg-black text-white font-bold">
                   <tr>
@@ -806,7 +304,8 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser
                     <td className="border px-4 py-2 text-right">{formatCurrency(totals.boletas)}</td>
                     <td className="border px-4 py-2 text-right">{formatCurrency(totals.efectivo)}</td>
                     <td className="border px-4 py-2 text-right">{formatCurrency(totals.cheque)}</td>
-                    <td className="border px-4 py-2 text-right">{formatCurrency(totals.total)}</td>
+                    <td className="border px-4 py-2 text-right text-amber-300">{formatCurrency(totals.total)}</td>
+                    <td className="border px-4 py-2 text-center text-xs text-gray-400">✔</td>
                   </tr>
                 </tfoot>
               </table>

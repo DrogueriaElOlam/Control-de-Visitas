@@ -80,3 +80,50 @@ header input,
   background-color: transparent !important;
 }
 
+/* Reglas universales de impresión para que las hojas de trabajo se vean completas */
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 8mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 9pt !important;
+  }
+
+  nav,
+  header,
+  .no-print,
+  button,
+  .olam-top-actions-bar {
+    display: none !important;
+  }
+
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .overflow-auto {
+    overflow: visible !important;
+  }
+
+  table {
+    width: 100% !important;
+    max-width: 100% !important;
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+}
+

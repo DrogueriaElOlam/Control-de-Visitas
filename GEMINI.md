@@ -281,6 +281,18 @@
         * `CentralSupervisionModal.jsx` (botón 'Imprimir / PDF' y 'Exportar HTML').
         * Reportes descargables de metas y rutas (`goalComplianceReport.js`, `monthlyRouteReport.js`).
         * Botones unificados en `FormButtons.jsx` con soporte nativo de `onPrint`.
+  52. **Ajuste Perfecto del Cuadro y Hoja de Trabajo Completa en Liquidación de Recibos de Caja (Sin Cortes en Impresión y Columna Total Unificada):**
+      - **Causa Raíz de Cuadro Incompleto:**
+        1) En el HTML de impresión, `@page` tenía márgenes excesivos de 0.75in (19mm), logo de 130pt (173px) y espaciados desproporcionados, totalizando más de 760pt de altura para 15 filas + cabecera + firmas frente a los 684pt útiles de una hoja Letter. Esto obligaba al navegador a cortar la tabla y enviar las últimas filas, totales o firmas a una segunda hoja o dejarlas incompletas.
+        2) La tabla carecía de la columna 'Total' por recibo y el total general en el pie (`tfoot`) caía incorrectamente debajo de la columna 'Observaciones'.
+      - **Módulo Especializado `liquidacionRecibosHtml.js`:**
+        1) Hoja de trabajo diseñada a la medida exacta de 1 página Letter Portrait (`margin: 8mm`), con encabezado compacto, logo de 48px nítido, cuadro de datos del ejecutivo/ruta/semana optimizado, y firmas balanceadas.
+        2) Columna 'Total (Q)' integrada entre Cheque y Observaciones, con cálculo reactivo por fila (`boletas + efectivo + cheque`) y total general alineado con celda destacada en amarillo oro y badge '✔ Cuadrado'.
+        3) `table-layout: fixed` con porcentajes exactos que garantizan que el cuadro jamás se desborde ni se corte por la derecha.
+      - **Actualización en Pantalla e Historial:**
+        1) `LiquidacionRecibosForm.jsx`: Tabla interactiva actualizada con columna 'Total (Q)' en tiempo real, alineación del pie de totales y enlace directo al generador unificado.
+        2) `LiquidacionRecibosHistory.jsx`: Modal de detalles y exportador unificados con la columna Total y el generador `generateLiquidacionRecibosHtml`.
+        3) `src/index.css`: Reglas `@media print` globales añadidas para permitir impresión directa sin barras de navegación ni desbordes.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -295,9 +307,10 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 17 de Octubre de 2026 - 11:25.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261017-V150
+  - **Fecha y Hora de Publicación:** 17 de Octubre de 2026 - 12:55.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261017-V151
   - **Estado al Momento de la Publicación:**
-    - Barra y botón universal de impresión / guardar en PDF integrado en todos los formularios y reportes HTML exportados tanto para vendedores como para el administrador.
+    - Cuadro y hoja de trabajo de Liquidación de Recibos de Caja ajustados al 100% para impresión en 1 sola página Letter sin cortes ni desbordes.
+    - Columna Total (Q) integrada por fila y en totales generales.
     - Repositorio Git en main sincronizado y desplegado en Vercel.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

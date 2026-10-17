@@ -8,6 +8,7 @@ import LiquidacionRecibosHistory from './LiquidacionRecibosHistory';
 import { isSuperUser, getPermittedRoutesForUser, ALL_ROUTES } from '../lib/formsPermissions';
 import { LOGO_DATA_URI } from '../lib/logo';
 import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
+import { generateLiquidacionRecibosHtml } from '../lib/liquidacionRecibosHtml';
 
 const MIN_ROWS = 15;
 
@@ -477,235 +478,7 @@ export default function LiquidacionRecibosForm({ currentUser }) {
   };
 
   const buildHtml = () => {
-    const blueColor = '#1E3A8A';
-    const darkBlueColor = '#1E40AF';
-    
-    const logoUrl = LOGO_DATA_URI;
-    const LOGO_SIZE = '130pt';
-
-    const rowsToExport = Math.max(receipts.length, MIN_ROWS);
-    const tableRows = Array(rowsToExport).fill(null).map((_, i) => {
-      const receipt = receipts[i] || {};
-      return `
-        <tr>
-          <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: left; font-size: 9pt;">${receipt.recibo || '&nbsp;'}</td>
-          <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: left; font-size: 9pt;">${receipt.codigo || '&nbsp;'}</td>
-          <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: left; font-size: 9pt;">${receipt.cliente || '&nbsp;'}</td>
-          <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: right; font-size: 9pt;">${receipt.boletas ? formatCurrency(parseFloat(receipt.boletas)) : '&nbsp;'}</td>
-          <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: right; font-size: 9pt;">${receipt.efectivo ? formatCurrency(parseFloat(receipt.efectivo)) : '&nbsp;'}</td>
-          <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: right; font-size: 9pt;">${receipt.cheque ? formatCurrency(parseFloat(receipt.cheque)) : '&nbsp;'}</td>
-          <td style="border: 1pt solid #000; padding: 6pt 5pt; text-align: left; font-size: 9pt;">${receipt.observaciones || '&nbsp;'}</td>
-        </tr>
-      `;
-    }).join('');
-
-    const html = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Liquidación de Recibos</title>
-  <style>
-    @page {
-      size: letter portrait;
-      margin: 0.75in;
-    }
-    
-    body {
-      font-family: Arial, sans-serif;
-      font-size: 10pt;
-      line-height: 1.2;
-      margin: 0;
-      padding: 0;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    
-    .header-container {
-      display: flex;
-      align-items: flex-start;
-      margin-bottom: 15pt;
-      gap: 15pt;
-    }
-    
-    .logo-section {
-      flex-shrink: 0;
-    }
-    
-    .logo {
-      width: ${LOGO_SIZE};
-      height: auto;
-    }
-    
-    .title-section {
-      flex: 1;
-      text-align: center;
-    }
-    
-    h1 {
-      color: ${blueColor};
-      font-size: 16pt;
-      font-weight: bold;
-      margin: 0 0 5pt 0;
-      text-transform: uppercase;
-    }
-    
-    h2 {
-      color: ${blueColor};
-      font-size: 13pt;
-      font-weight: bold;
-      margin: 0;
-      text-transform: uppercase;
-    }
-    
-    .info-box {
-      border: 2pt solid ${blueColor};
-      padding: 10pt;
-      margin-bottom: 15pt;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8pt;
-    }
-    
-    .info-field {
-      font-size: 10pt;
-    }
-    
-    .info-field strong {
-      font-weight: bold;
-    }
-    
-    .info-field span {
-      border-bottom: 1pt solid #000;
-      display: inline-block;
-      min-width: 150pt;
-      padding: 0 5pt;
-    }
-    
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 15pt;
-    }
-    
-    .data-table th {
-      background-color: ${darkBlueColor};
-      color: white;
-      font-weight: bold;
-      text-align: center;
-      border: 1pt solid #000;
-      padding: 8pt 5pt;
-      font-size: 10pt;
-    }
-    
-    .data-table td {
-      border: 1pt solid #000;
-      padding: 6pt 5pt;
-      vertical-align: middle;
-      font-size: 9pt;
-    }
-    
-    .totals-row {
-      background-color: black;
-      color: white;
-      font-weight: bold;
-      font-size: 10pt;
-    }
-    
-    .totals-row td {
-      padding: 8pt 5pt;
-      border: 1pt solid #000;
-    }
-    
-    .signatures {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 40pt;
-    }
-    
-    .signature-block {
-      text-align: center;
-      width: 45%;
-    }
-    
-    .signature-label {
-      font-weight: bold;
-      font-size: 10pt;
-      margin-bottom: 20pt;
-    }
-    
-    .signature-name {
-      font-size: 9pt;
-    }
-  </style>
-</head>
-<body>
-  <div class="header-container">
-    <div class="logo-section">
-      <img src="${logoUrl}" alt="Logo" class="logo">
-    </div>
-    <div class="title-section">
-      <h1>DROGUERIA EL OLAM</h1>
-      <h2>LIQUIDACION SEMANAL DE RECIBOS DE CAJA</h2>
-    </div>
-  </div>
-
-  <div class="info-box">
-    <div class="info-field">
-      <strong>Ejecutivo:</strong> <span>${formData.ejecutivo}</span>
-    </div>
-    <div class="info-field">
-      <strong>Ruta Cubierta:</strong> <span>${formData.rutaCubierta}</span>
-    </div>
-    <div class="info-field" style="grid-column: 1 / -1;">
-      <strong>Semana del:</strong> <span>${formatDate(formData.semanaDesde)}</span>
-      <strong style="margin-left: 20pt;">al</strong> <span>${formatDate(formData.semanaHasta)}</span>
-    </div>
-  </div>
-
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th style="width: 8%;">Recibo</th>
-        <th style="width: 8%;">Código</th>
-        <th style="width: 25%;">Cliente</th>
-        <th style="width: 12%;">Boletas</th>
-        <th style="width: 12%;">Efectivo</th>
-        <th style="width: 12%;">Cheque</th>
-        <th style="width: 23%;">Observaciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${tableRows}
-    </tbody>
-    <tfoot>
-      <tr class="totals-row">
-        <td colspan="3" style="text-align: center;"><strong>TOTALES:</strong></td>
-        <td style="text-align: right;">${formatCurrency(totals.boletas)}</td>
-        <td style="text-align: right;">${formatCurrency(totals.efectivo)}</td>
-        <td style="text-align: right;">${formatCurrency(totals.cheque)}</td>
-        <td style="text-align: right;"><strong>${formatCurrency(totals.total)}</strong></td>
-      </tr>
-    </tfoot>
-  </table>
-
-  <div class="signatures">
-    <div class="signature-block">
-      <div class="signature-label">Liquidado Por: ________________</div>
-      <div class="signature-name">${formData.liquidadoPor}</div>
-      <div class="signature-name">${formData.cargoLiquidado}</div>
-    </div>
-    <div class="signature-block">
-      <div class="signature-label">Revisado Por: ________________</div>
-      <div class="signature-name">${formData.revisadoPor}</div>
-    </div>
-  </div>
-</body>
-</html>
-    `;
-
-    return html;
+    return generateLiquidacionRecibosHtml(formData, receipts);
   };
 
   const getCleanFileName = () => {
@@ -890,6 +663,7 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                   <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Boletas</th>
                   <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Efectivo</th>
                   <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Cheque</th>
+                  <th className="border border-blue-800 px-2 py-2 text-center font-bold text-amber-300 bg-blue-950">Total (Q)</th>
                   <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Observaciones</th>
                   <th className="border border-blue-800 px-2 py-2 text-center w-16 font-bold text-white">Acción</th>
                 </tr>
@@ -950,6 +724,9 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                         className="w-full px-1.5 py-1 text-xs sm:text-sm bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded focus:ring-1 focus:ring-blue-600 text-right text-blue-700 dark:text-blue-400 font-bold"
                       />
                     </td>
+                    <td className="border border-blue-100 dark:border-blue-800/40 px-2 py-1 text-right text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/20 whitespace-nowrap">
+                      {formatCurrency((parseFloat(receipt.boletas) || 0) + (parseFloat(receipt.efectivo) || 0) + (parseFloat(receipt.cheque) || 0))}
+                    </td>
                     <td className="border border-blue-100 dark:border-blue-800/40 px-1 py-1">
                       <input
                         type="text"
@@ -986,6 +763,9 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                   </td>
                   <td className="border border-blue-800 px-2 py-2.5 text-right text-xs sm:text-sm text-amber-300 font-black">
                     {formatCurrency(totals.total)}
+                  </td>
+                  <td className="border border-blue-800 px-2 py-2.5 text-center text-xs text-blue-200">
+                    {receipts.filter(r => r.recibo || r.cliente).length} Recibos
                   </td>
                   <td className="border border-blue-800 px-2 py-2.5"></td>
                 </tr>
