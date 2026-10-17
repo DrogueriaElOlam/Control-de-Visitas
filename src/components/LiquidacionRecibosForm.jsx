@@ -663,7 +663,6 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                   <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Boletas</th>
                   <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Efectivo</th>
                   <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Cheque</th>
-                  <th className="border border-blue-800 px-2 py-2 text-center font-bold text-amber-300 bg-blue-950">Total (Q)</th>
                   <th className="border border-blue-800 px-2 py-2 text-center font-bold text-white">Observaciones</th>
                   <th className="border border-blue-800 px-2 py-2 text-center w-16 font-bold text-white">Acción</th>
                 </tr>
@@ -724,9 +723,6 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                         className="w-full px-1.5 py-1 text-xs sm:text-sm bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded focus:ring-1 focus:ring-blue-600 text-right text-blue-700 dark:text-blue-400 font-bold"
                       />
                     </td>
-                    <td className="border border-blue-100 dark:border-blue-800/40 px-2 py-1 text-right text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/20 whitespace-nowrap">
-                      {formatCurrency((parseFloat(receipt.boletas) || 0) + (parseFloat(receipt.efectivo) || 0) + (parseFloat(receipt.cheque) || 0))}
-                    </td>
                     <td className="border border-blue-100 dark:border-blue-800/40 px-1 py-1">
                       <input
                         type="text"
@@ -763,9 +759,6 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                   </td>
                   <td className="border border-blue-800 px-2 py-2.5 text-right text-xs sm:text-sm text-amber-300 font-black">
                     {formatCurrency(totals.total)}
-                  </td>
-                  <td className="border border-blue-800 px-2 py-2.5 text-center text-xs text-blue-200">
-                    {receipts.filter(r => r.recibo || r.cliente).length} Recibos
                   </td>
                   <td className="border border-blue-800 px-2 py-2.5"></td>
                 </tr>

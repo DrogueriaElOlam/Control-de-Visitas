@@ -63,7 +63,10 @@ const MIN_ROWS_PRINT = 15;
 
 /**
  * Genera el documento HTML completo para la Hoja de Trabajo de Liquidación Semanal de Recibos de Caja
- * Garantiza que quepa al 100% en 1 sola hoja de papel (Letter Portrait o Landscape) sin cortes ni desbordes.
+ * - 7 columnas oficiales (sin columna de Totales por fila)
+ * - Gran Total ubicado en el pie exactamente debajo de la columna de Observaciones
+ * - Tipografía con tamaño 9.5pt a 10pt (nada de letras diminutas)
+ * - Todo ajustado y proporcionado para una impresión impecable en 1 sola hoja
  */
 export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => {
   const totals = calculateReceiptTotals(receipts);
@@ -76,7 +79,6 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       const boletasNum = parseFloat(r.boletas) || 0;
       const efectivoNum = parseFloat(r.efectivo) || 0;
       const chequeNum = parseFloat(r.cheque) || 0;
-      const rowTotalNum = boletasNum + efectivoNum + chequeNum;
 
       const recibo = r.recibo ? String(r.recibo).trim() : '&nbsp;';
       const codigo = r.codigo ? String(r.codigo).trim() : '&nbsp;';
@@ -84,21 +86,19 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       const boletasStr = boletasNum > 0 ? formatCurrency(boletasNum) : (r.boletas === '0' || r.boletas === 0 ? 'Q 0.00' : '&nbsp;');
       const efectivoStr = efectivoNum > 0 ? formatCurrency(efectivoNum) : (r.efectivo === '0' || r.efectivo === 0 ? 'Q 0.00' : '&nbsp;');
       const chequeStr = chequeNum > 0 ? formatCurrency(chequeNum) : (r.cheque === '0' || r.cheque === 0 ? 'Q 0.00' : '&nbsp;');
-      const totalStr = rowTotalNum > 0 ? formatCurrency(rowTotalNum) : '&nbsp;';
       const observaciones = r.observaciones ? String(r.observaciones).trim() : '&nbsp;';
 
       const rowBg = index % 2 === 1 ? '#f8fafc' : '#ffffff';
 
       return `
         <tr style="background-color: ${rowBg};">
-          <td style="border: 1pt solid #000; padding: 3pt 4pt; text-align: center; font-size: 8pt; font-weight: bold;">${recibo}</td>
-          <td style="border: 1pt solid #000; padding: 3pt 4pt; text-align: center; font-size: 8pt; font-family: monospace;">${codigo}</td>
-          <td style="border: 1pt solid #000; padding: 3pt 5pt; text-align: left; font-size: 8pt; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cliente}</td>
-          <td style="border: 1pt solid #000; padding: 3pt 4pt; text-align: right; font-size: 8pt;">${boletasStr}</td>
-          <td style="border: 1pt solid #000; padding: 3pt 4pt; text-align: right; font-size: 8pt;">${efectivoStr}</td>
-          <td style="border: 1pt solid #000; padding: 3pt 4pt; text-align: right; font-size: 8pt;">${chequeStr}</td>
-          <td style="border: 1pt solid #000; padding: 3pt 4pt; text-align: right; font-size: 8pt; font-weight: bold; background-color: ${rowTotalNum > 0 ? '#f0fdf4' : 'transparent'};">${totalStr}</td>
-          <td style="border: 1pt solid #000; padding: 3pt 4pt; text-align: left; font-size: 7.5pt; color: #334155;">${observaciones}</td>
+          <td style="border: 1pt solid #000000; padding: 4.5pt 3pt; text-align: center; font-size: 9.5pt; font-weight: bold;">${recibo}</td>
+          <td style="border: 1pt solid #000000; padding: 4.5pt 3pt; text-align: center; font-size: 9pt; font-family: monospace; font-weight: 700;">${codigo}</td>
+          <td style="border: 1pt solid #000000; padding: 4.5pt 5pt; text-align: left; font-size: 9.5pt; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cliente}</td>
+          <td style="border: 1pt solid #000000; padding: 4.5pt 4pt; text-align: right; font-size: 9.5pt; font-weight: 600;">${boletasStr}</td>
+          <td style="border: 1pt solid #000000; padding: 4.5pt 4pt; text-align: right; font-size: 9.5pt; font-weight: 600;">${efectivoStr}</td>
+          <td style="border: 1pt solid #000000; padding: 4.5pt 4pt; text-align: right; font-size: 9.5pt; font-weight: 600;">${chequeStr}</td>
+          <td style="border: 1pt solid #000000; padding: 4.5pt 4pt; text-align: left; font-size: 8.5pt; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${observaciones}</td>
         </tr>
       `;
     })
@@ -116,7 +116,7 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
   <style>
     @page {
       size: letter portrait;
-      margin: 8mm 8mm 8mm 8mm;
+      margin: 8mm 7mm 8mm 7mm;
     }
 
     * {
@@ -131,8 +131,8 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       font-family: Arial, Helvetica, sans-serif;
       color: #000000;
       background: #ffffff;
-      font-size: 8.5pt;
-      line-height: 1.2;
+      font-size: 9.5pt;
+      line-height: 1.25;
     }
 
     .hoja-trabajo {
@@ -146,7 +146,7 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
     .header-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 6pt;
+      margin-bottom: 5pt;
     }
 
     .header-table td {
@@ -168,13 +168,13 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
 
     .header-titles {
       text-align: center;
-      padding: 0 5pt;
+      padding: 0 4pt;
     }
 
     .header-titles h1 {
       margin: 0;
       color: ${bluePrimary};
-      font-size: 13pt;
+      font-size: 14pt;
       font-weight: 900;
       letter-spacing: 0.8px;
       text-transform: uppercase;
@@ -183,24 +183,24 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
     .header-titles h2 {
       margin: 2pt 0 0 0;
       color: ${blueDark};
-      font-size: 10pt;
+      font-size: 11pt;
       font-weight: 800;
       letter-spacing: 0.5px;
       text-transform: uppercase;
     }
 
     .header-badge {
-      width: 110px;
+      width: 115px;
       text-align: right;
-      font-size: 7pt;
-      color: #475569;
-      line-height: 1.15;
+      font-size: 8pt;
+      color: #334155;
+      line-height: 1.2;
     }
 
     .header-badge strong {
       display: block;
       color: ${bluePrimary};
-      font-size: 7.5pt;
+      font-size: 8.5pt;
     }
 
     /* Cuadro de Información General */
@@ -209,13 +209,13 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       border: 1.5pt solid ${bluePrimary};
       border-radius: 4pt;
       background-color: #f8fafc;
-      margin-bottom: 6pt;
+      margin-bottom: 5pt;
       border-collapse: collapse;
     }
 
     .info-card td {
-      padding: 3.5pt 6pt;
-      font-size: 8pt;
+      padding: 4pt 6pt;
+      font-size: 9.5pt;
       border-bottom: 0.5pt solid #cbd5e1;
     }
 
@@ -235,7 +235,7 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       color: #000000;
       border-bottom: 1pt solid #000000;
       width: 35%;
-      padding-left: 4pt !important;
+      padding-left: 5pt !important;
     }
 
     /* Tabla de Datos Principal */
@@ -243,7 +243,7 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      margin-bottom: 6pt;
+      margin-bottom: 5pt;
     }
 
     .data-table thead {
@@ -254,11 +254,11 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       background-color: ${bluePrimary};
       color: #ffffff;
       font-weight: 800;
-      font-size: 7.5pt;
+      font-size: 9pt;
       text-transform: uppercase;
       text-align: center;
       border: 1pt solid #000000;
-      padding: 4pt 2pt;
+      padding: 4.5pt 2pt;
       letter-spacing: 0.3px;
     }
 
@@ -275,21 +275,23 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       background-color: #0f172a !important;
       color: #ffffff !important;
       font-weight: 900;
-      font-size: 8pt;
-      padding: 4pt 3pt;
+      font-size: 9.5pt;
+      padding: 4.5pt 3pt;
       border: 1pt solid #000000;
     }
 
-    .totals-row td.total-highlight {
+    .totals-row td.gran-total-cell {
       background-color: #1e293b !important;
-      color: #fde047 !important; /* Amarillo oro para máxima legibilidad */
-      font-size: 8.5pt;
+      color: #fde047 !important; /* Amarillo oro de alta legibilidad */
+      font-size: 10.5pt !important;
+      font-weight: 900 !important;
+      letter-spacing: 0.3px;
     }
 
     /* Firmas */
     .signatures-section {
       width: 100%;
-      margin-top: 10pt;
+      margin-top: 12pt;
       page-break-inside: avoid;
     }
 
@@ -302,23 +304,23 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       width: 50%;
       text-align: center;
       vertical-align: top;
-      padding: 0 20pt;
+      padding: 0 25pt;
     }
 
     .signature-line {
       border-top: 1.5pt solid #000000;
-      margin-top: 28pt;
+      margin-top: 30pt;
       padding-top: 3pt;
       font-weight: bold;
-      font-size: 8pt;
+      font-size: 9.5pt;
       color: #000000;
     }
 
     .signature-role {
-      font-size: 7.5pt;
+      font-size: 8.5pt;
       color: #334155;
       font-weight: 600;
-      margin-top: 1pt;
+      margin-top: 2pt;
     }
 
     @media print {
@@ -367,18 +369,17 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       </tr>
     </table>
 
-    <!-- Cuadro de Recibos -->
+    <!-- Cuadro de Recibos (7 Columnas Oficiales) -->
     <table class="data-table">
       <thead>
         <tr>
-          <th style="width: 8.5%;">Recibo</th>
-          <th style="width: 8%;">Código</th>
-          <th style="width: 25.5%;">Cliente / Farmacia</th>
-          <th style="width: 11%;">Boletas (Q)</th>
-          <th style="width: 11%;">Efectivo (Q)</th>
-          <th style="width: 11%;">Cheque (Q)</th>
-          <th style="width: 12%;">Total (Q)</th>
-          <th style="width: 13%;">Observaciones</th>
+          <th style="width: 9%;">Recibo</th>
+          <th style="width: 9%;">Código</th>
+          <th style="width: 31%;">Cliente / Farmacia</th>
+          <th style="width: 12.5%;">Boletas (Q)</th>
+          <th style="width: 12.5%;">Efectivo (Q)</th>
+          <th style="width: 12.5%;">Cheque (Q)</th>
+          <th style="width: 13.5%;">Observaciones</th>
         </tr>
       </thead>
       <tbody>
@@ -386,12 +387,12 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       </tbody>
       <tfoot>
         <tr class="totals-row">
-          <td colspan="3" style="text-align: center; letter-spacing: 1px;">TOTALES GENERALES:</td>
+          <td colspan="3" style="text-align: center; letter-spacing: 0.8px;">TOTALES:</td>
           <td style="text-align: right;">${formatCurrency(totals.boletas)}</td>
           <td style="text-align: right;">${formatCurrency(totals.efectivo)}</td>
           <td style="text-align: right;">${formatCurrency(totals.cheque)}</td>
-          <td class="total-highlight" style="text-align: right;">${formatCurrency(totals.total)}</td>
-          <td style="text-align: center; font-size: 7pt; color: #94a3b8;">✔ Cuadrado</td>
+          <!-- Gran Total debajo de la columna de Observaciones -->
+          <td class="gran-total-cell" style="text-align: right;">${formatCurrency(totals.total)}</td>
         </tr>
       </tfoot>
     </table>

@@ -281,18 +281,15 @@
         * `CentralSupervisionModal.jsx` (botón 'Imprimir / PDF' y 'Exportar HTML').
         * Reportes descargables de metas y rutas (`goalComplianceReport.js`, `monthlyRouteReport.js`).
         * Botones unificados en `FormButtons.jsx` con soporte nativo de `onPrint`.
-  52. **Ajuste Perfecto del Cuadro y Hoja de Trabajo Completa en Liquidación de Recibos de Caja (Sin Cortes en Impresión y Columna Total Unificada):**
-      - **Causa Raíz de Cuadro Incompleto:**
-        1) En el HTML de impresión, `@page` tenía márgenes excesivos de 0.75in (19mm), logo de 130pt (173px) y espaciados desproporcionados, totalizando más de 760pt de altura para 15 filas + cabecera + firmas frente a los 684pt útiles de una hoja Letter. Esto obligaba al navegador a cortar la tabla y enviar las últimas filas, totales o firmas a una segunda hoja o dejarlas incompletas.
-        2) La tabla carecía de la columna 'Total' por recibo y el total general en el pie (`tfoot`) caía incorrectamente debajo de la columna 'Observaciones'.
-      - **Módulo Especializado `liquidacionRecibosHtml.js`:**
-        1) Hoja de trabajo diseñada a la medida exacta de 1 página Letter Portrait (`margin: 8mm`), con encabezado compacto, logo de 48px nítido, cuadro de datos del ejecutivo/ruta/semana optimizado, y firmas balanceadas.
-        2) Columna 'Total (Q)' integrada entre Cheque y Observaciones, con cálculo reactivo por fila (`boletas + efectivo + cheque`) y total general alineado con celda destacada en amarillo oro y badge '✔ Cuadrado'.
-        3) `table-layout: fixed` con porcentajes exactos que garantizan que el cuadro jamás se desborde ni se corte por la derecha.
-      - **Actualización en Pantalla e Historial:**
-        1) `LiquidacionRecibosForm.jsx`: Tabla interactiva actualizada con columna 'Total (Q)' en tiempo real, alineación del pie de totales y enlace directo al generador unificado.
-        2) `LiquidacionRecibosHistory.jsx`: Modal de detalles y exportador unificados con la columna Total y el generador `generateLiquidacionRecibosHtml`.
-        3) `src/index.css`: Reglas `@media print` globales añadidas para permitir impresión directa sin barras de navegación ni desbordes.
+  52. **Ajuste Perfecto del Cuadro y Hoja de Trabajo en Liquidación de Recibos de Caja (7 Columnas Oficiales, Gran Total bajo Observaciones y Letra Legible de 9.5-10pt):**
+      - **Requerimiento Operativo Específico:** Retirar la columna de Totales por fila de la tabla, ubicar el Gran Total de la liquidación en el pie de página exactamente debajo de la columna de Observaciones, y evitar tipografía diminuta asegurando un tamaño de letra cómodo y nítido (9.5pt a 10pt) con márgenes y espaciados ajustados para una impresión formal de alta legibilidad en 1 sola hoja Carta (*Letter*).
+      - **Implementación en `liquidacionRecibosHtml.js`:**
+        1) Cuadro configurado estrictamente con 7 columnas: *Recibo, Código, Cliente / Farmacia, Boletas, Efectivo, Cheque y Observaciones*.
+        2) Fila de pie de página (`tfoot`): subtotales alineados en *Boletas, Efectivo y Cheque*, y Gran Total en Quetzales ubicado debajo de la columna *Observaciones* con fondo contrastado y números dorados en 10.5pt en negrita.
+        3) Tipografía base en 9.5pt con texto negro nítido, padding cómodo en celdas, membrete institucional equilibrado y firmas balanceadas que garantizan que el cuadro se vea 100% completo y sin desbordes.
+      - **Sincronización en Formulario e Historial:**
+        1) `LiquidacionRecibosForm.jsx`: Tabla interactiva adaptada al mismo formato de 7 columnas con Gran Total bajo Observaciones en tiempo real.
+        2) `LiquidacionRecibosHistory.jsx`: Vista previa y modal de detalles unificados con el formato oficial de 7 columnas y el Gran Total.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -307,10 +304,11 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 17 de Octubre de 2026 - 12:55.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261017-V151
+  - **Fecha y Hora de Publicación:** 17 de Octubre de 2026 - 13:10.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261017-V152
   - **Estado al Momento de la Publicación:**
-    - Cuadro y hoja de trabajo de Liquidación de Recibos de Caja ajustados al 100% para impresión en 1 sola página Letter sin cortes ni desbordes.
-    - Columna Total (Q) integrada por fila y en totales generales.
+    - Cuadro de Liquidación de Recibos configurado estrictamente con 7 columnas sin columna Totales por fila.
+    - Gran Total en Quetzales ubicado en el pie exactamente debajo de la columna de Observaciones.
+    - Tipografía en 9.5-10pt perfectamente legible y proporcionada para impresión en 1 sola hoja Carta (*Letter*).
     - Repositorio Git en main sincronizado y desplegado en Vercel.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

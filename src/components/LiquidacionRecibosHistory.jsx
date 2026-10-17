@@ -277,26 +277,21 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser
                     <th className="border px-4 py-2">Boletas</th>
                     <th className="border px-4 py-2">Efectivo</th>
                     <th className="border px-4 py-2">Cheque</th>
-                    <th className="border px-4 py-2 bg-blue-800 text-amber-300">Total (Q)</th>
                     <th className="border px-4 py-2">Observaciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {receipts.map((receipt, index) => {
-                    const rowTotal = (parseFloat(receipt.boletas) || 0) + (parseFloat(receipt.efectivo) || 0) + (parseFloat(receipt.cheque) || 0);
-                    return (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="border px-4 py-2 font-bold">{receipt.recibo}</td>
-                        <td className="border px-4 py-2 font-mono">{receipt.codigo}</td>
-                        <td className="border px-4 py-2 font-semibold">{receipt.cliente}</td>
-                        <td className="border px-4 py-2 text-right">{formatCurrency(parseFloat(receipt.boletas) || 0)}</td>
-                        <td className="border px-4 py-2 text-right">{formatCurrency(parseFloat(receipt.efectivo) || 0)}</td>
-                        <td className="border px-4 py-2 text-right">{formatCurrency(parseFloat(receipt.cheque) || 0)}</td>
-                        <td className="border px-4 py-2 text-right font-bold text-emerald-700 bg-emerald-50/50">{formatCurrency(rowTotal)}</td>
-                        <td className="border px-4 py-2 text-gray-700">{receipt.observaciones}</td>
-                      </tr>
-                    );
-                  })}
+                  {receipts.map((receipt, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="border px-4 py-2 font-bold">{receipt.recibo}</td>
+                      <td className="border px-4 py-2 font-mono">{receipt.codigo}</td>
+                      <td className="border px-4 py-2 font-semibold">{receipt.cliente}</td>
+                      <td className="border px-4 py-2 text-right">{formatCurrency(parseFloat(receipt.boletas) || 0)}</td>
+                      <td className="border px-4 py-2 text-right">{formatCurrency(parseFloat(receipt.efectivo) || 0)}</td>
+                      <td className="border px-4 py-2 text-right">{formatCurrency(parseFloat(receipt.cheque) || 0)}</td>
+                      <td className="border px-4 py-2 text-gray-700">{receipt.observaciones}</td>
+                    </tr>
+                  ))}
                 </tbody>
                 <tfoot className="bg-black text-white font-bold">
                   <tr>
@@ -304,8 +299,7 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser
                     <td className="border px-4 py-2 text-right">{formatCurrency(totals.boletas)}</td>
                     <td className="border px-4 py-2 text-right">{formatCurrency(totals.efectivo)}</td>
                     <td className="border px-4 py-2 text-right">{formatCurrency(totals.cheque)}</td>
-                    <td className="border px-4 py-2 text-right text-amber-300">{formatCurrency(totals.total)}</td>
-                    <td className="border px-4 py-2 text-center text-xs text-gray-400">✔</td>
+                    <td className="border px-4 py-2 text-right text-amber-300 font-black">{formatCurrency(totals.total)}</td>
                   </tr>
                 </tfoot>
               </table>
