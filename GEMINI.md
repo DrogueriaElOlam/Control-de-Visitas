@@ -251,6 +251,15 @@
         * Estado `connectionNotifications` alimentado desde Supabase Realtime (`olam_vendor_events_listener`), presencia satelital y eventos locales con deduplicación inteligente.
       - **Badges de Conteo en Navegación:**
         * Badges dinámicos con el total de vendedores activos en la barra secundaria de escritorio y en la barra móvil inferior.
+  49. **Actualización de Color de Fuente a Azul Legible en Formularios de Liquidación y Boletas (Cobros en Efectivo y Liquidación de Recibos/Boletas):**
+      - **Requerimiento del Usuario:** Cambiar el color de la fuente en el formulario de liquidación de boletas porque no se lograba ver bien, aplicando un azul nítido y legible tanto para vendedores como para el administrador.
+      - **Formulario de Cobros en Efectivo y Boletas (`CashCollectionsModal.jsx`):**
+        * Campos de entrada de boletas, bancos, montos en quetzales, observaciones, fecha y vendedor actualizados a azul nítido de alta visibilidad (`text-blue-700 dark:text-blue-400 font-bold`).
+        * Bordes y focos adaptados con `border-blue-300 dark:border-blue-700` y `focus:ring-blue-500` para lectura clara en modo claro y modo oscuro.
+      - **Formulario de Liquidación de Recibos y Boletas (`LiquidacionRecibosForm.jsx`):**
+        * Inputs de la cuadrícula semanal: recibo, código, cliente, boletas, efectivo, cheque y observaciones actualizados a `text-blue-700 dark:text-blue-400 font-bold bg-white dark:bg-slate-900`.
+        * Campos de control y firmas: ejecutivo, ruta, fechas y firmas configurados con la misma tipografía azul legible.
+        * Disponible universalmente tanto para Vendedores como para el Administrador.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -265,9 +274,9 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 15 de Octubre de 2026 - 00:10.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261015-V148
+  - **Fecha y Hora de Publicación:** 16 de Octubre de 2026 - 21:50.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261016-V149
   - **Estado al Momento de la Publicación:**
-    - Notificaciones de conexión al sistema integradas en la barra superior (Navbar) con monitoreo en tiempo real.
+    - Color de fuente en formularios de liquidación de boletas y cobros actualizado a azul legible de alto contraste para vendedores y administrador.
     - Repositorio Git en main sincronizado y desplegado en Vercel.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

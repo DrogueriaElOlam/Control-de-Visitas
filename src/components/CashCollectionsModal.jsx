@@ -281,7 +281,7 @@ export default function CashCollectionsModal({
                 <select
                   value={selectedVendorName}
                   onChange={(e) => setSelectedVendorName(e.target.value)}
-                  className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
                   {vendors.map(v => (
                     <option key={v.id} value={v.name}>{v.name}</option>
@@ -293,7 +293,7 @@ export default function CashCollectionsModal({
                 <span className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-0.5">
                   Vendedor
                 </span>
-                <span className="text-xs font-extrabold text-slate-800 dark:text-white bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 inline-block">
+                <span className="text-xs font-extrabold text-blue-700 dark:text-blue-400 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-700 inline-block">
                   {selectedVendorName}
                 </span>
               </div>
@@ -308,7 +308,7 @@ export default function CashCollectionsModal({
                 <select
                   value={activeReportId || ''}
                   onChange={(e) => setActiveReportId(e.target.value)}
-                  className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-200 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
                   {vendorReports.map(r => (
                     <option key={r.id} value={r.id}>
@@ -332,18 +332,18 @@ export default function CashCollectionsModal({
                 <span>Crea nuevo reporte Cobros en Efectivo</span>
               </button>
             ) : (
-              <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-amber-300 dark:border-amber-700 shadow-sm animate-in fade-in">
-                <Calendar size={15} className="text-amber-600 ml-1" />
+              <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-1.5 rounded-2xl border border-blue-300 dark:border-blue-700 shadow-sm animate-in fade-in">
+                <Calendar size={15} className="text-blue-600 ml-1" />
                 <input
                   type="date"
                   value={newReportDate}
                   onChange={(e) => setNewReportDate(e.target.value)}
-                  className="px-2 py-1 text-xs font-bold bg-transparent border-0 text-slate-800 dark:text-white focus:outline-none"
+                  className="px-2 py-1 text-xs font-bold bg-transparent border-0 text-blue-700 dark:text-blue-400 focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleCreateNewReport}
-                  className="px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all"
+                  className="px-3 py-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all"
                 >
                   Crear
                 </button>
@@ -372,15 +372,15 @@ export default function CashCollectionsModal({
                 {/* Table Header Bar */}
                 <div className="bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-800 px-5 py-3 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-amber-500"></span>
+                    <span className="w-3 h-3 rounded-full bg-blue-600"></span>
                     <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
                       Reporte Cobros en Efectivo
                     </h4>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                    <span>Fecha: <strong className="text-slate-900 dark:text-white">{draftReport.date}</strong></span>
+                    <span>Fecha: <strong className="text-blue-700 dark:text-blue-400 font-bold">{draftReport.date}</strong></span>
                     <span>•</span>
-                    <span>Vendedor: <strong className="text-slate-900 dark:text-white">{draftReport.vendorName}</strong></span>
+                    <span>Vendedor: <strong className="text-blue-700 dark:text-blue-400 font-bold">{draftReport.vendorName}</strong></span>
                   </div>
                 </div>
 
@@ -398,10 +398,10 @@ export default function CashCollectionsModal({
                     </thead>
                     <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                       {draftReport.rows.map((row, idx) => (
-                        <tr key={row.id || idx} className="hover:bg-amber-50/40 dark:hover:bg-slate-800/50 transition-colors">
+                        <tr key={row.id || idx} className="hover:bg-blue-50/40 dark:hover:bg-slate-800/50 transition-colors">
                           
                           {/* 1. Correlativo No. */}
-                          <td className="py-2 px-3 font-mono font-bold text-center text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40">
+                          <td className="py-2 px-3 font-mono font-bold text-center text-blue-700 dark:text-blue-400 border-r border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40">
                             {idx + 1}
                           </td>
 
@@ -414,10 +414,10 @@ export default function CashCollectionsModal({
                               placeholder="Ej: 8492019"
                               value={row.boleta || ''}
                               onChange={(e) => handleRowChange(idx, 'boleta', e.target.value)}
-                              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg font-mono font-bold text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                              className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-lg font-mono font-bold text-xs text-blue-700 dark:text-blue-400 placeholder:text-blue-300 dark:placeholder:text-blue-600/50 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                             />
                             {row.clientName && (
-                              <span className="block text-[10px] text-slate-400 truncate mt-0.5">
+                              <span className="block text-[10px] text-blue-600/80 dark:text-blue-400/80 font-medium truncate mt-0.5">
                                 Ref: {row.clientName}
                               </span>
                             )}
@@ -428,7 +428,7 @@ export default function CashCollectionsModal({
                             <select
                               value={row.banco || BANK_OPTIONS[1]}
                               onChange={(e) => handleRowChange(idx, 'banco', e.target.value)}
-                              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                              className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-lg text-xs font-bold text-blue-700 dark:text-blue-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                             >
                               {BANK_OPTIONS.map(b => (
                                 <option key={b} value={b}>{b}</option>
@@ -439,7 +439,7 @@ export default function CashCollectionsModal({
                           {/* 4. Monto */}
                           <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-700 text-right">
                             <div className="relative">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-500 dark:text-blue-400 font-bold">
                                 Q
                               </span>
                               <input
@@ -449,7 +449,7 @@ export default function CashCollectionsModal({
                                 placeholder="0.00"
                                 value={row.monto !== undefined && row.monto !== null ? row.monto : ''}
                                 onChange={(e) => handleRowChange(idx, 'monto', e.target.value)}
-                                className="w-full pl-6 pr-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg font-mono font-black text-xs text-right text-emerald-700 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="w-full pl-6 pr-2.5 py-1.5 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-lg font-mono font-bold text-xs text-right text-blue-700 dark:text-blue-400 placeholder:text-blue-300 dark:placeholder:text-blue-600/50 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                               />
                             </div>
                           </td>
@@ -472,11 +472,11 @@ export default function CashCollectionsModal({
 
                     {/* Footer Row: TOTAL */}
                     <tfoot>
-                      <tr className="bg-amber-50/70 dark:bg-amber-950/40 border-t-2 border-slate-300 dark:border-slate-700 font-black">
+                      <tr className="bg-blue-50/70 dark:bg-blue-950/40 border-t-2 border-slate-300 dark:border-slate-700 font-black">
                         <td colSpan={3} className="py-3 px-4 text-right uppercase text-xs tracking-wider text-slate-800 dark:text-slate-200 border-r border-slate-300 dark:border-slate-700">
                           Total
                         </td>
-                        <td className="py-3 px-3 text-right font-mono text-sm text-emerald-700 dark:text-emerald-300 border-r border-slate-300 dark:border-slate-700">
+                        <td className="py-3 px-3 text-right font-mono font-bold text-sm text-blue-700 dark:text-blue-300 border-r border-slate-300 dark:border-slate-700">
                           Q{(draftReport.total || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
                         <td></td>
@@ -490,7 +490,7 @@ export default function CashCollectionsModal({
                   <button
                     type="button"
                     onClick={handleAddRow}
-                    className="px-3.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                    className="px-3.5 py-1.5 rounded-xl bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-800/60 text-blue-700 dark:text-blue-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
                   >
                     <Plus size={14} />
                     <span>Agregar registro</span>
@@ -504,8 +504,8 @@ export default function CashCollectionsModal({
               </div>
 
               {/* Observaciones Area (Matching PDF bottom section) */}
-              <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 space-y-1.5">
-                <label className="block text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-4 border border-blue-200 dark:border-blue-800/40 space-y-1.5">
+                <label className="block text-xs font-black uppercase tracking-wider text-blue-950 dark:text-blue-300">
                   Observaciones
                 </label>
                 <textarea
@@ -513,7 +513,7 @@ export default function CashCollectionsModal({
                   value={draftReport.observaciones || ''}
                   onChange={(e) => setDraftReport({ ...draftReport, observaciones: e.target.value })}
                   placeholder="Escriba aquí cualquier observación sobre las boletas, depósitos en tránsito, cheques recibidos como efectivo o depósitos del día siguiente..."
-                  className="w-full p-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  className="w-full p-3 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-xl text-xs font-semibold text-blue-800 dark:text-blue-300 placeholder:text-blue-300 dark:placeholder:text-blue-600/50 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 

@@ -785,7 +785,7 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                   <select
                     value={formData.ejecutivo}
                     onChange={(e) => handleFormChange('ejecutivo', e.target.value)}
-                    className="flex-1 px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white"
+                    className="flex-1 px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-700 dark:text-blue-400 font-bold bg-white dark:bg-slate-900"
                   >
                     <option value="">Seleccionar ejecutivo</option>
                     {ejecutivos.map((exec) => (
@@ -800,7 +800,7 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                   </button>
                 </div>
               ) : (
-                <div className="w-full border-b-2 border-blue-800 py-2 px-3 bg-blue-50 text-blue-950 font-bold text-sm rounded-t flex items-center justify-between">
+                <div className="w-full border-b-2 border-blue-800 py-2 px-3 bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-blue-400 font-bold text-sm rounded-t flex items-center justify-between">
                   <span>{formData.ejecutivo || currentUser?.name || 'Vendedor'}</span>
                   <span className="text-[10px] uppercase tracking-wider bg-blue-200 text-blue-900 px-2 py-0.5 rounded font-black">
                     Asignado a ti
@@ -817,7 +817,7 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                 <select
                   value={formData.rutaCubierta}
                   onChange={(e) => handleFormChange('rutaCubierta', e.target.value)}
-                  className="flex-1 px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white"
+                  className="flex-1 px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-700 dark:text-blue-400 font-bold bg-white dark:bg-slate-900"
                 >
                   <option value="">Seleccionar ruta</option>
                   {availableRutas.map((ruta) => (
@@ -844,7 +844,7 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                 type="date"
                 value={formData.semanaDesde}
                 onChange={(e) => handleFormChange('semanaDesde', e.target.value)}
-                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white"
+                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-700 dark:text-blue-400 font-bold bg-white dark:bg-slate-900"
               />
             </div>
 
@@ -856,7 +856,7 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                 type="date"
                 value={formData.semanaHasta}
                 onChange={(e) => handleFormChange('semanaHasta', e.target.value)}
-                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white"
+                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-700 dark:text-blue-400 font-bold bg-white dark:bg-slate-900"
               />
             </div>
           </div>
@@ -887,69 +887,69 @@ export default function LiquidacionRecibosForm({ currentUser }) {
               </thead>
               <tbody>
                 {receipts.map((receipt, index) => (
-                  <tr key={index} className="hover:bg-blue-50/50 transition-colors">
-                    <td className="border border-blue-100 px-1 py-1">
+                  <tr key={index} className="hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors">
+                    <td className="border border-blue-100 dark:border-blue-800/40 px-1 py-1">
                       <input
                         type="text"
                         value={receipt.recibo}
                         onChange={(e) => handleReceiptChange(index, 'recibo', e.target.value)}
                         onBlur={() => handleReciboBlur(index)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-blue-950 font-medium"
+                        className="w-full px-1.5 py-1 text-xs sm:text-sm bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded focus:ring-1 focus:ring-blue-600 text-blue-700 dark:text-blue-400 font-bold"
                       />
                     </td>
-                    <td className="border border-blue-100 px-1 py-1">
+                    <td className="border border-blue-100 dark:border-blue-800/40 px-1 py-1">
                       <input
                         type="text"
                         value={receipt.codigo}
                         onChange={(e) => handleReceiptChange(index, 'codigo', e.target.value)}
                         onBlur={() => lookupClientCode(receipt.codigo, index)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-blue-950 font-mono font-bold"
+                        className="w-full px-1.5 py-1 text-xs sm:text-sm bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded focus:ring-1 focus:ring-blue-600 text-blue-700 dark:text-blue-400 font-mono font-bold"
                       />
                     </td>
-                    <td className="border border-blue-100 px-1 py-1">
+                    <td className="border border-blue-100 dark:border-blue-800/40 px-1 py-1">
                       <input
                         type="text"
                         value={receipt.cliente}
                         onChange={(e) => handleReceiptChange(index, 'cliente', e.target.value)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-blue-950 font-semibold"
+                        className="w-full px-1.5 py-1 text-xs sm:text-sm bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded focus:ring-1 focus:ring-blue-600 text-blue-700 dark:text-blue-400 font-bold"
                       />
                     </td>
-                    <td className="border border-blue-100 px-1 py-1">
+                    <td className="border border-blue-100 dark:border-blue-800/40 px-1 py-1">
                       <input
                         type="number"
                         step="0.01"
                         value={receipt.boletas}
                         onChange={(e) => handleReceiptChange(index, 'boletas', e.target.value)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-right text-blue-950 font-medium"
+                        className="w-full px-1.5 py-1 text-xs sm:text-sm bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded focus:ring-1 focus:ring-blue-600 text-right text-blue-700 dark:text-blue-400 font-bold"
                       />
                     </td>
-                    <td className="border border-blue-100 px-1 py-1">
+                    <td className="border border-blue-100 dark:border-blue-800/40 px-1 py-1">
                       <input
                         type="number"
                         step="0.01"
                         value={receipt.efectivo}
                         onChange={(e) => handleReceiptChange(index, 'efectivo', e.target.value)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-right text-blue-950 font-medium"
+                        className="w-full px-1.5 py-1 text-xs sm:text-sm bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded focus:ring-1 focus:ring-blue-600 text-right text-blue-700 dark:text-blue-400 font-bold"
                       />
                     </td>
-                    <td className="border border-blue-100 px-1 py-1">
+                    <td className="border border-blue-100 dark:border-blue-800/40 px-1 py-1">
                       <input
                         type="number"
                         step="0.01"
                         value={receipt.cheque}
                         onChange={(e) => handleReceiptChange(index, 'cheque', e.target.value)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-right text-blue-950 font-medium"
+                        className="w-full px-1.5 py-1 text-xs sm:text-sm bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded focus:ring-1 focus:ring-blue-600 text-right text-blue-700 dark:text-blue-400 font-bold"
                       />
                     </td>
-                    <td className="border border-blue-100 px-1 py-1">
+                    <td className="border border-blue-100 dark:border-blue-800/40 px-1 py-1">
                       <input
                         type="text"
                         value={receipt.observaciones}
                         onChange={(e) => handleReceiptChange(index, 'observaciones', e.target.value)}
-                        className="w-full px-1 py-1 text-xs sm:text-sm border-0 focus:ring-1 focus:ring-blue-700 text-blue-950 font-medium"
+                        className="w-full px-1.5 py-1 text-xs sm:text-sm bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded focus:ring-1 focus:ring-blue-600 text-blue-700 dark:text-blue-400 font-semibold"
                       />
                     </td>
-                    <td className="border border-blue-100 px-1 py-1 text-center">
+                    <td className="border border-blue-100 dark:border-blue-800/40 px-1 py-1 text-center">
                       <button
                         onClick={() => removeRow(index)}
                         className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -993,14 +993,14 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                 type="text"
                 value={formData.liquidadoPor}
                 onChange={(e) => handleFormChange('liquidadoPor', e.target.value)}
-                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white"
+                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-700 dark:text-blue-400 font-bold bg-white dark:bg-slate-900"
                 placeholder="Nombre"
               />
               <input
                 type="text"
                 value={formData.cargoLiquidado}
                 onChange={(e) => handleFormChange('cargoLiquidado', e.target.value)}
-                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white mt-2"
+                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-700 dark:text-blue-400 font-bold bg-white dark:bg-slate-900 mt-2"
                 placeholder="Cargo"
               />
             </div>
@@ -1013,7 +1013,7 @@ export default function LiquidacionRecibosForm({ currentUser }) {
                 type="text"
                 value={formData.revisadoPor}
                 onChange={(e) => handleFormChange('revisadoPor', e.target.value)}
-                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-950 font-medium bg-white"
+                className="w-full px-3 py-2 text-sm sm:text-base border border-blue-900/30 focus:border-blue-700 rounded-lg text-blue-700 dark:text-blue-400 font-bold bg-white dark:bg-slate-900"
                 placeholder="Departamento/Nombre"
               />
             </div>
