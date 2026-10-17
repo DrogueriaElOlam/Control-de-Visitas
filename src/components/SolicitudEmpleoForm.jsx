@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { FileDown, Trash2 } from 'lucide-react';
+import { FileDown, Trash2, Printer } from 'lucide-react';
 import FormHeader from './FormHeader';
 import { LOGO_DATA_URI } from '../lib/logo';
+import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
 
 export default function SolicitudEmpleoForm() {
   const [formData, setFormData] = useState({
@@ -111,7 +112,7 @@ export default function SolicitudEmpleoForm() {
     }
   };
 
-  const handleExport = () => {
+  const generateHtmlContent = () => {
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -386,16 +387,29 @@ export default function SolicitudEmpleoForm() {
       </body>
       </html>
     `;
+    return htmlContent;
+  };
 
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `solicitud_empleo_${formData.nombre || 'formulario'}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const getCleanFileName = () => {
+    const today = new Date();
+    const cleanUserName = (formData.nombre || 'Solicitud_Empleo')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '');
+    const todayFileStr = today.toISOString().split('T')[0];
+    return `Solicitud_Empleo_${cleanUserName}_${todayFileStr}`;
+  };
+
+  const handlePrint = () => {
+    const htmlContent = generateHtmlContent();
+    openAndPrintHtml(htmlContent, getCleanFileName());
+  };
+
+  const handleExport = () => {
+    const htmlContent = generateHtmlContent();
+    downloadHtmlFile(htmlContent, `${getCleanFileName()}.html`);
   };
 
   return (
@@ -411,18 +425,30 @@ export default function SolicitudEmpleoForm() {
           {/* Botones de Acción */}
           <div className="flex flex-col sm:flex-row gap-3 mb-6">
             <button
+              type="button"
               onClick={handleClear}
-              className="flex-1 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-3 px-4 rounded-lg font-semibold transition-colors"
+              className="flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-3 px-4 rounded-lg font-semibold transition-colors"
             >
               <Trash2 className="w-5 h-5" />
               Limpiar
             </button>
             <button
+              type="button"
+              onClick={handlePrint}
+              className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors shadow-sm cursor-pointer"
+              title="Abrir vista de impresión y guardar en PDF"
+            >
+              <Printer className="w-5 h-5" />
+              Imprimir / Vista Previa
+            </button>
+            <button
+              type="button"
               onClick={handleExport}
-              className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-semibold transition-colors shadow-sm cursor-pointer"
+              title="Descargar archivo HTML con botón de impresión"
             >
               <FileDown className="w-5 h-5" />
-              Exportar a PDF
+              Exportar HTML
             </button>
           </div>
 

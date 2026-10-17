@@ -5,6 +5,7 @@
  */
 
 import { LOGO_DATA_URI } from './logo';
+import { downloadHtmlFile } from './printHtmlHelper';
 
 export function generateMonthlyRouteHTMLReport({
   vendorName = 'Vendedor',
@@ -651,15 +652,7 @@ export function generateMonthlyRouteHTMLReport({
 </body>
 </html>`;
 
-  // Autodescarga inmediata del archivo HTML en el navegador
-  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  // Autodescarga inmediata del archivo HTML en el navegador con barra y botón de impresión
   const safeVendor = (vendorName || 'Vendedor').replace(/[^\w\s-]/gi, '').replace(/\s+/g, '_');
-  a.href = url;
-  a.download = `Resumen_Mensual_Ruta_${safeVendor}_${startDate}_a_${endDate}.html`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  downloadHtmlFile(htmlContent, `Resumen_Mensual_Ruta_${safeVendor}_${startDate}_a_${endDate}.html`);
 }

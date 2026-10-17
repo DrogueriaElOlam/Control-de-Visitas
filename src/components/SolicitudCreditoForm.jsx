@@ -9,6 +9,7 @@ import UsoExclusivoSection from './UsoExclusivoSection';
 import ConfirmacionReferenciasSection from './ConfirmacionReferenciasSection';
 import AutorizacionFinalSection from './AutorizacionFinalSection';
 import { LOGO_DATA_URI } from '../lib/logo';
+import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
 
 export default function SolicitudCreditoForm() {
   const formRef = useRef(null);
@@ -131,7 +132,7 @@ export default function SolicitudCreditoForm() {
     setFormData(emptyData);
   };
 
-  const handleExport = () => {
+  const generateHtmlContent = () => {
     const logoUrl = LOGO_DATA_URI;
     
     const htmlContent = `
@@ -610,18 +611,34 @@ export default function SolicitudCreditoForm() {
   
 </body>
 </html>`;
+    return htmlContent;
+  };
 
-    const newWindow = window.open('', '_blank');
-    newWindow.document.write(htmlContent);
-    newWindow.document.close();
-    setTimeout(() => {
-      newWindow.print();
-    }, 500);
+  const getCleanFileName = () => {
+    const today = new Date();
+    const cleanUserName = (formData.nombreComercialInd || formData.propietario || formData.razonSocialJur || 'Solicitud_Credito')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '');
+    const todayFileStr = today.toISOString().split('T')[0];
+    return `Solicitud_Credito_${cleanUserName}_${todayFileStr}`;
+  };
+
+  const handlePrint = () => {
+    const htmlContent = generateHtmlContent();
+    openAndPrintHtml(htmlContent, getCleanFileName());
+  };
+
+  const handleExport = () => {
+    const htmlContent = generateHtmlContent();
+    downloadHtmlFile(htmlContent, `${getCleanFileName()}.html`);
   };
 
   return (
     <div className="max-w-4xl mx-auto px-2 sm:px-4 md:px-6">
-      <FormButtons onClear={handleClear} onExport={handleExport} />
+      <FormButtons onClear={handleClear} onExport={handleExport} onPrint={handlePrint} />
       
       <div ref={formRef} className="bg-white p-4 sm:p-6 md:p-8 border-2 border-gray-300">
         <FormHeader logoSize="medium" />

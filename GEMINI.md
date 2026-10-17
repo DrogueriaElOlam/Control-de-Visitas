@@ -265,6 +265,22 @@
       - **Solución Universal en `src/index.css`:** Creada regla CSS global que abarca todo input, select y textarea dentro de `.bg-white`, `table`, `.bg-blue-50`, `.bg-slate-50` y `form`, forzando `color: #000000 !important`, `-webkit-text-fill-color: #000000 !important`, `background-color: #ffffff !important` y `font-weight: 700 !important`, con placeholders nítidos en `#64748b`.
       - **Ajuste Específico en `LiquidacionViaticosForm.jsx`:** Todas las celdas de fecha, no. doc, establecimiento y los 6 rubros de gastos (alimentación, hotel, combustible, peaje, fotocopias, varios), así como fechas de salida/regreso actualizados con fondo blanco y letra negra intensa.
       - **Alcance Universal:** Garantizada visibilidad total y alto contraste para Vendedores y Administrador en todos los formularios del sistema.
+  51. **Barra Superior Fija y Botón Universal de Impresión / Guardar en PDF en Todos los Formularios y Reportes HTML:**
+      - **Causa Raíz de Ausencia de Opción para Imprimir:** Al exportar o abrir formularios en HTML, los navegadores modernos (Chrome, Edge, Android WebView) bloquean los diálogos automáticos de impresión (`window.print()`) ejecutados al abrir un archivo local descargado (`file://`), y adjuntar `printWindow.onload` tras `document.close()` nunca disparaba el diálogo. Esto dejaba a los usuarios con un HTML sin botones visibles para mandar a imprimir o guardar en PDF.
+      - **Módulo Universal `printHtmlHelper.js`:**
+        * Inyección automática de una barra de herramientas superior flotante y fija (`.olam-top-actions-bar`) con botón verde esmeralda prominente `🖨️ IMPRIMIR / GUARDAR EN PDF` y botón `❌ Cerrar`.
+        * Estilos para impresión `@media print { .no-print, .olam-top-actions-bar { display: none !important; } }` para asegurar que la barra nunca aparezca en el papel ni en el PDF generado.
+        * Función `openAndPrintHtml(html, title)` que abre una ventana emergente limpia, inyecta los controles y dispara la impresión con temporizador seguro de 600ms, y `downloadHtmlFile(html, filename)` que añade la barra interactiva al archivo `.html` descargado.
+      - **Formularios y Módulos Adaptados (Vendedores y Administrador):**
+        * `SolicitudViaticosForm.jsx` y su historial `SolicitudViaticosHistory.jsx` (trámite rápido de viáticos con botón '🖨️ Imprimir / Vista Previa' y '📄 Exportar HTML').
+        * `LiquidacionRecibosForm.jsx` y su historial `LiquidacionRecibosHistory.jsx`.
+        * `AperturaCodigoForm.jsx` y su historial `AperturaCodigoHistory.jsx`.
+        * `SolicitudCreditoForm.jsx`.
+        * `SolicitudEmpleoForm.jsx`.
+        * `TiendaEnLineaForm.jsx`.
+        * `CentralSupervisionModal.jsx` (botón 'Imprimir / PDF' y 'Exportar HTML').
+        * Reportes descargables de metas y rutas (`goalComplianceReport.js`, `monthlyRouteReport.js`).
+        * Botones unificados en `FormButtons.jsx` con soporte nativo de `onPrint`.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -279,9 +295,9 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 16 de Octubre de 2026 - 21:50.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261016-V149
+  - **Fecha y Hora de Publicación:** 17 de Octubre de 2026 - 11:25.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261017-V150
   - **Estado al Momento de la Publicación:**
-    - Color de fuente en formularios de liquidación de boletas y cobros actualizado a azul legible de alto contraste para vendedores y administrador.
+    - Barra y botón universal de impresión / guardar en PDF integrado en todos los formularios y reportes HTML exportados tanto para vendedores como para el administrador.
     - Repositorio Git en main sincronizado y desplegado en Vercel.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

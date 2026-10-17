@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import LiquidacionRecibosHistory from './LiquidacionRecibosHistory';
 import { isSuperUser, getPermittedRoutesForUser, ALL_ROUTES } from '../lib/formsPermissions';
 import { LOGO_DATA_URI } from '../lib/logo';
+import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
 
 const MIN_ROWS = 15;
 
@@ -475,7 +476,7 @@ export default function LiquidacionRecibosForm({ currentUser }) {
     return `${day}/${month}/${year}`;
   };
 
-  const handleExport = () => {
+  const buildHtml = () => {
     const blueColor = '#1E3A8A';
     const darkBlueColor = '#1E40AF';
     
@@ -704,22 +705,29 @@ export default function LiquidacionRecibosForm({ currentUser }) {
 </html>
     `;
 
-    // Abrir nueva ventana e imprimir directamente
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      
-      // Esperar a que se cargue el contenido antes de imprimir
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-        }, 500);
-      };
-    } else {
-      alert('Por favor, permite las ventanas emergentes para exportar el formulario.');
-    }
+    return html;
+  };
+
+  const getCleanFileName = () => {
+    const today = new Date();
+    const cleanUserName = (formData.ejecutivo || currentUser?.name || 'Recibos')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '');
+    const todayFileStr = today.toISOString().split('T')[0];
+    return `Liquidacion_${cleanUserName}_${todayFileStr}`;
+  };
+
+  const handlePrint = () => {
+    const html = buildHtml();
+    openAndPrintHtml(html, getCleanFileName());
+  };
+
+  const handleExport = () => {
+    const html = buildHtml();
+    downloadHtmlFile(html, `${getCleanFileName()}.html`);
   };
 
   return (
@@ -773,6 +781,7 @@ export default function LiquidacionRecibosForm({ currentUser }) {
           <FormButtons 
             onClear={handleClear}
             onExport={handleExport}
+            onPrint={handlePrint}
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6 p-4 border border-blue-900/20 rounded-2xl bg-blue-50/40 shadow-sm">

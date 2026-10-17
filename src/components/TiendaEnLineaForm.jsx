@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { getLocalDateString, getLocalStartOfMonthString } from '../lib/dateUtils';
 import { Store, Plus, Edit2, Trash2, Eye, Link as LinkIcon, BarChart3, Upload, Save, X } from 'lucide-react';
 import FormButtons from './FormButtons';
+import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
 
 export default function TiendaEnLineaForm() {
   const [productos, setProductos] = useState([]);
@@ -276,15 +277,14 @@ export default function TiendaEnLineaForm() {
     alert('Link copiado al portapapeles');
   }
 
+  function handlePrint() {
+    const html = generarHTMLTienda();
+    openAndPrintHtml(html, 'tienda-online');
+  }
+
   function handleExport() {
     const html = generarHTMLTienda();
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'tienda-online.html';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadHtmlFile(html, 'tienda-online.html');
   }
 
   function handleClear() {
@@ -538,7 +538,7 @@ export default function TiendaEnLineaForm() {
           Generar Link
         </button>
         
-        <FormButtons onExport={handleExport} onClear={handleClear} />
+        <FormButtons onExport={handleExport} onPrint={handlePrint} onClear={handleClear} />
       </div>
 
       {/* Link generado */}

@@ -3,6 +3,7 @@ import { X, Edit2, Eye, Printer, Trash2, Filter, Share2, ShieldCheck, UserCheck 
 import { supabase } from '../lib/supabase';
 import { isSuperUser, matchesVendorUser } from '../lib/formsPermissions';
 import { LOGO_DATA_URI } from '../lib/logo';
+import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
 
 export default function AperturaCodigoHistory({ onClose, onEdit, currentUser }) {
   const isSuper = isSuperUser(currentUser);
@@ -318,19 +319,10 @@ export default function AperturaCodigoHistory({ onClose, onEdit, currentUser }) 
   const handleExportHTML = (record) => {
     console.log('Exportando a HTML:', record);
     const html = generateHTML(record);
-    const newWindow = window.open('', '_blank');
-    if (newWindow) {
-      newWindow.document.write(html);
-      newWindow.document.close();
-      newWindow.onload = function() {
-        setTimeout(function() {
-            newWindow.print();
-        }, 500);
-      };
-      console.log('HTML exportado exitosamente');
-    } else {
-      alert('Por favor, permite las ventanas emergentes para exportar.');
-    }
+    const datos = record.datos;
+    const cleanName = (datos.nombreRazonSocial || datos.ejecutivoVentas || 'apertura-codigo').replace(/\s+/g, '_');
+    const filename = `apertura-codigo-${cleanName}-${formatDate(record.fecha_creacion).replace(/[/:]/g, '-')}`;
+    openAndPrintHtml(html, filename);
   };
 
   const handleShare = async (record) => {
@@ -358,15 +350,7 @@ export default function AperturaCodigoHistory({ onClose, onEdit, currentUser }) 
   };
 
   const downloadHTML = (html, filename) => {
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadHtmlFile(html, filename);
   };
 
   const renderDetailsModal = () => {

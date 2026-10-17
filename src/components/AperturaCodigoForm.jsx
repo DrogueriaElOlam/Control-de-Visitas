@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useFormPersistence } from '../hooks/useFormPersistence';
-import { Save, History, Printer } from 'lucide-react';
+import { Save, History, Printer, FileDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FormHeader from './FormHeader';
 import FormButtons from './FormButtons';
 import AperturaCodigoHistory from './AperturaCodigoHistory';
 import { isSuperUser, getPermittedRoutesForUser, sortRoutes } from '../lib/formsPermissions';
 import { LOGO_DATA_URI } from '../lib/logo';
+import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
 
 export default function AperturaCodigoForm({ currentUser }) {
   const isSuper = isSuperUser(currentUser);
@@ -199,7 +200,7 @@ export default function AperturaCodigoForm({ currentUser }) {
     setShowHistory(false);
   };
 
-  const handleExport = () => {
+  const generateHtmlContent = () => {
     const pageTitle = formData.nombreRazonSocial || 'Apertura de Código Nuevo';
     const htmlContent = `
 <!DOCTYPE html>
@@ -382,220 +383,30 @@ export default function AperturaCodigoForm({ currentUser }) {
   </div>
 </body>
 </html>`;
-
-    // Abrir nueva ventana e imprimir directamente
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.onload = function() {
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 250);
-      };
-    } else {
-      alert('Por favor, permite las ventanas emergentes para exportar el formulario.');
-    }
+    return htmlContent;
   };
 
-  const handleShareWhatsApp = () => {
-    // Primero exportar el formulario
-    handleExport();
-    
-    // Luego abrir WhatsApp con mensaje
-    const message = `Hola, te comparto el formulario de Apertura de Código Nuevo de ${formData.nombreNegocio || 'mi negocio'}`;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+
+  const getCleanFileName = () => {
+    const today = new Date();
+    const cleanUserName = (formData.nombreRazonSocial || formData.ejecutivoVentas || currentUser?.name || 'Apertura_Codigo')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '');
+    const todayFileStr = today.toISOString().split('T')[0];
+    return `Apertura_Codigo_${cleanUserName}_${todayFileStr}`;
   };
 
-  const handleShareWhatsAppOld = () => {
-    const htmlContent = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Apertura de Código Nuevo</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; padding: 0; margin: 0; }
-    .container { 
-      width: 8.5in; 
-      height: 5.5in; 
-      margin: 0 auto; 
-      border: 2px solid #333; 
-      padding: 0.25in; 
-      box-sizing: border-box; 
-      position: relative;
-    }
-    .header { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: flex-start; 
-      margin-bottom: 8pt; 
-    }
-    .header-left { flex: 1; padding-right: 10pt; }
-    .header-left h2 { font-size: 9pt; margin-bottom: 2pt; font-weight: bold; }
-    .header-left p { font-size: 7pt; color: #666; margin: 1pt 0; line-height: 1.2; }
-    .header-right { flex-shrink: 0; }
-    .header-right img { width: 1.3in; height: auto; display: block; }
-    .title { 
-      background: #000; 
-      color: #fff; 
-      padding: 5pt; 
-      text-align: center; 
-      margin: 6pt 0; 
-      font-size: 11pt; 
-      font-weight: bold; 
-    }
-    .section { margin-bottom: 8pt; }
-    .section-title { 
-      background: #e5e5e5; 
-      padding: 3pt 4pt; 
-      font-weight: bold; 
-      margin-bottom: 4pt; 
-      font-size: 17pt;
-      text-align: center;
-    }
-    .field { margin-bottom: 4pt; }
-    .field-label { font-weight: bold; font-size: 8pt; display: inline-block; }
-    .field-value { 
-      border-bottom: 1px solid #000; 
-      padding: 1pt 2pt; 
-      min-height: 14pt; 
-      font-size: 8pt; 
-      display: inline-block;
-      width: calc(100% - 2pt);
-      white-space: pre-wrap;
-    }
-    .grid-2 { 
-      display: grid; 
-      grid-template-columns: 1fr 1fr; 
-      gap: 8pt; 
-      margin-bottom: 4pt;
-    }
-    .grid-4 { 
-      display: grid; 
-      grid-template-columns: repeat(4, 1fr); 
-      gap: 6pt; 
-      margin-top: 8pt;
-    }
-    .field-inline { display: flex; flex-direction: column; }
-    .field-inline .field-label { margin-bottom: 1pt; }
-    .textarea-value { min-height: 24pt; }
-    @page { size: 8.5in 5.5in landscape; margin: 0; }
-    @media print {
-      body { padding: 0; margin: 0; }
-      .container { border: 2px solid #333; }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <div class="header-left">
-        <h2>DISTRIBUIDORA COMERCIAL EL OLAM S.A.</h2>
-        <p>7a. Avenida "A" 17-67 Colonia Aurora I Zona 13, Guatemala</p>
-        <p>Teléfonos: 2308-4353, 2332-7814, 2339-4613</p>
-      </div>
-      <div class="header-right">
-        <img src="${LOGO_DATA_URI}" alt="Logo" />
-      </div>
-    </div>
+  const handlePrint = () => {
+    const html = generateHtmlContent();
+    openAndPrintHtml(html, getCleanFileName());
+  };
 
-    <!-- Title -->
-    <div class="title">APERTURA DE CODIGO NUEVO</div>
-
-    <!-- Datos de Facturación -->
-    <div class="section">
-      <div class="section-title">DATOS DE FACTURACIÓN</div>
-      <div class="field">
-        <span class="field-label">Nombre o Razón Social:</span>
-        <div class="field-value">${formData.nombreRazonSocial || ''}</div>
-      </div>
-      <div class="field">
-        <span class="field-label">Dirección:</span>
-        <div class="field-value textarea-value">${(formData.direccionFacturacion || '').replace(/\n/g, '<br/>')}</div>
-      </div>
-      <div class="field">
-        <span class="field-label">Nit / DPI:</span>
-        <div class="field-value">${formData.nitDpi || ''}</div>
-      </div>
-    </div>
-
-    <!-- Datos Generales -->
-    <div class="section">
-      <div class="section-title">DATOS GENERALES</div>
-      <div class="field">
-        <span class="field-label">Nombre Del Negocio:</span>
-        <div class="field-value">${formData.nombreNegocio || ''}</div>
-      </div>
-      <div class="field">
-        <span class="field-label">Dirección de Entrega:</span>
-        <div class="field-value textarea-value">${(formData.direccionEntrega || '').replace(/\n/g, '<br/>')}</div>
-      </div>
-      <div class="grid-2">
-        <div class="field-inline">
-          <span class="field-label">Teléfonos:</span>
-          <div class="field-value">${formData.telefonos || ''}</div>
-        </div>
-        <div class="field-inline">
-          <span class="field-label">Correo Electrónico:</span>
-          <div class="field-value">${formData.correoElectronico || ''}</div>
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="field-inline">
-          <span class="field-label">Encargado de Compras:</span>
-          <div class="field-value">${formData.encargadoCompras || ''}</div>
-        </div>
-        <div class="field-inline">
-          <span class="field-label">Teléfono:</span>
-          <div class="field-value">${formData.telefonoCompras || ''}</div>
-        </div>
-      </div>
-      <div class="grid-2" style="margin-top: 8pt;">
-        <div class="field-inline">
-          <span class="field-label">Encargado de Pagos:</span>
-          <div class="field-value">${formData.encargadoPagos || ''}</div>
-        </div>
-        <div class="field-inline">
-          <span class="field-label">Teléfono:</span>
-          <div class="field-value">${formData.telefonoPagos || ''}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Campos finales -->
-    <div class="grid-4">
-      <div class="field-inline">
-        <span class="field-label">Fecha de Creación:</span>
-        <div class="field-value">${formData.fecha || ''}</div>
-      </div>
-      <div class="field-inline">
-        <span class="field-label">Ruta Asignada:</span>
-        <div class="field-value">${formData.rutaAsignada || ''}</div>
-      </div>
-      <div class="field-inline">
-        <span class="field-label">Código Asignado:</span>
-        <div class="field-value">${formData.codigoAsignado || ''}</div>
-      </div>
-      <div class="field-inline">
-        <span class="field-label">Ejecutivo de Ventas:</span>
-        <div class="field-value">${formData.ejecutivoVentas || ''}</div>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`;
-
-    // Abrir nueva ventana e imprimir directamente
-    const url = URL.createObjectURL(blob);
-    const whatsappMessage = `Hola, te comparto el formulario de Apertura de Código: ${url}`;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`;
-    window.open(whatsappUrl, '_blank');
+  const handleExport = () => {
+    const html = generateHtmlContent();
+    downloadHtmlFile(html, `${getCleanFileName()}.html`);
   };
 
   return (
@@ -617,11 +428,22 @@ export default function AperturaCodigoForm({ currentUser }) {
           Historial
         </button>
         <button
-          onClick={handleExport}
-          className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 font-semibold text-sm sm:text-base"
+          type="button"
+          onClick={handlePrint}
+          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 font-semibold text-sm sm:text-base cursor-pointer shadow-sm"
+          title="Abrir vista de impresión y guardar como PDF"
         >
           <Printer className="w-4 h-4" />
-          Exportar / Imprimir
+          Imprimir / Vista Previa
+        </button>
+        <button
+          type="button"
+          onClick={handleExport}
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-semibold text-sm sm:text-base cursor-pointer shadow-sm"
+          title="Descargar archivo HTML con botón de impresión"
+        >
+          <FileDown className="w-4 h-4" />
+          Exportar HTML
         </button>
         {editingRecord && (
           <button

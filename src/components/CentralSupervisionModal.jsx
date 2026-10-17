@@ -21,7 +21,8 @@ import {
   Database,
   Users,
   User,
-  ArrowUpRight
+  ArrowUpRight,
+  Printer
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -40,6 +41,7 @@ import {
   saveDailySupervisionSnapshot, 
   loadUnifiedVendorRecords 
 } from '../lib/supervisionData';
+import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
 
 export function CentralSupervisionView({ onClose, isEmbedded = false }) {
   const [activeTab, setActiveTab] = useState('kpis'); // 'kpis' o 'registros'
@@ -220,8 +222,8 @@ export function CentralSupervisionView({ onClose, isEmbedded = false }) {
     }
   };
 
-  // Exportar HTML elegante
-  const handleExportHTML = () => {
+  // Generar HTML elegante
+  const buildHtmlReport = () => {
     const formattedTotalCompromiso = totalCompromisoAcumulado.toLocaleString('es-GT', { minimumFractionDigits: 2 });
     const formattedTotalVentas = totalVentasAcumuladas.toLocaleString('es-GT', { minimumFractionDigits: 2 });
     const formattedTotalCobros = totalCobrosAcumulados.toLocaleString('es-GT', { minimumFractionDigits: 2 });
@@ -297,15 +299,17 @@ export function CentralSupervisionView({ onClose, isEmbedded = false }) {
   </div>
 </body>
 </html>`;
+    return htmlContent;
+  };
 
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Panel_Central_Supervision_${startDate}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handlePrint = () => {
+    const htmlContent = buildHtmlReport();
+    openAndPrintHtml(htmlContent, `Panel_Central_Supervision_${startDate}`);
+  };
+
+  const handleExportHTML = () => {
+    const htmlContent = buildHtmlReport();
+    downloadHtmlFile(htmlContent, `Panel_Central_Supervision_${startDate}.html`);
   };
 
   const content = (
@@ -431,14 +435,27 @@ export function CentralSupervisionView({ onClose, isEmbedded = false }) {
             <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
 
-          {/* Botón Exportar HTML */}
-          <button
-            onClick={handleExportHTML}
-            className="ml-auto flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Exportar HTML</span>
-          </button>
+          {/* Botones Imprimir y Exportar HTML */}
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
+              title="Abrir vista de impresión y guardar como PDF"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Imprimir / PDF</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExportHTML}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-500/20 cursor-pointer"
+              title="Descargar archivo HTML con botón de impresión"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Exportar HTML</span>
+            </button>
+          </div>
         </div>
 
         {/* Fila de Fechas y Vaciado Diario */}

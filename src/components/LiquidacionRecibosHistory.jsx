@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Edit2, Eye, Printer, Trash2, Calendar, Filter, Share2, ShieldCheck, UserCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { isSuperUser, matchesVendorUser } from '../lib/formsPermissions';
+import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
 
 export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser }) {
   const isSuper = isSuperUser(currentUser);
@@ -399,14 +400,9 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser
 </html>
     `;
 
-    const newWindow = window.open('', '_blank');
-    if (newWindow) {
-      newWindow.document.write(html);
-      newWindow.document.close();
-      console.log('HTML exportado exitosamente');
-    } else {
-      alert('Por favor, permite las ventanas emergentes para exportar.');
-    }
+    const cleanName = (datos.ejecutivo || 'recibos').replace(/\s+/g, '_');
+    const filename = `liquidacion-${cleanName}-${formatDate(record.fecha_creacion).replace(/[/:]/g, '-')}`;
+    openAndPrintHtml(html, filename);
   };
 
   const handleShare = async (record) => {
@@ -702,16 +698,7 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser
   };
 
   const downloadHTML = (html, filename) => {
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    alert('Archivo descargado. Si estás en un dispositivo móvil, puedes compartir el archivo desde tu carpeta de descargas.');
+    downloadHtmlFile(html, filename);
   };
 
   const formatDateSimple = (dateString) => {

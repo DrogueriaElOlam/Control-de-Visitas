@@ -7,6 +7,7 @@ import FormHeader from './FormHeader';
 import SolicitudViaticosHistory from './SolicitudViaticosHistory';
 import { isSuperUser, getPermittedRoutesForUser, ALL_ROUTES } from '../lib/formsPermissions';
 import { LOGO_DATA_URI } from '../lib/logo';
+import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
 
 export default function SolicitudViaticosForm({ currentUser }) {
   const isSuper = isSuperUser(currentUser);
@@ -402,7 +403,7 @@ export default function SolicitudViaticosForm({ currentUser }) {
     setCurrentRecordId(null);
   };
 
-  const handleExport = () => {
+  const generateHtmlContent = () => {
     const total = calcularTotal();
     const today = new Date();
     const fechaSolicitud = today.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -581,23 +582,29 @@ export default function SolicitudViaticosForm({ currentUser }) {
   </script>
 </body>
 </html>`;
+    return htmlContent;
+  };
 
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const cleanUserName = (formData.nombre || 'Vendedor')
+  const getCleanFileName = () => {
+    const today = new Date();
+    const cleanUserName = (formData.vendedor || currentUser?.name || 'Vendedor')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .trim()
       .replace(/\s+/g, '_')
       .replace(/[^a-zA-Z0-9_-]/g, '');
     const todayFileStr = today.toISOString().split('T')[0];
-    a.download = `Solicitud_Viaticos_${cleanUserName}_${todayFileStr}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    return `Solicitud_Viaticos_${cleanUserName}_${todayFileStr}`;
+  };
+
+  const handlePrint = () => {
+    const htmlContent = generateHtmlContent();
+    openAndPrintHtml(htmlContent, getCleanFileName());
+  };
+
+  const handleExport = () => {
+    const htmlContent = generateHtmlContent();
+    downloadHtmlFile(htmlContent, `${getCleanFileName()}.html`);
   };
 
   return (
@@ -618,7 +625,7 @@ export default function SolicitudViaticosForm({ currentUser }) {
             <History className="w-4 h-4" />
             Historial
           </button>
-          <FormButtons onClear={handleClear} onExport={handleExport} />
+          <FormButtons onClear={handleClear} onExport={handleExport} onPrint={handlePrint} />
         </div>
 
         {showSaveMessage && (
