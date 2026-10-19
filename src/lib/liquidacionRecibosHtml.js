@@ -1,4 +1,4 @@
-import { LOGO_DATA_URI } from './logo';
+import { LOGO_DATA_URI } from './logo.js';
 
 /**
  * Formatea un valor numérico a moneda Quetzales (Q #,###.##)
@@ -15,19 +15,26 @@ export const formatCurrency = (value) => {
 };
 
 /**
- * Formatea una fecha YYYY-MM-DD a DD/MM/YYYY
+ * Formatea una fecha YYYY-MM-DD a D/M/YYYY (ej. 4/10/2026 tal como en el formato oficial)
  */
-export const formatDateSimple = (dateString) => {
+export const formatDateClean = (dateString) => {
   if (!dateString) return '';
   try {
-    const parts = dateString.split('T')[0].split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    const cleanStr = String(dateString).trim();
+    if (cleanStr.includes('/')) {
+      return cleanStr;
     }
-    const d = new Date(dateString);
+    const parts = cleanStr.split('T')[0].split('-');
+    if (parts.length === 3) {
+      const day = parseInt(parts[2], 10);
+      const month = parseInt(parts[1], 10);
+      const year = parts[0];
+      return `${day}/${month}/${year}`;
+    }
+    const d = new Date(cleanStr);
     if (!isNaN(d.getTime())) {
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = d.getDate();
+      const month = d.getMonth() + 1;
       const year = d.getFullYear();
       return `${day}/${month}/${year}`;
     }
@@ -59,66 +66,89 @@ export const calculateReceiptTotals = (receipts = []) => {
   );
 };
 
-const MIN_ROWS_PRINT = 15;
+const OFFICIAL_MIN_ROWS = 16;
 
 /**
- * Genera el documento HTML completo para la Hoja de Trabajo de Liquidación Semanal de Recibos de Caja
- * - 7 columnas oficiales (sin columna de Totales por fila)
- * - Gran Total ubicado en el pie exactamente debajo de la columna de Observaciones
- * - Tipografía con tamaño 9.5pt a 10pt (nada de letras diminutas)
- * - Todo ajustado y proporcionado para una impresión impecable en 1 sola hoja
+ * Genera el documento HTML idéntico al formato oficial impreso de Droguería El Olam:
+ * - Membrete superior con logo a la izquierda y franja gris con títulos centrados
+ * - Recuadro de datos generales (Ejecutivo, Ruta Cubierta, Semana del, al) con líneas continuas
+ * - 7 columnas exactas: Recibo, Código, Cliente, Boletas, Efectivo, Cheque, Observaciones
+ * - Encabezado negro con texto blanco
+ * - Fila de TOTALES negra al pie con montos por columna y Gran Total en columna Observaciones
+ * - Sin bloque de firmas abajo
+ * - Espacios autoajustables y proporcionados para una hoja tamaño Carta
  */
 export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => {
-  const totals = calculateReceiptTotals(receipts);
-  const rowsCount = Math.max(receipts.length, MIN_ROWS_PRINT);
+  // Filtrar recibos reales que tengan al menos algún dato
+  const validReceipts = (receipts || []).filter((r) => {
+    if (!r) return false;
+    const hasText = (r.recibo && String(r.recibo).trim() !== '') ||
+      (r.codigo && String(r.codigo).trim() !== '') ||
+      (r.cliente && String(r.cliente).trim() !== '') ||
+      (r.observaciones && String(r.observaciones).trim() !== '');
+    const hasNumbers = (parseFloat(r.boletas) || 0) > 0 ||
+      (parseFloat(r.efectivo) || 0) > 0 ||
+      (parseFloat(r.cheque) || 0) > 0;
+    return hasText || hasNumbers;
+  });
+
+  // Si hay menos del mínimo oficial (16), usamos los registros que haya y completamos con filas vacías
+  const rowsToDisplay = validReceipts.length > 0 ? validReceipts : receipts;
+  const rowsCount = Math.max(rowsToDisplay.length, OFFICIAL_MIN_ROWS);
+
+  const totals = calculateReceiptTotals(validReceipts.length > 0 ? validReceipts : receipts);
 
   const tableRowsHtml = Array(rowsCount)
     .fill(null)
     .map((_, index) => {
-      const r = receipts[index] || {};
+      const r = rowsToDisplay[index] || {};
       const boletasNum = parseFloat(r.boletas) || 0;
       const efectivoNum = parseFloat(r.efectivo) || 0;
       const chequeNum = parseFloat(r.cheque) || 0;
 
       const recibo = r.recibo ? String(r.recibo).trim() : '&nbsp;';
       const codigo = r.codigo ? String(r.codigo).trim() : '&nbsp;';
-      const cliente = r.cliente ? String(r.cliente).trim() : '&nbsp;';
-      const boletasStr = boletasNum > 0 ? formatCurrency(boletasNum) : (r.boletas === '0' || r.boletas === 0 ? 'Q 0.00' : '&nbsp;');
-      const efectivoStr = efectivoNum > 0 ? formatCurrency(efectivoNum) : (r.efectivo === '0' || r.efectivo === 0 ? 'Q 0.00' : '&nbsp;');
-      const chequeStr = chequeNum > 0 ? formatCurrency(chequeNum) : (r.cheque === '0' || r.cheque === 0 ? 'Q 0.00' : '&nbsp;');
+      const cliente = r.cliente ? String(r.cliente).trim().toUpperCase() : '&nbsp;';
+
+      // Si no hay monto, la celda queda totalmente vacía como en la foto física
+      const boletasStr = boletasNum > 0 ? formatCurrency(boletasNum) : '&nbsp;';
+      const efectivoStr = efectivoNum > 0 ? formatCurrency(efectivoNum) : '&nbsp;';
+      const chequeStr = chequeNum > 0 ? formatCurrency(chequeNum) : '&nbsp;';
       const observaciones = r.observaciones ? String(r.observaciones).trim() : '&nbsp;';
 
-      const rowBg = index % 2 === 1 ? '#f8fafc' : '#ffffff';
-
       return `
-        <tr style="background-color: ${rowBg};">
-          <td style="border: 1pt solid #000000; padding: 4.5pt 3pt; text-align: center; font-size: 9.5pt; font-weight: bold;">${recibo}</td>
-          <td style="border: 1pt solid #000000; padding: 4.5pt 3pt; text-align: center; font-size: 9pt; font-family: monospace; font-weight: 700;">${codigo}</td>
-          <td style="border: 1pt solid #000000; padding: 4.5pt 5pt; text-align: left; font-size: 9.5pt; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cliente}</td>
-          <td style="border: 1pt solid #000000; padding: 4.5pt 4pt; text-align: right; font-size: 9.5pt; font-weight: 600;">${boletasStr}</td>
-          <td style="border: 1pt solid #000000; padding: 4.5pt 4pt; text-align: right; font-size: 9.5pt; font-weight: 600;">${efectivoStr}</td>
-          <td style="border: 1pt solid #000000; padding: 4.5pt 4pt; text-align: right; font-size: 9.5pt; font-weight: 600;">${chequeStr}</td>
-          <td style="border: 1pt solid #000000; padding: 4.5pt 4pt; text-align: left; font-size: 8.5pt; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${observaciones}</td>
+        <tr>
+          <td class="col-recibo">${recibo}</td>
+          <td class="col-codigo">${codigo}</td>
+          <td class="col-cliente">${cliente}</td>
+          <td class="col-monto">${boletasStr}</td>
+          <td class="col-monto">${efectivoStr}</td>
+          <td class="col-monto">${chequeStr}</td>
+          <td class="col-obs">${observaciones}</td>
         </tr>
       `;
     })
     .join('');
 
-  const bluePrimary = '#1E3A8A';
-  const blueDark = '#0f172a';
+  const fechaDesdeStr = formatDateClean(formData.semanaDesde);
+  const fechaHastaStr = formatDateClean(formData.semanaHasta);
+  const liquidadoNombre = formData.liquidadoPor || formData.ejecutivo || '';
+  const liquidadoCargo = formData.cargoLiquidado || 'Ejecutivo de Ventas';
+  const revisadoNombre = formData.revisadoPor || 'Creditos';
 
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Liquidación de Recibos - ${formData.ejecutivo || 'El Olam'}</title>
-  <style>
+  <title>Liquidación de Recibos - ${formData.ejecutivo || 'Droguería El Olam'}</title>
+  <style id="orientation-style">
     @page {
       size: letter portrait;
-      margin: 8mm 7mm 8mm 7mm;
+      margin: 7mm 8mm 7mm 8mm;
     }
-
+  </style>
+  <style>
     * {
       box-sizing: border-box;
       -webkit-print-color-adjust: exact !important;
@@ -131,255 +161,554 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       font-family: Arial, Helvetica, sans-serif;
       color: #000000;
       background: #ffffff;
-      font-size: 9.5pt;
-      line-height: 1.25;
+      font-size: 9pt;
+      line-height: 1.2;
     }
 
-    .hoja-trabajo {
+    /* Barra flotante de acciones en pantalla */
+    .action-bar {
+      position: sticky;
+      top: 0;
+      z-index: 9999;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .orient-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 3px 4px;
+      border-radius: 8px;
+    }
+
+    .btn-orient {
+      background: transparent !important;
+      color: #94a3b8 !important;
+      border: 1px solid transparent !important;
+      padding: 6px 12px !important;
+      font-size: 12px !important;
+      font-weight: 600 !important;
+      border-radius: 6px !important;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+
+    .btn-orient.active {
+      background: #2563eb !important;
+      color: #ffffff !important;
+      border-color: #60a5fa !important;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+    }
+
+    .action-bar button.btn-print-main {
+      background: #10b981;
+      color: #ffffff;
+      border: none;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+
+    .action-bar button.btn-print-main:hover {
+      background: #059669;
+    }
+
+    .document-page {
       width: 100%;
-      max-width: 100%;
+      max-width: 800px;
       margin: 0 auto;
-      padding: 0;
+      padding: 8px 4px;
+      background: #ffffff;
     }
 
-    /* Membrete */
-    .header-table {
+    /* Encabezado oficial: Logo limpio y títulos sobre fondo blanco */
+    .header-container {
       width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 5pt;
+      display: table;
+      table-layout: fixed;
+      background: #ffffff;
+      padding: 4px 0 10px 0;
+      margin-bottom: 6px;
+      box-sizing: border-box;
     }
 
-    .header-table td {
-      vertical-align: middle;
-      padding: 0;
-    }
-
-    .header-logo {
+    .header-logo-cell {
+      display: table-cell;
       width: 130px;
+      vertical-align: middle;
       text-align: left;
     }
 
-    .header-logo img {
-      max-height: 48px;
+    .header-logo-cell img {
+      max-height: 52px;
       max-width: 125px;
       object-fit: contain;
       display: block;
     }
 
-    .header-titles {
+    .header-title-cell {
+      display: table-cell;
+      vertical-align: middle;
       text-align: center;
-      padding: 0 4pt;
+      padding-right: 30px;
     }
 
-    .header-titles h1 {
+    .header-title-cell h1 {
       margin: 0;
-      color: ${bluePrimary};
-      font-size: 14pt;
-      font-weight: 900;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-    }
-
-    .header-titles h2 {
-      margin: 2pt 0 0 0;
-      color: ${blueDark};
-      font-size: 11pt;
-      font-weight: 800;
+      font-size: 13pt;
+      font-weight: 700;
+      color: #000000;
       letter-spacing: 0.5px;
       text-transform: uppercase;
     }
 
-    .header-badge {
-      width: 115px;
-      text-align: right;
-      font-size: 8pt;
-      color: #334155;
-      line-height: 1.2;
+    .header-title-cell h2 {
+      margin: 3px 0 0 0;
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #000000;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
     }
 
-    .header-badge strong {
-      display: block;
-      color: ${bluePrimary};
-      font-size: 8.5pt;
-    }
-
-    /* Cuadro de Información General */
-    .info-card {
+    /* Cuadro de Información General con bordes negros */
+    .info-box {
       width: 100%;
-      border: 1.5pt solid ${bluePrimary};
-      border-radius: 4pt;
-      background-color: #f8fafc;
-      margin-bottom: 5pt;
+      border: 1.5px solid #000000;
       border-collapse: collapse;
+      margin-bottom: 8px;
+      background: #ffffff;
     }
 
-    .info-card td {
-      padding: 4pt 6pt;
+    .info-box td {
+      padding: 5px 8px;
       font-size: 9.5pt;
-      border-bottom: 0.5pt solid #cbd5e1;
+      vertical-align: middle;
     }
 
-    .info-card tr:last-child td {
-      border-bottom: none;
+    .info-field-group {
+      display: flex;
+      align-items: flex-end;
+      width: 100%;
+      white-space: nowrap;
     }
 
     .info-label {
-      font-weight: bold;
-      color: ${bluePrimary};
-      white-space: nowrap;
-      width: 15%;
-    }
-
-    .info-value {
-      font-weight: bold;
+      font-weight: 700;
       color: #000000;
-      border-bottom: 1pt solid #000000;
-      width: 35%;
-      padding-left: 5pt !important;
+      margin-right: 6px;
+      font-size: 9.5pt;
     }
 
-    /* Tabla de Datos Principal */
-    .data-table {
+    .info-line {
+      flex: 1;
+      border-bottom: 1.2px solid #000000;
+      font-weight: 700;
+      color: #000000;
+      font-size: 9.5pt;
+      padding: 0 4px 1px 4px;
+      min-height: 14pt;
+    }
+
+    /* Tabla Principal */
+    .receipts-table {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      margin-bottom: 5pt;
+      margin-bottom: 0;
+      border: 1.5px solid #000000;
     }
 
-    .data-table thead {
+    .receipts-table thead {
       display: table-header-group;
     }
 
-    .data-table th {
-      background-color: ${bluePrimary};
-      color: #ffffff;
-      font-weight: 800;
+    .receipts-table th {
+      background-color: #000000 !important;
+      color: #ffffff !important;
+      font-weight: 700;
       font-size: 9pt;
-      text-transform: uppercase;
       text-align: center;
-      border: 1pt solid #000000;
-      padding: 4.5pt 2pt;
-      letter-spacing: 0.3px;
+      padding: 5px 3px;
+      border: 1px solid #000000;
+      letter-spacing: 0.2px;
     }
 
-    .data-table tbody tr {
+    .receipts-table tbody tr {
       page-break-inside: avoid;
     }
 
-    .data-table tfoot {
+    .receipts-table td {
+      border: 1px solid #000000;
+      padding: 4px 4px;
+      font-size: 8.5pt;
+      vertical-align: middle;
+      height: 23px;
+    }
+
+    /* Columnas específicas autoajustables */
+    .col-recibo {
+      width: 7%;
+      text-align: center;
+      font-weight: 600;
+      font-size: 9pt;
+    }
+
+    .col-codigo {
+      width: 7%;
+      text-align: center;
+      font-weight: 600;
+      font-size: 9pt;
+    }
+
+    .col-cliente {
+      width: 27%;
+      text-align: left;
+      font-size: 8.5pt;
+      font-weight: 600;
+      padding-left: 6px !important;
+      line-height: 1.15;
+      overflow: hidden;
+    }
+
+    .col-monto {
+      width: 11%;
+      text-align: left;
+      font-size: 8.5pt;
+      font-weight: 500;
+      padding-left: 6px !important;
+      white-space: nowrap;
+    }
+
+    .col-obs {
+      width: 26%;
+      text-align: left;
+      font-size: 8.5pt;
+      padding-left: 6px !important;
+      overflow: hidden;
+      line-height: 1.15;
+    }
+
+    /* Fila de Totales */
+    .receipts-table tfoot {
       display: table-footer-group;
       page-break-inside: avoid;
     }
 
     .totals-row td {
-      background-color: #0f172a !important;
+      background-color: #000000 !important;
       color: #ffffff !important;
-      font-weight: 900;
-      font-size: 9.5pt;
-      padding: 4.5pt 3pt;
-      border: 1pt solid #000000;
+      font-weight: 700;
+      font-size: 9pt;
+      padding: 5px 4px;
+      border: 1px solid #000000;
+      vertical-align: middle;
     }
 
-    .totals-row td.gran-total-cell {
-      background-color: #1e293b !important;
-      color: #fde047 !important; /* Amarillo oro de alta legibilidad */
-      font-size: 10.5pt !important;
-      font-weight: 900 !important;
-      letter-spacing: 0.3px;
+    .totals-label {
+      text-align: right !important;
+      padding-right: 15px !important;
+      letter-spacing: 0.5px;
+      font-weight: 800 !important;
+      font-size: 9.5pt !important;
     }
 
-    /* Firmas */
+    .totals-amount {
+      text-align: left !important;
+      padding-left: 8px !important;
+      white-space: nowrap;
+    }
+
+    .totals-grand {
+      text-align: right !important;
+      padding-right: 8px !important;
+      white-space: nowrap;
+      font-weight: 800 !important;
+      font-size: 9.5pt !important;
+    }
+
+    /* Sección de Firmas (Liquidado Por y Revisado Por) */
     .signatures-section {
       width: 100%;
-      margin-top: 12pt;
+      margin-top: 32px;
       page-break-inside: avoid;
     }
 
     .signatures-table {
       width: 100%;
       border-collapse: collapse;
+      border: none;
     }
 
     .signatures-table td {
       width: 50%;
-      text-align: center;
       vertical-align: top;
-      padding: 0 25pt;
+      border: none;
+      padding: 0 8px;
     }
 
-    .signature-line {
-      border-top: 1.5pt solid #000000;
-      margin-top: 30pt;
-      padding-top: 3pt;
-      font-weight: bold;
+    .sig-block {
+      display: inline-block;
+      text-align: left;
+    }
+
+    .sig-line-row {
+      display: flex;
+      align-items: flex-end;
+      white-space: nowrap;
+    }
+
+    .sig-title {
+      font-weight: 700;
       font-size: 9.5pt;
+      color: #000000;
+      margin-right: 6px;
+    }
+
+    .sig-underline {
+      display: inline-block;
+      width: 175px;
+      border-bottom: 1.5px solid #000000;
+      vertical-align: bottom;
+    }
+
+    .sig-meta {
+      width: 175px;
+      text-align: center;
+      margin-top: 5px;
+      font-size: 9pt;
       color: #000000;
     }
 
-    .signature-role {
-      font-size: 8.5pt;
-      color: #334155;
+    .sig-meta-name {
       font-weight: 600;
-      margin-top: 2pt;
+      font-size: 9.5pt;
+      line-height: 1.25;
     }
 
+    .sig-meta-role {
+      font-size: 8.5pt;
+      font-weight: 500;
+      color: #111111;
+      line-height: 1.2;
+    }
+
+    /* Reglas generales de impresión */
     @media print {
       body {
         margin: 0;
         padding: 0;
+        background: #ffffff;
       }
-      .no-print {
+      .no-print, .action-bar {
         display: none !important;
       }
+      .document-page {
+        max-width: 100%;
+        padding: 0;
+      }
+    }
+
+    /* MODO HORIZONTAL (LANDSCAPE) AUTOAJUSTABLE PERFECTO */
+    @media print and (orientation: landscape) {
+      @page {
+        size: letter landscape;
+        margin: 5mm 8mm 5mm 8mm;
+      }
+      .document-page {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 0 !important;
+      }
+      .header-container {
+        padding: 2px 0 4px 0 !important;
+        margin-bottom: 4px !important;
+      }
+      .header-logo-cell img {
+        max-height: 40px !important;
+      }
+      .header-title-cell h1 {
+        font-size: 12pt !important;
+      }
+      .header-title-cell h2 {
+        font-size: 9.5pt !important;
+      }
+      .info-box {
+        margin-bottom: 4px !important;
+      }
+      .info-box td {
+        padding: 2.5px 6px !important;
+        font-size: 8.5pt !important;
+      }
+      .receipts-table th {
+        padding: 3px 2px !important;
+        font-size: 8pt !important;
+      }
+      .receipts-table td {
+        padding: 2px 4px !important;
+        height: 18px !important;
+        font-size: 8pt !important;
+      }
+      .totals-row td {
+        padding: 3px 4px !important;
+        font-size: 8.5pt !important;
+      }
+      .signatures-section {
+        margin-top: 14px !important;
+      }
+      .sig-underline {
+        width: 220px !important;
+      }
+      .sig-meta {
+        width: 220px !important;
+        font-size: 8.5pt !important;
+      }
+    }
+
+    /* Vista en pantalla cuando el usuario activa modo horizontal */
+    body.is-landscape .document-page {
+      max-width: 1050px;
+    }
+    body.is-landscape .header-container {
+      padding: 2px 0 6px 0;
+      margin-bottom: 5px;
+    }
+    body.is-landscape .header-logo-cell img {
+      max-height: 42px;
+    }
+    body.is-landscape .header-title-cell h1 {
+      font-size: 12.5pt;
+    }
+    body.is-landscape .header-title-cell h2 {
+      font-size: 10pt;
+    }
+    body.is-landscape .info-box {
+      margin-bottom: 5px;
+    }
+    body.is-landscape .info-box td {
+      padding: 3px 8px;
+      font-size: 9pt;
+    }
+    body.is-landscape .receipts-table th {
+      padding: 4px 3px;
+      font-size: 8.5pt;
+    }
+    body.is-landscape .receipts-table td {
+      padding: 2.5px 5px;
+      height: 20px;
+      font-size: 8.5pt;
+    }
+    body.is-landscape .totals-row td {
+      padding: 4px 4px;
+      font-size: 9pt;
+    }
+    body.is-landscape .signatures-section {
+      margin-top: 18px;
+    }
+    body.is-landscape .sig-underline {
+      width: 220px;
+    }
+    body.is-landscape .sig-meta {
+      width: 220px;
     }
   </style>
 </head>
 <body>
-  <div class="hoja-trabajo">
-    <!-- Membrete -->
-    <table class="header-table">
-      <tr>
-        <td class="header-logo">
-          <img src="${LOGO_DATA_URI}" alt="Droguería El Olam" />
-        </td>
-        <td class="header-titles">
-          <h1>DROGUERÍA EL OLAM</h1>
-          <h2>LIQUIDACIÓN SEMANAL DE RECIBOS DE CAJA</h2>
-        </td>
-        <td class="header-badge">
-          <strong>CONTROL OFICIAL</strong>
-          Guatemala, C.A.
-        </td>
-      </tr>
-    </table>
+  <!-- Barra flotante de acciones para pantalla -->
+  <div class="action-bar no-print">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <strong>Droguería El Olam</strong>
+      <span style="opacity: 0.6;">•</span>
+      <span>Liquidación Semanal de Recibos</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <div class="orient-group">
+        <button id="btn-portrait" type="button" class="btn-orient active" onclick="setOrientation('portrait')">
+          📄 Vertical
+        </button>
+        <button id="btn-landscape" type="button" class="btn-orient" onclick="setOrientation('landscape')">
+          📑 Horizontal
+        </button>
+      </div>
+      <button class="btn-print-main" onclick="window.print()">
+        🖨️ Imprimir Liquidación
+      </button>
+    </div>
+  </div>
+
+  <div class="document-page">
+    <!-- Encabezado oficial -->
+    <div class="header-container">
+      <div class="header-logo-cell">
+        <img src="${LOGO_DATA_URI}" alt="Droguería El Olam" />
+      </div>
+      <div class="header-title-cell">
+        <h1>DROGUERIA EL OLAM</h1>
+        <h2>LIQUIDACION SEMANAL DE RECIBOS DE CAJA</h2>
+      </div>
+    </div>
 
     <!-- Información General -->
-    <table class="info-card">
+    <table class="info-box">
       <tr>
-        <td class="info-label">Ejecutivo:</td>
-        <td class="info-value">${formData.ejecutivo || '&nbsp;'}</td>
-        <td class="info-label">Ruta Cubierta:</td>
-        <td class="info-value">${formData.rutaCubierta || '&nbsp;'}</td>
+        <td style="width: 50%;">
+          <div class="info-field-group">
+            <span class="info-label">Ejecutivo:</span>
+            <span class="info-line">${formData.ejecutivo || '&nbsp;'}</span>
+          </div>
+        </td>
+        <td style="width: 50%;">
+          <div class="info-field-group">
+            <span class="info-label">Ruta Cubierta:</span>
+            <span class="info-line">${formData.rutaCubierta || '&nbsp;'}</span>
+          </div>
+        </td>
       </tr>
       <tr>
-        <td class="info-label">Semana del:</td>
-        <td class="info-value">${formatDateSimple(formData.semanaDesde) || '&nbsp;'}</td>
-        <td class="info-label">Al:</td>
-        <td class="info-value">${formatDateSimple(formData.semanaHasta) || '&nbsp;'}</td>
+        <td style="width: 50%;">
+          <div class="info-field-group">
+            <span class="info-label">Semana del:</span>
+            <span class="info-line">${fechaDesdeStr || '&nbsp;'}</span>
+          </div>
+        </td>
+        <td style="width: 50%;">
+          <div class="info-field-group">
+            <span class="info-label">al</span>
+            <span class="info-line">${fechaHastaStr || '&nbsp;'}</span>
+          </div>
+        </td>
       </tr>
     </table>
 
-    <!-- Cuadro de Recibos (7 Columnas Oficiales) -->
-    <table class="data-table">
+    <!-- Tabla Principal de Recibos (7 Columnas Oficiales) -->
+    <table class="receipts-table">
       <thead>
         <tr>
-          <th style="width: 9%;">Recibo</th>
-          <th style="width: 9%;">Código</th>
-          <th style="width: 31%;">Cliente / Farmacia</th>
-          <th style="width: 12.5%;">Boletas (Q)</th>
-          <th style="width: 12.5%;">Efectivo (Q)</th>
-          <th style="width: 12.5%;">Cheque (Q)</th>
-          <th style="width: 13.5%;">Observaciones</th>
+          <th style="width: 7%;">Recibo</th>
+          <th style="width: 7%;">Código</th>
+          <th style="width: 27%;">Cliente</th>
+          <th style="width: 11%;">Boletas</th>
+          <th style="width: 11%;">Efectivo</th>
+          <th style="width: 11%;">Cheque</th>
+          <th style="width: 26%;">Observaciones</th>
         </tr>
       </thead>
       <tbody>
@@ -387,40 +716,70 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
       </tbody>
       <tfoot>
         <tr class="totals-row">
-          <td colspan="3" style="text-align: center; letter-spacing: 0.8px;">TOTALES:</td>
-          <td style="text-align: right;">${formatCurrency(totals.boletas)}</td>
-          <td style="text-align: right;">${formatCurrency(totals.efectivo)}</td>
-          <td style="text-align: right;">${formatCurrency(totals.cheque)}</td>
-          <!-- Gran Total debajo de la columna de Observaciones -->
-          <td class="gran-total-cell" style="text-align: right;">${formatCurrency(totals.total)}</td>
+          <td colspan="3" class="totals-label">TOTALES:</td>
+          <td class="totals-amount">${totals.boletas > 0 ? formatCurrency(totals.boletas) : 'Q 0.00'}</td>
+          <td class="totals-amount">${totals.efectivo > 0 ? formatCurrency(totals.efectivo) : 'Q 0.00'}</td>
+          <td class="totals-amount">${totals.cheque > 0 ? formatCurrency(totals.cheque) : 'Q 0.00'}</td>
+          <!-- Gran Total exactamente debajo de la columna de Observaciones en blanco sobre fondo negro -->
+          <td class="totals-grand">${formatCurrency(totals.total)}</td>
         </tr>
       </tfoot>
     </table>
 
-    <!-- Firmas -->
+    <!-- Sección de Firmas (Liquidado Por y Revisado Por) -->
     <div class="signatures-section">
       <table class="signatures-table">
         <tr>
           <td>
-            <div class="signature-line">
-              Liquidado Por: ${formData.liquidadoPor || formData.ejecutivo || '_______________________'}
-            </div>
-            <div class="signature-role">
-              ${formData.cargoLiquidado || 'Ejecutivo de Ventas'}
+            <div class="sig-block">
+              <div class="sig-line-row">
+                <span class="sig-title">Liquidado Por:</span>
+                <span class="sig-underline"></span>
+              </div>
+              <div class="sig-meta" style="margin-left: 104px;">
+                <div class="sig-meta-name">${liquidadoNombre}</div>
+                <div class="sig-meta-role">${liquidadoCargo}</div>
+              </div>
             </div>
           </td>
           <td>
-            <div class="signature-line">
-              Revisado Por: ${formData.revisadoPor || '_______________________'}
-            </div>
-            <div class="signature-role">
-              Departamento de Créditos y Cobros
+            <div class="sig-block">
+              <div class="sig-line-row">
+                <span class="sig-title">Revisado Por:</span>
+                <span class="sig-underline"></span>
+              </div>
+              <div class="sig-meta" style="margin-left: 98px;">
+                <div class="sig-meta-name">${revisadoNombre}</div>
+              </div>
             </div>
           </td>
         </tr>
       </table>
     </div>
   </div>
+
+  <script>
+    function setOrientation(mode) {
+      var styleTag = document.getElementById('orientation-style');
+      var btnPort = document.getElementById('btn-portrait');
+      var btnLand = document.getElementById('btn-landscape');
+      if (mode === 'landscape') {
+        document.body.classList.add('is-landscape');
+        if (styleTag) {
+          styleTag.innerHTML = '@page { size: letter landscape; margin: 5mm 8mm 5mm 8mm; }';
+        }
+        if (btnLand) btnLand.classList.add('active');
+        if (btnPort) btnPort.classList.remove('active');
+      } else {
+        document.body.classList.remove('is-landscape');
+        if (styleTag) {
+          styleTag.innerHTML = '@page { size: letter portrait; margin: 7mm 8mm 7mm 8mm; }';
+        }
+        if (btnPort) btnPort.classList.add('active');
+        if (btnLand) btnLand.classList.remove('active');
+      }
+    }
+  </script>
 </body>
 </html>`;
 };

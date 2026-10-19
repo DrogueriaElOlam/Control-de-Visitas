@@ -105,8 +105,11 @@ export default function FormIndex({ onSelectForm, currentUser }) {
           <h1 className="text-4xl md:text-5xl font-bold text-blue-900 mb-4">
             Sistema de Formularios
           </h1>
-          <p className="text-xl text-gray-600">
-            Droguería El Olam
+          <p className="text-xl font-semibold text-gray-700">
+            Droguería El Olam • Atención, Servicio y Calidad
+          </p>
+          <p className="text-sm text-gray-500 mt-1">
+            7a. Avenida "A" 17-67 Colonia Aurora I Zona 13, Guatemala • PBX: 2308-4353
           </p>
           <div className="mt-4 h-1 w-32 bg-blue-500 mx-auto rounded-full"></div>
         </div>

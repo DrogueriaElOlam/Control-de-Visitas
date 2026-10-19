@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, Download, Trash2, Plus, X, Edit2, History } from 'lucide-react';
+import { Save, Download, Trash2, Plus, X, Edit2, History, Printer } from 'lucide-react';
 import Logo from './Logo';
 import FormHeader from './FormHeader';
 import { supabase } from '../lib/supabase';
 import LiquidacionViaticosHistory from './LiquidacionViaticosHistory';
 import { isSuperUser, getPermittedRoutesForUser, ALL_ROUTES, getRoutesForVendor } from '../lib/formsPermissions';
 import { LOGO_DATA_URI } from '../lib/logo';
+import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
+import { generateLiquidacionViaticosHtml } from '../lib/liquidacionViaticosHtml';
 
 export default function LiquidacionViaticosForm({ currentUser }) {
   const isSuper = isSuperUser(currentUser);
@@ -276,310 +278,22 @@ export default function LiquidacionViaticosForm({ currentUser }) {
     }
   };
 
-  const handleExportPDF = () => {
-    const printWindow = window.open('', '_blank');
-    
-    // Calcular totales por categoría
-    const totales = {
-      alimentacion: calcularTotalPorCategoria('alimentacion'),
-      hotel: calcularTotalPorCategoria('hotel'),
-      peajes: calcularTotalPorCategoria('peajeParqueo'),
-      combustibles: calcularTotalPorCategoria('combustible'),
-      fotocopias: calcularTotalPorCategoria('fotocopias'),
-      varios: calcularTotalPorCategoria('varios')
-    };
-    
-    const granTotal = Object.values(totales).reduce((sum, val) => sum + val, 0);
-    
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Liquidación de Gastos Por Viáticos</title>
-        <meta charset="UTF-8">
-        <style>
-            @page {
-              size: landscape;
-              margin: 0.5cm 0.8cm;
-            }
-            
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            
-            body {
-              font-family: Arial, sans-serif;
-              font-size: 9pt;
-              line-height: 1.2;
-              color: #000;
-              min-width: 1024px; /* Forzar ancho para asegurar horizontalidad en móviles */
-            }
-          
-          .container {
-            width: 100%;
-            max-width: 100%;
-          }
-          
-          /* Encabezado elegante */
-          .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            padding-bottom: 4px;
-          }
-          
-          .logo-section {
-            width: 110pt;
-            flex-shrink: 0;
-          }
-          
-          .logo {
-            width: 110pt;
-            height: auto;
-            object-fit: contain;
-          }
-          
-          .title-section {
-            flex: 1;
-            text-align: center;
-            padding: 0 15px;
-          }
-          
-          .main-title {
-            font-size: 16pt;
-            font-weight: bold;
-            color: #1e3a8a;
-            line-height: 1.2;
-          }
-          
-          /* Campos superiores */
-          .top-fields {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 9pt;
-          }
-          
-          .field-group {
-            display: flex;
-            align-items: center;
-          }
-          
-          .field-label {
-            font-weight: bold;
-            margin-right: 6px;
-          }
-          
-          .field-value {
-            border-bottom: 1px solid #000;
-            min-width: 150px;
-            padding: 1px 4px;
-          }
-          
-          /* Tabla principal - ancho automático según contenido */
-          .main-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 8px 0;
-            font-size: 8pt;
-            table-layout: auto;
-          }
-          
-          .main-table th {
-            background-color: #dbeafe;
-            border: 1px solid #000;
-            padding: 4px 6px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 7.5pt;
-            line-height: 1.1;
-            white-space: nowrap;
-          }
-          
-          .main-table td {
-            border: 1px solid #000;
-            padding: 3px 5px;
-            text-align: center;
-            font-size: 8pt;
-            line-height: 1.1;
-          }
-          
-          .main-table td.text-left {
-            text-align: left;
-            padding-left: 6px;
-          }
-          
-          .main-table td.text-right {
-            text-align: right;
-            padding-right: 6px;
-          }
-          
-          /* Anchos de columnas optimizados */
-          .col-fecha { width: 8%; }
-          .col-documento { width: 10%; }
-          .col-establecimiento { width: 22%; }
-          .col-monto { width: 10%; }
-          
-          /* Fila de totales */
-          .totals-row {
-            background-color: #f3f4f6;
-            font-weight: bold;
-            font-size: 8.5pt;
-          }
-          
-          /* Gran total */
-          .grand-total {
-            text-align: right;
-            font-size: 11pt;
-            font-weight: bold;
-            margin: 10px 0;
-            padding: 5px 10px;
-            background-color: #1e3a8a;
-            color: white;
-            border-radius: 4px;
-          }
-          
-          /* Sección de firmas elegante */
-          .signatures {
-            margin-top: 25px;
-            display: flex;
-            justify-content: space-between;
-            gap: 40px;
-          }
-          
-          .signature-box {
-            flex: 1;
-            text-align: center;
-          }
-          
-          .signature-name {
-            font-weight: bold;
-            font-size: 9pt;
-            margin-bottom: 4px;
-            padding-top: 8px;
-            border-top: 1.5px solid #000;
-          }
-          
-          .signature-title {
-            font-size: 8pt;
-            color: #333;
-            font-style: italic;
-          }
-          
-            @media print {
-              body {
-                print-color-adjust: exact;
-                -webkit-print-color-adjust: exact;
-                min-width: 1024px;
-              }
-              
-              @page {
-                size: landscape;
-                margin: 0.5cm 0.8cm;
-              }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <!-- Encabezado -->
-          <div class="header">
-            <div class="logo-section">
-              <img src="${LOGO_DATA_URI}" class="logo" alt="Logo Droguería El Olam" />
-            </div>
-            <div class="title-section">
-              <div class="main-title">Liquidación de Gastos Por Viáticos</div>
-            </div>
-          </div>
-          
-          <!-- Campos superiores -->
-          <div class="top-fields">
-            <div class="field-group">
-              <span class="field-label">RUTA/GIRA:</span>
-              <span class="field-value">${formData.ruta}</span>
-            </div>
-            <div class="field-group">
-              <span class="field-label">LIQUIDADO POR:</span>
-              <span class="field-value">${formData.liquidadoPor}</span>
-            </div>
-            <div class="field-group">
-              <span class="field-label">FECHAS:</span>
-              <span class="field-value">${formData.fechaSalida} al ${formData.fechaRegreso}</span>
-            </div>
-          </div>
-          
-          <!-- Tabla principal con TODOS los gastos -->
-          <table class="main-table">
-            <thead>
-              <tr>
-                <th class="col-fecha">FECHA</th>
-                <th class="col-documento">No. FACTURA</th>
-                <th class="col-establecimiento">ESTABLECIMIENTO</th>
-                <th class="col-monto">ALIMENTACIÓN</th>
-                <th class="col-monto">HOTEL</th>
-                <th class="col-monto">PEAJES Y<br>PARQUEOS</th>
-                <th class="col-monto">COMBUSTIBLES</th>
-                <th class="col-monto">FOTOCOPIAS</th>
-                <th class="col-monto">VARIOS</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${formData.gastos.map(gasto => {
-                return `
-                  <tr>
-                    <td class="col-fecha">${gasto.fecha || ''}</td>
-                    <td class="col-documento">${gasto.numeroDocumento || ''}</td>
-                    <td class="col-establecimiento text-left">${gasto.establecimiento || ''}</td>
-                    <td class="col-monto text-right">${gasto.alimentacion ? 'Q' + parseFloat(gasto.alimentacion).toFixed(2) : ''}</td>
-                    <td class="col-monto text-right">${gasto.hotel ? 'Q' + parseFloat(gasto.hotel).toFixed(2) : ''}</td>
-                    <td class="col-monto text-right">${gasto.peajeParqueo ? 'Q' + parseFloat(gasto.peajeParqueo).toFixed(2) : ''}</td>
-                    <td class="col-monto text-right">${gasto.combustible ? 'Q' + parseFloat(gasto.combustible).toFixed(2) : ''}</td>
-                    <td class="col-monto text-right">${gasto.fotocopias ? 'Q' + parseFloat(gasto.fotocopias).toFixed(2) : ''}</td>
-                    <td class="col-monto text-right">${gasto.varios ? 'Q' + parseFloat(gasto.varios).toFixed(2) : ''}</td>
-                  </tr>
-                `;
-              }).join('')}
-              <tr class="totals-row">
-                <td colspan="3" style="text-align: right; padding-right: 10px;">TOTALES POR CATEGORÍA:</td>
-                <td class="text-right">Q${totales.alimentacion.toFixed(2)}</td>
-                <td class="text-right">Q${totales.hotel.toFixed(2)}</td>
-                <td class="text-right">Q${totales.peajes.toFixed(2)}</td>
-                <td class="text-right">Q${totales.combustibles.toFixed(2)}</td>
-                <td class="text-right">Q${totales.fotocopias.toFixed(2)}</td>
-                <td class="text-right">Q${totales.varios.toFixed(2)}</td>
-              </tr>
-            </tbody>
-          </table>
-          
-          <!-- Gran total -->
-          <div class="grand-total">
-            GRAN TOTAL: Q ${granTotal.toFixed(2)}
-          </div>
-          
-          <!-- Firmas sin líneas extras -->
-          <div class="signatures">
-            <div class="signature-box">
-              <div class="signature-name">${formData.liquidadoPor || ''}</div>
-              <div class="signature-title">Ejecutivo de Ventas</div>
-            </div>
-            <div class="signature-box">
-              <div class="signature-name">REVISADO POR</div>
-              <div class="signature-title">Depto. Contabilidad</div>
-            </div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-    
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+  const getPreparedFileName = () => {
+    const liquidadorLimpio = (formData.liquidadoPor || 'General').trim().replace(/\s+/g, '_');
+    const fechaSalida = formData.fechaSalida || new Date().toISOString().split('T')[0];
+    return `Liquidacion_Viaticos_${liquidadorLimpio}_${fechaSalida}`;
+  };
+
+  const handlePrint = () => {
+    const htmlContent = generateLiquidacionViaticosHtml(formData);
+    const fileName = getPreparedFileName();
+    openAndPrintHtml(htmlContent, fileName, 'landscape');
+  };
+
+  const handleExportHtml = () => {
+    const htmlContent = generateLiquidacionViaticosHtml(formData);
+    const fileName = `${getPreparedFileName()}.html`;
+    downloadHtmlFile(htmlContent, fileName, 'landscape');
   };
 
   return (
@@ -595,28 +309,39 @@ export default function LiquidacionViaticosForm({ currentUser }) {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="flex items-center gap-2 bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 font-semibold text-sm sm:text-base disabled:opacity-50"
+          className="flex items-center gap-2 bg-yellow-400 text-black px-4 py-2 rounded-lg hover:bg-yellow-500 font-bold text-sm sm:text-base disabled:opacity-50 shadow-sm transition-all"
         >
           <Save className="w-4 h-4" />
           {isSaving ? 'Guardando...' : editingRecord ? 'Actualizar' : 'Guardar'}
         </button>
         <button
           onClick={() => setShowHistory(true)}
-          className="flex items-center gap-2 bg-blue-900 text-white px-4 py-2 rounded hover:bg-blue-950 font-semibold text-sm sm:text-base"
+          className="flex items-center gap-2 bg-blue-900 text-white px-4 py-2 rounded-lg hover:bg-blue-950 font-bold text-sm sm:text-base shadow-sm transition-all"
         >
           <History className="w-4 h-4" />
           Historial
         </button>
         <button
-          onClick={handleExportPDF}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 font-semibold text-sm sm:text-base"
+          onClick={handlePrint}
+          type="button"
+          className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 font-bold text-sm sm:text-base shadow-sm transition-all"
+          title="Abrir vista de impresión y seleccionar orientación Horizontal o Vertical"
+        >
+          <Printer className="w-4 h-4" />
+          🖨️ Imprimir / Vista Previa
+        </button>
+        <button
+          onClick={handleExportHtml}
+          type="button"
+          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-bold text-sm sm:text-base shadow-sm transition-all"
+          title="Descargar archivo HTML oficial autoajustable"
         >
           <Download className="w-4 h-4" />
-          Exportar PDF
+          Descargar HTML
         </button>
         <button
           onClick={handleClear}
-          className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 font-semibold text-sm sm:text-base"
+          className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 font-bold text-sm sm:text-base shadow-sm transition-all"
         >
           <Trash2 className="w-4 h-4" />
           {editingRecord ? 'Cancelar Edición' : 'Limpiar'}

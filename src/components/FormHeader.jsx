@@ -9,7 +9,7 @@ export default function FormHeader({ title, subtitle, logoSize = "medium" }) {
             DISTRIBUIDORA COMERCIAL EL OLAM S.A.
           </h2>
           <p className="text-xs sm:text-sm font-semibold text-slate-700 mt-0.5">
-            Droguería El Olam • Calidad y Servicio Farmacéutico
+            Droguería El Olam • Atención, Servicio y Calidad
           </p>
           <p className="text-[11px] sm:text-xs text-slate-500 mt-1">
             7a. Avenida "A" 17-67 Colonia Aurora I Zona 13, Guatemala

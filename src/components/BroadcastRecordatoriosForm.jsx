@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { LOGO_DATA_URI } from '../lib/logo';
+import FormHeader from './FormHeader';
 
 export default function BroadcastRecordatoriosForm() {
   const [contacts, setContacts] = useState([]);
@@ -166,6 +167,11 @@ export default function BroadcastRecordatoriosForm() {
 
   return (
     <div className="space-y-6 p-4 max-w-6xl mx-auto">
+      <FormHeader 
+        title="BROADCAST RECORDATORIOS" 
+        subtitle="Droguería El Olam • Atención, Servicio y Calidad" 
+        logoSize="small" 
+      />
       <Tabs defaultValue="new" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="new">Nuevo Broadcast</TabsTrigger>

@@ -3,6 +3,7 @@ import { Upload, Download, RefreshCw, Trash2, Calendar, CheckCircle, Circle, Plu
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { getLocalDateString } from '../lib/dateUtils';
+import FormHeader from './FormHeader';
 
 export default function InventarioForm() {
   const [inventario, setInventario] = useState([]);
@@ -344,6 +345,14 @@ export default function InventarioForm() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-4 px-2 sm:px-4 lg:px-8">
+      <div className="max-w-7xl mx-auto mb-4">
+        <FormHeader 
+          title="CONTROL DE INVENTARIO" 
+          subtitle="Carga datos desde CSV, edita la información y exporta a Excel" 
+          logoSize="small" 
+        />
+      </div>
+
       <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 sm:p-6">
@@ -351,7 +360,7 @@ export default function InventarioForm() {
             Control de Inventario - Droguería El Olam
           </h2>
           <p className="text-sm sm:text-base text-blue-100">
-            Carga datos desde CSV, edita la información y exporta a Excel
+            Droguería El Olam • Atención, Servicio y Calidad
           </p>
           {lastSaved && (
             <p className="text-xs text-blue-200 mt-2">

@@ -290,8 +290,9 @@ export default function AperturaCodigoForm({ currentUser }) {
     <div class="header">
       <div class="header-left">
         <h2>DISTRIBUIDORA COMERCIAL EL OLAM S.A.</h2>
+        <p style="font-weight: bold; margin: 2px 0;">Droguería El Olam • Atención, Servicio y Calidad</p>
         <p>7a. Avenida "A" 17-67 Colonia Aurora I Zona 13, Guatemala</p>
-        <p>Teléfonos: 2308-4353, 2332-7814, 2339-4613</p>
+        <p>PBX: 2308-4353 • Teléfonos: 2332-7814, 2339-4613</p>
       </div>
       <div class="header-right">
         <img src="${LOGO_DATA_URI}" alt="Logo" />

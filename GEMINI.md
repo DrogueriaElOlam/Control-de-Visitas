@@ -290,6 +290,64 @@
       - **Sincronización en Formulario e Historial:**
         1) `LiquidacionRecibosForm.jsx`: Tabla interactiva adaptada al mismo formato de 7 columnas con Gran Total bajo Observaciones en tiempo real.
         2) `LiquidacionRecibosHistory.jsx`: Vista previa y modal de detalles unificados con el formato oficial de 7 columnas y el Gran Total.
+  53. **Diseño y Formato Oficial Fiel al Original Físico de Liquidación Semanal de Recibos de Caja (Basado en Muestra Física Impresa):**
+      - **Requerimiento del Usuario:** Configurar la hoja y el archivo exportable para que quede idéntico con los espacios similares, autoajustables y la forma exacta del documento físico impreso presentado en fotografía.
+      - **Detalles Implementados en `src/lib/liquidacionRecibosHtml.js`:**
+        1) **Encabezado Institucional:** Encabezado limpio sobre fondo blanco puro (sin fondo gris ni marcos artificiales), con el logo oficial de 'Droguería El Olam' a la izquierda y títulos corporativos centrados: 'DROGUERIA EL OLAM' y 'LIQUIDACION SEMANAL DE RECIBOS DE CAJA'.
+        2) **Caja de Datos Generales:** Recuadro delimitado con borde negro continuo de 1.5px, 2 líneas con campos sobre línea de subrayado horizontal continua: 'Ejecutivo: _______', 'Ruta Cubierta: _______', 'Semana del: _______' y 'al _______' perfectamente alineados y proporcionales.
+        3) **Tabla de Recibos Autoajustable con Nuevas Proporciones Solicitadas:** Encabezado con fondo negro sólido y texto blanco centrado con las 7 columnas oficiales calibradas exactamente: Recibo 7%, Código 7%, Cliente 27%, Boletas 11%, Efectivo 11%, Cheque 11% y Observaciones 26% (ampliada para permitir notas, números de boletas y convenios sin recortar texto). Celdas con bordes negros nítidos, texto mayúscula en clientes con ajuste multilínea, formato moneda 'Q X,XXX.XX' en boletas, efectivo y cheques, y celdas sin valor completamente limpias (en blanco). Relleno automático de hasta 16 filas para mantener la forma y altura física exacta del documento impreso.
+        4) **Fila de TOTALES al Pie:** Fondo negro con texto blanco. 'TOTALES:' alineado a la derecha en el área de cliente, subtotales acumulados en Boletas, Efectivo y Cheque, y el Gran Total general ubicado en blanco sobre negro exactamente debajo de la columna de Observaciones.
+        5) **Sección de Firmas Oficiales Directas del Formulario:** Integrado el bloque de firmas al pie de la hoja idéntico a la muestra física del usuario:
+           - A la izquierda: `Liquidado Por: _________` con el nombre del vendedor/liquidador y su cargo centrados debajo de la línea (tomados dinámicamente de `formData.liquidadoPor` y `formData.cargoLiquidado`).
+           - A la derecha: `Revisado Por: _________` con el departamento o revisor centrado debajo de la línea (tomado de `formData.revisadoPor`, ej. 'Creditos').
+           - Espacio amplio para firma manuscrita y protección de salto de página (`page-break-inside: avoid`).
+
+  54. **Soporte de Impresión Autoajustable en Modo Horizontal (Landscape) y Selector de Orientación Dinámico:**
+      - **Requerimiento del Usuario:** Permitir que si una persona desea imprimir los formularios en orientación horizontal, estos se autoajusten de la manera más perfecta posible a lo ancho y a lo alto.
+      - **Implementación Universal:**
+        1) **Detección Automática de Orientación del Navegador:** Mediante reglas CSS @media print and (orientation: landscape), al cambiar la impresora a 'Horizontal' en el diálogo nativo de impresión, el sistema compacta inteligentemente los márgenes, paddings de filas y encabezados, expandiendo la tabla en ancho panorámico y garantizando que quepa en 1 sola hoja sin desbordar.
+        2) **Selector Interactivo en la Barra Superior:** Incorporados los botones 📄 Vertical y 📑 Horizontal. Al seleccionar Horizontal, la vista en pantalla se expande a formato apaisado y configura @page { size: letter landscape; }, preconfigurando el diálogo de impresión directamente en Horizontal.
+        3) **Alcance Universal:** Integrado tanto en liquidacionRecibosHtml.js como en el helper universal printHtmlHelper.js, beneficiando a todos los formularios imprimibles y exportables del sistema.
+
+  55. **Liquidación de Viáticos Autoajustable en Modo Horizontal (Landscape Recomendado) y Vertical:**
+      - **Aclaración del Usuario:** El requerimiento de autoajuste perfecto al imprimir en orientación horizontal ("de la manera más perfecta") era específicamente para el formulario de **Liquidación de Viáticos** (debido a sus 9 columnas oficiales).
+      - **Implementación Técnica Realizada:**
+        1) **Módulo Generador Dedicado (`src/lib/liquidacionViaticosHtml.js`):** Desarrollado con los estándares oficiales de Droguería El Olam:
+           - Encabezado con logotipo nítido sin fondos grises ni marcos artificiales.
+           - Recuadro general con borde negro y líneas continuas: `RUTA/GIRA`, `LIQUIDADO POR` y `FECHAS`.
+           - Tabla de 9 columnas con anchos porcentuales autoajustables: Fecha (8.5%), No. Factura (10.5%), Establecimiento (27%), Alimentación (9%), Hotel (9%), Peajes y Parqueos (9%), Combustibles (9%), Fotocopias (9%) y Varios (9%).
+           - Fila de `TOTALES POR CATEGORÍA` con fondo negro y texto blanco con alineación exacta bajo cada columna monetaria.
+           - Barra de `GRAN TOTAL` unificada al pie de la tabla.
+           - Firmas institucionales dinámicas con líneas de firma: `Liquidado Por: _________ [Nombre del Vendedor] (Ejecutivo de Ventas)` y `Revisado Por: _________ Depto. Contabilidad`.
+        2) **Selector Interactivo de Orientación con Modo Horizontal Activo por Defecto:**
+           - Incluye botones `📑 Horizontal (Recomendado)` y `📄 Vertical` en la barra flotante.
+           - En Horizontal aplica `@page { size: letter landscape; margin: 5mm 8mm 5mm 8mm; }`, permitiendo que las 9 columnas y las firmas quepan con perfecta armonía y holgura en 1 sola hoja Carta sin desbordes ni columnas cortadas.
+           - En Vertical adapta dinámicamente el ancho a 790px compactando proporcionalmente tipografía y espaciados para impresión apaisada o vertical según decida el usuario.
+        3) **Integración en `LiquidacionViaticosForm.jsx`:**
+           - Reemplazado el antiguo HTML rígido con `min-width: 1024px`.
+           - Nuevos botones de acción: `🖨️ Imprimir / Vista Previa` (dispara la vista autoajustable) y `📄 Descargar HTML` (guarda el archivo en el dispositivo con nombres formateados `Liquidacion_Viaticos_[Nombre]_[Fecha].html`).
+        4) **Soporte en `src/lib/printHtmlHelper.js`:** Actualizado con `defaultOrientation = 'landscape'` para que viáticos se abra por defecto en orientación horizontal recomendada y evite duplicación de barras de acción.
+
+  56. **Actualización Universal del Lema Institucional: 'Droguería El Olam • Atención, Servicio y Calidad':**
+      - **Requerimiento del Usuario:** Cambiar en la línea `Droguería El Olam • Calidad y Servicio Farmacéutico` la frase `Calidad y Servicio Farmacéutico` por `Atención, Servicio y Calidad` en todos los formularios del sistema, y agregárselo a todos los formularios que no lo tenían.
+      - **Bloque Oficial Institucional Unificado:**
+        * Nombre de Empresa: `DISTRIBUIDORA COMERCIAL EL OLAM S.A.`
+        * Lema / Marca: `Droguería El Olam • Atención, Servicio y Calidad`
+        * Dirección: `7a. Avenida "A" 17-67 Colonia Aurora I Zona 13, Guatemala`
+        * Teléfonos: `PBX: 2308-4353 • Teléfonos: 2332-7814, 2339-4613`
+      - **Archivos y Formularios Actualizados (14 componentes clave):**
+        1) `src/components/FormHeader.jsx`: Componente maestro de cabecera utilizado por todos los formularios principales.
+        2) `src/components/AperturaCodigoForm.jsx` y `AperturaCodigoHistory.jsx`: Membrete oficial completo en la vista de impresión/exportación HTML.
+        3) `src/components/SolicitudCreditoForm.jsx`: Membrete oficial completo en la página de impresión y exportación.
+        4) `src/components/SolicitudViaticosForm.jsx` y `SolicitudViaticosHistory.jsx`: Membrete oficial completo en la plantilla de exportación.
+        5) `src/components/SolicitudEmpleoForm.jsx`: Membrete oficial completo en la plantilla de exportación.
+        6) `src/components/InventarioForm.jsx`: Integrado `FormHeader` oficial en la parte superior del módulo de inventario.
+        7) `src/components/DailySupervisionForm.jsx`: Integrado `FormHeader` oficial en el encabezado de supervisión diaria.
+        8) `src/components/SalesManagementForm.jsx`: Integrado `FormHeader` oficial en la gestión de ventas diaria.
+        9) `src/components/VendorEvaluationForm.jsx`: Reemplazado el encabezado genérico previo por el `FormHeader` oficial institucional.
+        10) `src/components/BroadcastRecordatoriosForm.jsx`: Integrado `FormHeader` oficial en el módulo de broadcast.
+        11) `src/components/SupervisionForm.jsx`: Integrado `FormHeader` oficial en el sistema de control de viáticos y supervisión.
+        12) `src/components/FormIndex.jsx`: Actualizado el banner central del catálogo con el nuevo lema y PBX.
 
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
@@ -304,11 +362,10 @@
 
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
-  - **Fecha y Hora de Publicación:** 17 de Octubre de 2026 - 13:10.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261017-V152
+  - **Fecha y Hora de Publicación:** 19 de Octubre de 2026 - 16:35.
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261019-V156
   - **Estado al Momento de la Publicación:**
-    - Cuadro de Liquidación de Recibos configurado estrictamente con 7 columnas sin columna Totales por fila.
-    - Gran Total en Quetzales ubicado en el pie exactamente debajo de la columna de Observaciones.
-    - Tipografía en 9.5-10pt perfectamente legible y proporcionada para impresión en 1 sola hoja Carta (*Letter*).
-    - Repositorio Git en main sincronizado y desplegado en Vercel.
+    - Lema institucional actualizado a "Droguería El Olam • Atención, Servicio y Calidad" en todos los formularios y plantillas de exportación.
+    - Integrado FormHeader en todos los formularios que no contaban con él (Inventario, Supervisión Diaria, Ventas, Evaluación, Broadcast, etc.).
+    - Servidor Vite en desarrollo corriendo activamente en localhost:3000.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.

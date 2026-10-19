@@ -46,6 +46,7 @@ import SalesHistory from './SalesHistory';
 import { getLocalDateString } from '../lib/dateUtils';
 import { verifyPassword } from '../lib/security';
 import { GeneralReport, VendorReport } from './SalesReports';
+import FormHeader from './FormHeader';
 
 // Register ChartJS components
 ChartJS.register(
@@ -421,12 +422,16 @@ export default function SalesManagementForm() {
   // Dashboard View
   return (
     <div className="space-y-6 p-4 md:p-8 animate-in fade-in duration-500">
-      
+      <FormHeader 
+        title="GESTIÓN DE VENTAS DIARIA" 
+        subtitle="Panel de control, reportes y registro de productividad" 
+        logoSize="small" 
+      />
       {/* Header & Controls */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 no-print">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Gestión de Ventas Diaria</h2>
-          <p className="text-muted-foreground">Panel de control, reportes y registro de productividad.</p>
+          <p className="text-muted-foreground">Droguería El Olam • Atención, Servicio y Calidad</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={handleLogout} className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">

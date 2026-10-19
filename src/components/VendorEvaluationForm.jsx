@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import { getLocalDateString } from '../lib/dateUtils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "./ui/dialog";
 import { Label } from "./ui/label";
+import FormHeader from './FormHeader';
 
 const isE2bSandbox = window.location.hostname.includes('e2b.app') || window.location.hostname.includes('e2b.dev') || window.self !== window.top;
 
@@ -332,10 +333,11 @@ export default function VendorEvaluationForm({
          )}
       </div>
 
-      <div className="mb-6 flex flex-col items-center justify-center text-center">
-        <img src="/logo.png" alt="Droguería El Olam" className="h-16 w-auto object-contain mb-3" />
-        <h1 className="text-2xl font-bold text-slate-800">EVALUACIÓN DE DESEMPEÑO DE VENDEDORES RUTERO</h1>
-      </div>
+      <FormHeader 
+        title="EVALUACIÓN DE DESEMPEÑO DE VENDEDORES RUTERO" 
+        subtitle="Droguería El Olam • Atención, Servicio y Calidad" 
+        logoSize="small" 
+      />
 
       {/* Header Fields */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-end">

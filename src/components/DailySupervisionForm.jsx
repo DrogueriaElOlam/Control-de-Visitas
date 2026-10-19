@@ -15,6 +15,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 import { supabase } from '../lib/supabase';
 import { getLocalDateString } from '../lib/dateUtils';
 import { verifyPassword } from '../lib/security';
+import FormHeader from './FormHeader';
 
 const DEFAULT_VENDEDORES = [
   'Ana Lucia Marroquin',
@@ -583,13 +584,18 @@ export default function DailySupervisionForm() {
 
   return (
     <div className="container mx-auto p-4 space-y-6 max-w-[95%] xl:max-w-7xl">
+      <FormHeader 
+        title="SUPERVISIÓN DIARIA" 
+        subtitle="Control diario de ventas, cobros y metas por equipo" 
+        logoSize="small" 
+      />
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
             <Target className="w-6 h-6 text-blue-600" />
             Supervisión Diaria - Droguería El Olam
           </h2>
-          <p className="text-gray-500 mt-1">Control diario de ventas, cobros y metas por equipo</p>
+          <p className="text-gray-500 mt-1">Droguería El Olam • Atención, Servicio y Calidad</p>
         </div>
         <div className="flex items-center gap-2">
           <Input 

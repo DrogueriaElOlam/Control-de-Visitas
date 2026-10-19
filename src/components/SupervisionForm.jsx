@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Download, Trash2, Save, RefreshCw, History, UserPlus, MapPin } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Logo from './Logo';
+import FormHeader from './FormHeader';
 import { getLocalDateString } from '../lib/dateUtils';
 import { verifyPassword } from '../lib/security';
 import { 
@@ -1291,18 +1292,13 @@ export default function SupervisionForm() {
   return (
     <div className="min-h-screen bg-gray-50 py-4 px-2 sm:px-4 lg:px-8">
       <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
-        {/* Header con logo y título */}
+        {/* Header con logo y título institucional */}
         <div className="bg-white p-4 sm:p-6 border-b">
-          <div className="flex items-start justify-between mb-4">
-            <Logo size="medium" />
-            <div className="flex-1 text-center">
-              <h2 className="text-2xl sm:text-3xl font-bold text-blue-600">
-                Control de Viaticos
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">Droguería El Olam</p>
-            </div>
-            <div className="w-24"></div>
-          </div>
+          <FormHeader 
+            title="CONTROL DE VIÁTICOS Y SUPERVISIÓN" 
+            subtitle="Droguería El Olam • Atención, Servicio y Calidad" 
+            logoSize="small" 
+          />
 
           {lastSaved && (
             <p className="text-xs text-gray-500 text-center">

@@ -73,6 +73,34 @@ export const PRINT_ACTION_BAR_STYLES = `
       background: #b91c1c;
       transform: translateY(-1px);
     }
+    .olam-orient-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      padding: 4px;
+      border-radius: 8px;
+    }
+    .olam-orient-btn {
+      background: transparent;
+      color: #cbd5e1;
+      border: 1px solid transparent;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .olam-orient-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #60a5fa;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+    }
     @media (max-width: 640px) {
       .olam-top-actions-bar {
         flex-direction: column;
@@ -82,6 +110,11 @@ export const PRINT_ACTION_BAR_STYLES = `
       }
       .olam-bar-actions {
         justify-content: stretch;
+        flex-wrap: wrap;
+      }
+      .olam-orient-group {
+        width: 100%;
+        justify-content: center;
       }
       .olam-btn-print, .olam-btn-close {
         flex: 1;
@@ -91,6 +124,17 @@ export const PRINT_ACTION_BAR_STYLES = `
     @media print {
       .no-print, .olam-top-actions-bar {
         display: none !important;
+      }
+    }
+    /* Autoajuste universal en modo Horizontal (Landscape) */
+    @media print and (orientation: landscape) {
+      @page {
+        size: letter landscape;
+        margin: 5mm 8mm 5mm 8mm;
+      }
+      body {
+        max-width: 100% !important;
+        width: 100% !important;
       }
     }
   </style>
@@ -104,6 +148,14 @@ export const PRINT_ACTION_BAR_HTML = `
       <span>Vista de Impresión / Guardado</span>
     </div>
     <div class="olam-bar-actions">
+      <div class="olam-orient-group">
+        <button type="button" id="olam-orient-port" class="olam-orient-btn active" onclick="setOlamOrientation('portrait')">
+          📄 Vertical
+        </button>
+        <button type="button" id="olam-orient-land" class="olam-orient-btn" onclick="setOlamOrientation('landscape')">
+          📑 Horizontal
+        </button>
+      </div>
       <button type="button" class="olam-btn-print" onclick="window.print()">
         🖨️ IMPRIMIR / GUARDAR EN PDF
       </button>
@@ -116,6 +168,28 @@ export const PRINT_ACTION_BAR_HTML = `
 
 export const PRINT_AUTO_SCRIPT = `
   <script>
+    function setOlamOrientation(mode) {
+      var btnPort = document.getElementById('olam-orient-port');
+      var btnLand = document.getElementById('olam-orient-land');
+      var dynStyle = document.getElementById('olam-dyn-page-style');
+      if (!dynStyle) {
+        dynStyle = document.createElement('style');
+        dynStyle.id = 'olam-dyn-page-style';
+        document.head.appendChild(dynStyle);
+      }
+      if (mode === 'landscape') {
+        document.body.classList.add('is-landscape');
+        dynStyle.innerHTML = '@page { size: letter landscape !important; margin: 5mm 8mm 5mm 8mm !important; }';
+        if (btnLand) btnLand.classList.add('active');
+        if (btnPort) btnPort.classList.remove('active');
+      } else {
+        document.body.classList.remove('is-landscape');
+        dynStyle.innerHTML = '@page { size: letter portrait !important; margin: 7mm 8mm 7mm 8mm !important; }';
+        if (btnPort) btnPort.classList.add('active');
+        if (btnLand) btnLand.classList.remove('active');
+      }
+    }
+
     // Disparo seguro y automático de impresión
     (function() {
       function triggerPrint() {
@@ -138,8 +212,9 @@ export const PRINT_AUTO_SCRIPT = `
 
 /**
  * Inserta la barra de acciones, estilos y script de impresión en cualquier HTML
+ * Permite definir defaultOrientation ('landscape' | 'portrait')
  */
-export function injectPrintFeatures(rawHtml) {
+export function injectPrintFeatures(rawHtml, defaultOrientation = 'portrait') {
   let html = rawHtml;
 
   // 1. Inyectar estilos en </head> si no existen
@@ -151,17 +226,43 @@ export function injectPrintFeatures(rawHtml) {
     }
   }
 
-  // 2. Inyectar barra superior después de <body>
-  if (!html.includes('olam-top-actions-bar')) {
+  // 2. Inyectar barra superior después de <body> sólo si no hay ya una barra de acciones
+  if (!html.includes('olam-top-actions-bar') && !html.includes('action-bar')) {
+    const isLand = defaultOrientation === 'landscape';
+    const dynamicBar = `
+  <div class="olam-top-actions-bar no-print">
+    <div class="olam-bar-title">
+      <span>📄 Droguería El Olam</span>
+      <span style="opacity: 0.6;">•</span>
+      <span>Vista de Impresión / Guardado</span>
+    </div>
+    <div class="olam-bar-actions">
+      <div class="olam-orient-group">
+        <button type="button" id="olam-orient-land" class="olam-orient-btn ${isLand ? 'active' : ''}" onclick="setOlamOrientation('landscape')">
+          📑 Horizontal ${isLand ? '(Recomendado)' : ''}
+        </button>
+        <button type="button" id="olam-orient-port" class="olam-orient-btn ${!isLand ? 'active' : ''}" onclick="setOlamOrientation('portrait')">
+          📄 Vertical
+        </button>
+      </div>
+      <button type="button" class="olam-btn-print" onclick="window.print()">
+        🖨️ IMPRIMIR / GUARDAR EN PDF
+      </button>
+      <button type="button" class="olam-btn-close" onclick="window.close()">
+        ❌ Cerrar
+      </button>
+    </div>
+  </div>
+`;
     if (html.includes('<body')) {
-      html = html.replace(/(<body[^>]*>)/i, `$1\n${PRINT_ACTION_BAR_HTML}`);
+      html = html.replace(/(<body[^>]*>)/i, `$1\n${dynamicBar}`);
     } else {
-      html = `${PRINT_ACTION_BAR_HTML}\n${html}`;
+      html = `${dynamicBar}\n${html}`;
     }
   }
 
   // 3. Inyectar script de auto-impresión antes de </body> si no hay script de print
-  if (!html.includes('triggerPrint') && !html.includes('window.print()')) {
+  if (!html.includes('setOlamOrientation') && !html.includes('setOrientation')) {
     if (html.includes('</body>')) {
       html = html.replace('</body>', `${PRINT_AUTO_SCRIPT}\n</body>`);
     } else {
@@ -175,8 +276,8 @@ export function injectPrintFeatures(rawHtml) {
 /**
  * Abre una ventana emergente y dispara la impresión directamente
  */
-export function openAndPrintHtml(rawHtml, fallbackTitle = 'Formulario') {
-  const preparedHtml = injectPrintFeatures(rawHtml);
+export function openAndPrintHtml(rawHtml, fallbackTitle = 'Formulario', defaultOrientation = 'portrait') {
+  const preparedHtml = injectPrintFeatures(rawHtml, defaultOrientation);
   const printWindow = window.open('', '_blank');
 
   if (printWindow) {
@@ -201,7 +302,7 @@ export function openAndPrintHtml(rawHtml, fallbackTitle = 'Formulario') {
   }
 
   // Si el navegador bloqueó la ventana emergente, autodescargar el archivo HTML
-  downloadHtmlFile(preparedHtml, `${fallbackTitle}.html`);
+  downloadHtmlFile(preparedHtml, `${fallbackTitle}.html`, defaultOrientation);
   alert('Se descargó el archivo HTML porque el navegador bloqueó la ventana emergente. Ábrelo y presiona el botón verde de Imprimir.');
   return false;
 }
@@ -209,8 +310,8 @@ export function openAndPrintHtml(rawHtml, fallbackTitle = 'Formulario') {
 /**
  * Descarga el archivo HTML en el dispositivo asegurando la barra de impresión
  */
-export function downloadHtmlFile(rawHtml, fileName = 'documento.html') {
-  const preparedHtml = injectPrintFeatures(rawHtml);
+export function downloadHtmlFile(rawHtml, fileName = 'documento.html', defaultOrientation = 'portrait') {
+  const preparedHtml = injectPrintFeatures(rawHtml, defaultOrientation);
   const blob = new Blob([preparedHtml], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

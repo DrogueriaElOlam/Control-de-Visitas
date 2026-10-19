@@ -215,7 +215,8 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
         <td class="header-left">
           <img src="${LOGO_DATA_URI}" style="width: 95px; height: auto; display: block; margin-bottom: 4px;">
           <h2>DISTRIBUIDORA COMERCIAL EL OLAM S.A.</h2>
-          <p>7a. Avenida "A" 17-67 Zona 13, Guatemala<br>Teléfonos: 2308-4353, 2332-7814, 2339-4613</p>
+          <p style="font-weight: bold; margin: 2px 0;">Droguería El Olam • Atención, Servicio y Calidad</p>
+          <p>7a. Avenida "A" 17-67 Colonia Aurora I Zona 13, Guatemala<br>PBX: 2308-4353 • Teléfonos: 2332-7814, 2339-4613</p>
         </td>
         <td class="header-right">
           <div class="fecha-solicitud"><strong>Fecha de Solicitud:</strong> ${fechaSolicitud}</div>

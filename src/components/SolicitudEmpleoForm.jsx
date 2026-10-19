@@ -143,8 +143,9 @@ export default function SolicitudEmpleoForm() {
           <tr>
             <td class="address-cell">
               <strong style="font-size: 10px;">DISTRIBUIDORA COMERCIAL EL OLAM S.A.</strong><br>
-              7a. Avenida "A" 17-67 Zona 13, Guatemala<br>
-              Teléfonos: 2308-4353, 2332-7814, 2339-4613
+              <span style="font-weight: bold; font-size: 9px;">Droguería El Olam • Atención, Servicio y Calidad</span><br>
+              7a. Avenida "A" 17-67 Colonia Aurora I Zona 13, Guatemala<br>
+              PBX: 2308-4353 • Teléfonos: 2332-7814, 2339-4613
             </td>
             <td class="logo-cell">
               <img src="${LOGO_DATA_URI}" 
