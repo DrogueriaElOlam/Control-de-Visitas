@@ -51,7 +51,7 @@ import {
   getPendingSyncVisits,
   deduplicateVisitsList
 } from './lib/db';
-import { syncCashFromVisits } from './lib/cashCollections';
+import { syncCashFromVisits, fetchCashReportsFromCloud } from './lib/cashCollections';
 import { subscribeToOnlinePresence } from './lib/presence';
 import { startSilentTracking, stopSilentTracking } from './lib/silentGpsTracker';
 import { 
@@ -61,12 +61,14 @@ import {
 } from './lib/internalChat';
 
 export default function App() {
+
   const [currentUser, setCurrentUser] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [darkMode, setDarkMode] = useState(false);
   const [targetMapVisit, setTargetMapVisit] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showCashModal, setShowCashModal] = useState(false);
+  const [cashModalTarget, setCashModalTarget] = useState({ vendorName: null, reportId: null });
   const [showDirectoryModal, setShowDirectoryModal] = useState(false);
   const [showFormulariosModal, setShowFormulariosModal] = useState(false);
   const [showSupervisionModal, setShowSupervisionModal] = useState(false);
@@ -141,6 +143,7 @@ export default function App() {
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       setDarkMode(true);
     }
+    localStorage.removeItem('olam_active_app_mode');
 
     // Auto-abrir modal de formularios si se solicita por parámetro en la URL
     if (typeof window !== 'undefined') {
@@ -149,6 +152,9 @@ export default function App() {
         setShowFormulariosModal(true);
       }
     }
+
+    // Sincronizar reportes de cobros en efectivo desde la nube al iniciar
+    fetchCashReportsFromCloud().catch(() => {});
 
     // Garantizar purga automática de bundles JS viejos en teléfonos y navegadores
     const APP_BUILD_REV = 'olam_rev_20261008_phone_free_v2';
@@ -486,7 +492,10 @@ export default function App() {
         darkMode={darkMode}
         setDarkMode={setDarkMode}
         onOpenReportModal={() => setShowReportModal(true)}
-        onOpenCashModal={() => setShowCashModal(true)}
+        onOpenCashModal={() => {
+          setCashModalTarget({ vendorName: null, reportId: null });
+          setShowCashModal(true);
+        }}
         onOpenDirectoryModal={() => setShowDirectoryModal(true)}
         onOpenFormulariosModal={() => setShowFormulariosModal(true)}
         onOpenSupervisionModal={() => setShowSupervisionModal(true)}
@@ -689,16 +698,24 @@ export default function App() {
         visits={visits}
         vendors={vendors}
         onVisitAdded={handleVisitAdded}
-        onOpenCashModal={() => setShowCashModal(true)}
+        onOpenCashModal={(vendorName, reportId) => {
+          setCashModalTarget({ vendorName, reportId });
+          setShowCashModal(true);
+        }}
       />
 
       {/* Modal Reporte Cobros en Efectivo (conforme formato PDF solicitado) */}
       <CashCollectionsModal
         isOpen={showCashModal}
-        onClose={() => setShowCashModal(false)}
+        onClose={() => {
+          setShowCashModal(false);
+          setCashModalTarget({ vendorName: null, reportId: null });
+        }}
         currentUser={currentUser}
         vendors={vendors}
         visits={visits}
+        initialVendorName={cashModalTarget?.vendorName}
+        initialReportId={cashModalTarget?.reportId}
       />
 
       {/* Modal Carga Masiva de Clientes desde Excel (Panel Administrador) */}

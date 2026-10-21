@@ -36,3 +36,18 @@ tmp_*.txt
 .gradle/
 .gradle
 android/.gradle/
+
+# Otros proyectos desacoplados
+src/components/panaderia/
+public/panaderia_*
+public/pan_*
+public/bocadito_*
+public/campechanas*
+public/empanadas_*
+public/gusanitos*
+public/lenguitas*
+public/reposteria_*
+public/google_sites_html/
+CHECKPOINT_DROGUERIA_EL_OLAM.md
+scripts/
+

@@ -38,7 +38,7 @@ import { generateGoalComplianceHTMLReport } from '../lib/goalComplianceReport';
 import { generateMonthlyRouteHTMLReport } from '../lib/monthlyRouteReport';
 import { getLocalDateString, getLocalYesterdayString, getLocalStartOfMonthString } from '../lib/dateUtils';
 import { isSuperUser, normalizeText } from '../lib/formsPermissions';
-import { resolveClientPhoneForVisit } from '../lib/catalog';
+import { resolveClientPhoneForVisit, parseGuatemalaPhoneNumbers, saveClientRecord } from '../lib/catalog';
 
 export default function VisitsListAndFilters({ 
   visits = [], 
@@ -115,6 +115,8 @@ export default function VisitsListAndFilters({
   const [editCheck, setEditCheck] = useState('');
   const [editBoleta, setEditBoleta] = useState('');
   const [editObservations, setEditObservations] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editSecondaryPhone, setEditSecondaryPhone] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [statusNotification, setStatusNotification] = useState('');
 
@@ -345,6 +347,10 @@ export default function VisitsListAndFilters({
     setEditCheck(visit.collectionCheck || visit.collectionAmounts?.cheque ? String(visit.collectionCheck || visit.collectionAmounts?.cheque) : '');
     setEditBoleta(visit.collectionBoleta || visit.collectionAmounts?.boleta ? String(visit.collectionBoleta || visit.collectionAmounts?.boleta) : '');
     setEditObservations(visit.observations || '');
+
+    const resPh = resolveClientPhoneForVisit(visit);
+    setEditPhone(visit.phone || resPh.phone || '');
+    setEditSecondaryPhone(visit.secondaryPhone || resPh.secondaryPhone || '');
   };
 
   // Cancel edit
@@ -358,6 +364,8 @@ export default function VisitsListAndFilters({
     setEditCheck('');
     setEditBoleta('');
     setEditObservations('');
+    setEditPhone('');
+    setEditSecondaryPhone('');
   };
 
   // Save modified visit
@@ -373,6 +381,10 @@ export default function VisitsListAndFilters({
       const boletaNum = editHasCollection ? (Number(editBoleta) || 0) : 0;
       const totalColl = cashNum + transNum + checkNum + boletaNum;
 
+      const parsedPhones = parseGuatemalaPhoneNumbers(editPhone, editSecondaryPhone);
+      const cleanPhone1 = parsedPhones.phone || editPhone.trim();
+      const cleanPhone2 = parsedPhones.secondaryPhone || editSecondaryPhone.trim();
+
       await updateVisitSalesAndCollections(editingVisit.id, {
         hasSale: editHasSale,
         saleAmount: editHasSale ? (Number(editSaleAmount) || 0) : 0,
@@ -383,8 +395,28 @@ export default function VisitsListAndFilters({
         collectionCheck: checkNum,
         collectionBoleta: boletaNum,
         collectionAmount: totalColl,
-        observations: editObservations.trim()
+        observations: editObservations.trim(),
+        phone: cleanPhone1 || null,
+        secondaryPhone: cleanPhone2 || null
       });
+
+      // Sincronizar teléfono(s) en el Directorio Maestro de Clientes y Supabase
+      if (cleanPhone1 || cleanPhone2) {
+        try {
+          await saveClientRecord({
+            code: editingVisit.clientCode,
+            name: editingVisit.clientName,
+            sector: editingVisit.sector || editingVisit.route,
+            route: editingVisit.route || editingVisit.sector,
+            visitDate: editingVisit.visitDate,
+            phone: cleanPhone1,
+            secondaryPhone: cleanPhone2,
+            vendorName: editingVisit.vendorName || currentUser?.name
+          });
+        } catch (errDir) {
+          console.warn('Error al actualizar directorio maestro desde visita:', errDir);
+        }
+      }
 
       // Sync cash collections if cash was recorded
       if (cashNum > 0) {
@@ -399,7 +431,7 @@ export default function VisitsListAndFilters({
         });
       }
 
-      setStatusNotification(`¡Registro de "${editingVisit.clientName}" modificado exitosamente!`);
+      setStatusNotification(`¡Registro y teléfono de "${editingVisit.clientName}" actualizados exitosamente!`);
       setTimeout(() => setStatusNotification(''), 4500);
       handleCancelEdit();
       if (onVisitsChange) onVisitsChange();
@@ -794,11 +826,23 @@ export default function VisitsListAndFilters({
                             {visit.clientType === 'nuevo' ? 'Nuevo' : 'Propio'}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-400 font-mono mt-0.5">
-                          Cód: <span className="font-bold text-slate-600 dark:text-slate-300">{visit.clientCode || '0000'}</span> {(() => {
-                            const resPh = resolveClientPhoneForVisit(visit);
-                            return resPh.formatted ? `• Tel: ${resPh.formatted}` : '';
-                          })()}
+                        <div className="text-xs text-slate-400 font-mono mt-0.5 flex flex-wrap items-center gap-1.5">
+                          <span>Cód: <strong className="text-slate-600 dark:text-slate-300">{visit.clientCode || '0000'}</strong></span>
+                          <span>•</span>
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(visit)}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:underline cursor-pointer bg-blue-50/70 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200/60 dark:border-blue-900/60 transition-colors"
+                            title="Clic para modificar o ingresar número telefónico"
+                          >
+                            <Phone size={10} />
+                            <span>
+                              {(() => {
+                                const resPh = resolveClientPhoneForVisit(visit);
+                                return resPh.formatted ? `Tel: ${resPh.formatted} ✏️` : '➕ Agregar Teléfono';
+                              })()}
+                            </span>
+                          </button>
                         </div>
                       </div>
 
@@ -899,10 +943,10 @@ export default function VisitsListAndFilters({
                         type="button"
                         onClick={() => handleStartEdit(visit)}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-blue-300 text-xs font-bold transition-all cursor-pointer border border-blue-200 dark:border-blue-900 shadow-sm active:scale-95"
-                        title="Modificar únicamente Venta, Cobro u Observaciones"
+                        title="Modificar Venta, Cobro, Teléfono u Observaciones"
                       >
                         <Pencil size={13} />
-                        <span>Modificar Venta / Cobro</span>
+                        <span>Modificar Venta / Cobro / Teléfono</span>
                       </button>
 
                       {isAdmin && (
@@ -972,11 +1016,23 @@ export default function VisitsListAndFilters({
                               {visit.clientType === 'nuevo' ? 'Nuevo' : 'Propio'}
                             </span>
                           </div>
-                          <div className="text-xs text-slate-400 font-mono mt-0.5">
-                            Código: {visit.clientCode || '0000'} • {(() => {
-                              const resPh = resolveClientPhoneForVisit(visit);
-                              return resPh.formatted || 'Sin tel';
-                            })()}
+                          <div className="text-xs text-slate-400 font-mono mt-0.5 flex flex-wrap items-center gap-1.5">
+                            <span>Código: {visit.clientCode || '0000'}</span>
+                            <span>•</span>
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(visit)}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 hover:underline cursor-pointer bg-blue-50/70 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200/60 dark:border-blue-900/60 transition-colors"
+                              title="Clic para modificar o ingresar número telefónico"
+                            >
+                              <Phone size={10} />
+                              <span>
+                                {(() => {
+                                  const resPh = resolveClientPhoneForVisit(visit);
+                                  return resPh.formatted ? `Tel: ${resPh.formatted} ✏️` : '➕ Agregar Teléfono';
+                                })()}
+                              </span>
+                            </button>
                           </div>
                           {visit.observations && (
                             <p className="text-[11px] text-slate-500 italic mt-1 max-w-xs truncate">
@@ -1152,8 +1208,64 @@ export default function VisitsListAndFilters({
                   <span>📅 {editingVisit.visitDate} ({editingVisit.dayPeriod === 'mañana' ? 'Mañana' : 'Tarde'})</span>
                 </div>
                 <p className="text-[10px] text-slate-400 italic">
-                  * El cliente, fecha y ruta están protegidos para mantener la integridad del registro. Solo puedes modificar Venta, Cobro y Observaciones.
+                  * El nombre del cliente, fecha y ruta están protegidos. Puedes modificar Teléfono(s), Venta, Cobro y Observaciones.
                 </p>
+              </div>
+
+              {/* SECCIÓN TELÉFONO(S) DEL CLIENTE / FARMACIA */}
+              <div className="p-4 bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl border border-blue-200 dark:border-blue-800/60 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg">
+                      <Phone size={14} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                        Teléfono(s) del Cliente / Farmacia
+                      </span>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Ingresa o corrige el número si no se guardó al realizar la visita en campo.
+                      </p>
+                    </div>
+                  </div>
+                  {editingVisit.clientType === 'nuevo' && (
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-800 shrink-0">
+                      ✨ Cliente Nuevo
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Teléfono Principal (8 dígitos)
+                    </label>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder="Ej: 55551234"
+                      maxLength={15}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Teléfono 2 / Celular (Opcional)
+                    </label>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      value={editSecondaryPhone}
+                      onChange={(e) => setEditSecondaryPhone(e.target.value)}
+                      placeholder="Ej: 44449876"
+                      maxLength={15}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-blue-700 dark:text-blue-300 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* 1. SECCIÓN VENTA */}

@@ -37,12 +37,20 @@ import {
   Layers,
   ArrowUpRight,
   Banknote,
-  Trash2
+  Trash2,
+  Edit3
 } from 'lucide-react';
 import { addVisitRecord, ALL_ROUTES } from '../lib/db';
 import { isSuperUser, normalizeText } from '../lib/formsPermissions';
 import { LOGO_DATA_URI, LOGO_URL } from '../lib/logo';
-import { getCashReportsForVendor, syncCashFromVisits, createNewCashReport, deleteCashReport } from '../lib/cashCollections';
+import { 
+  getCashReportsForVendor, 
+  syncCashFromVisits, 
+  createNewCashReport, 
+  deleteCashReport,
+  saveCashReport,
+  BANK_OPTIONS 
+} from '../lib/cashCollections';
 import { getLocalDateString } from '../lib/dateUtils';
 import { resolveClientPhoneForVisit } from '../lib/catalog';
 
@@ -389,6 +397,101 @@ export default function VendorReportModal({
       deleteCashReport(reportId);
       setCashRefreshTick(prev => prev + 1);
     }
+  };
+
+  // Estados y funciones para la Modificación de Cuadro de Cobros en Efectivo por Administrador
+  const [editingCashReportId, setEditingCashReportId] = useState(null);
+  const [editingCashReportDraft, setEditingCashReportDraft] = useState(null);
+  const [cashEditSuccessMsg, setCashEditSuccessMsg] = useState('');
+
+  const handleStartEditCashReport = (cr) => {
+    setEditingCashReportId(cr.id);
+    const rowsCopy = (cr.rows || cr.items || []).map((r, i) => ({
+      ...r,
+      no: i + 1,
+      boleta: String(r.boleta || '').replace(/\D/g, ''),
+      banco: r.banco || BANK_OPTIONS[1],
+      monto: r.monto !== undefined && r.monto !== null ? r.monto : 0
+    }));
+    setEditingCashReportDraft({
+      ...cr,
+      rows: rowsCopy,
+      items: rowsCopy,
+      total: rowsCopy.reduce((sum, r) => sum + (Number(r.monto) || 0), 0),
+      observaciones: cr.observaciones || cr.observations || ''
+    });
+  };
+
+  const handleCancelEditCashReport = () => {
+    setEditingCashReportId(null);
+    setEditingCashReportDraft(null);
+  };
+
+  const handleDraftRowChange = (index, field, value) => {
+    if (!editingCashReportDraft) return;
+    const newRows = [...editingCashReportDraft.rows];
+    if (field === 'boleta') {
+      newRows[index].boleta = value.replace(/\D/g, '');
+    } else if (field === 'monto') {
+      newRows[index].monto = value === '' ? '' : Math.max(0, parseFloat(value) || 0);
+    } else {
+      newRows[index][field] = value;
+    }
+    const newTotal = newRows.reduce((sum, r) => sum + (Number(r.monto) || 0), 0);
+    setEditingCashReportDraft({
+      ...editingCashReportDraft,
+      rows: newRows,
+      items: newRows,
+      total: newTotal
+    });
+  };
+
+  const handleAddDraftRow = () => {
+    if (!editingCashReportDraft) return;
+    const newRows = [
+      ...(editingCashReportDraft.rows || []),
+      {
+        id: `row_${Date.now()}_${(editingCashReportDraft.rows?.length || 0) + 1}`,
+        no: (editingCashReportDraft.rows?.length || 0) + 1,
+        boleta: '',
+        banco: BANK_OPTIONS[1],
+        monto: 0,
+        clientName: ''
+      }
+    ];
+    setEditingCashReportDraft({
+      ...editingCashReportDraft,
+      rows: newRows,
+      items: newRows,
+      total: newRows.reduce((sum, r) => sum + (Number(r.monto) || 0), 0)
+    });
+  };
+
+  const handleDeleteDraftRow = (index) => {
+    if (!editingCashReportDraft || editingCashReportDraft.rows.length <= 1) {
+      alert('El cuadro de cobros debe contener al menos un registro.');
+      return;
+    }
+    const newRows = editingCashReportDraft.rows
+      .filter((_, idx) => idx !== index)
+      .map((r, i) => ({ ...r, no: i + 1 }));
+    const newTotal = newRows.reduce((sum, r) => sum + (Number(r.monto) || 0), 0);
+    setEditingCashReportDraft({
+      ...editingCashReportDraft,
+      rows: newRows,
+      items: newRows,
+      total: newTotal
+    });
+  };
+
+  const handleSaveCashReportDraft = () => {
+    if (!editingCashReportDraft) return;
+    const saved = saveCashReport(editingCashReportDraft, true);
+    setEditingCashReportId(null);
+    setEditingCashReportDraft(null);
+    setCashRefreshTick(prev => prev + 1);
+    setCashEditSuccessMsg(`¡Cuadro de cobros (${saved.date || 'día'}) modificado y guardado con éxito!`);
+    setTimeout(() => setCashEditSuccessMsg(''), 4500);
   };
 
   // Compute detailed metrics matching and expanding on the template
@@ -2041,11 +2144,12 @@ export default function VendorReportModal({
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => onOpenCashModal && onOpenCashModal()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-sm"
-                  title="Editar líneas, boletas, bancos y observaciones"
+                  onClick={() => onOpenCashModal && onOpenCashModal(selectedVendorName, vendorCashReports[0]?.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  title="Editar líneas, boletas, bancos y observaciones en ventana modal"
                 >
-                  <span>Editar manualmente</span>
+                  <Edit3 size={14} />
+                  <span>Editar en modal</span>
                 </button>
 
                 <button
@@ -2060,6 +2164,16 @@ export default function VendorReportModal({
               </div>
             </div>
 
+            {/* Notificación de éxito al modificar cuadro */}
+            {cashEditSuccessMsg && (
+              <div className="bg-emerald-600 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-between shadow-md animate-in slide-in-from-top">
+                <span className="flex items-center gap-2">
+                  <CheckCircle2 size={16} /> {cashEditSuccessMsg}
+                </span>
+                <button onClick={() => setCashEditSuccessMsg('')} className="text-emerald-200 hover:text-white">✕</button>
+              </div>
+            )}
+
             {/* Listado de cuadros o mensaje cuando no hay aún */}
             {vendorCashReports.length === 0 ? (
               <div className="p-6 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
@@ -2072,7 +2186,7 @@ export default function VendorReportModal({
                 </p>
                 <button
                   type="button"
-                  onClick={() => onOpenCashModal && onOpenCashModal()}
+                  onClick={() => onOpenCashModal && onOpenCashModal(selectedVendorName)}
                   className="mt-3.5 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md"
                 >
                   <Plus size={14} />
@@ -2082,87 +2196,294 @@ export default function VendorReportModal({
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {vendorCashReports.map((cr, idx) => {
-                  const items = cr.rows || cr.items || [];
+                  const isEditing = editingCashReportId === cr.id;
+                  const activeData = isEditing && editingCashReportDraft ? editingCashReportDraft : cr;
+                  const items = activeData.rows || activeData.items || [];
                   const totalMonto = items.reduce((acc, it) => acc + (Number(it.monto) || 0), 0);
+
                   return (
                     <div 
                       key={cr.id || idx}
-                      className="border-2 border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm flex flex-col justify-between"
+                      className={`border-2 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm flex flex-col justify-between transition-all ${
+                        isEditing 
+                          ? 'border-amber-400 dark:border-amber-500 ring-2 ring-amber-400/30 shadow-lg' 
+                          : 'border-slate-200 dark:border-slate-700'
+                      }`}
                     >
-                      {/* Cabecera del cuadro igual al PDF */}
+                      {/* Cabecera del cuadro */}
                       <div>
-                        <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800 text-white px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 flex-wrap">
-                          <div className="flex items-center gap-2">
+                        <div className={`text-white px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 flex-wrap transition-colors ${
+                          isEditing
+                            ? 'bg-gradient-to-r from-amber-700 via-amber-800 to-amber-900'
+                            : 'bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-800'
+                        }`}>
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-extrabold text-xs sm:text-sm tracking-wide">
-                              Reporte Cobros en Efectivo {vendorCashReports.length > 1 ? `(#${idx + 1})` : ''}
+                              {isEditing ? '✏️ Modificando Cuadro' : 'Reporte Cobros en Efectivo'} {vendorCashReports.length > 1 ? `(#${idx + 1})` : ''}
                             </span>
                             <span className="text-[11px] bg-white/20 px-2 py-0.5 rounded-md font-semibold">
                               Fecha: {cr.date || todayStr}
                             </span>
+                            {cr.isModifiedByAdmin && !isEditing && (
+                              <span className="text-[10px] bg-amber-400/30 text-amber-200 border border-amber-300/40 px-2 py-0.5 rounded-md font-bold">
+                                ✏️ Modificado por Admin
+                              </span>
+                            )}
                           </div>
 
-                          {/* Botón de Borrado si el vendedor guardó por error */}
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCashReport(cr.id, cr.date, idx)}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-600/90 hover:bg-red-600 active:scale-95 text-white text-[11px] font-bold transition-all shadow-sm border border-red-400/40 cursor-pointer"
-                            title="Eliminar este cuadro de cobros si se guardó por error"
-                          >
-                            <Trash2 size={13} className="shrink-0" />
-                            <span>Borrar cuadro</span>
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            {/* Botón Modificar Boleta, Banco y Monto (Solo Admin y Superusuario) */}
+                            {(isAdmin || isSuper) && !isEditing && (
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditCashReport(cr)}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-[11px] font-black transition-all shadow-sm border border-amber-300/40 cursor-pointer"
+                                title="Modificar número de boleta, banco o monto de este cuadro"
+                              >
+                                <Edit3 size={13} className="shrink-0" />
+                                <span>Modificar Boleta/Banco/Monto</span>
+                              </button>
+                            )}
+
+                            {isEditing ? (
+                              <button
+                                type="button"
+                                onClick={handleCancelEditCashReport}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-600 hover:bg-slate-700 text-white text-[11px] font-bold transition-all cursor-pointer"
+                              >
+                                <X size={13} />
+                                <span>Cancelar</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCashReport(cr.id, cr.date, idx)}
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-600/80 hover:bg-red-600 active:scale-95 text-white text-[11px] font-bold transition-all shadow-sm border border-red-400/40 cursor-pointer"
+                                title="Eliminar este cuadro de cobros si se guardó por error"
+                              >
+                                <Trash2 size={13} className="shrink-0" />
+                                <span>Borrar</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Tabla estructurada conforme al PDF */}
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs border-collapse">
-                            <thead>
-                              <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold">
-                                <th className="py-2 px-3 w-12 text-center border-r border-slate-200 dark:border-slate-700">No.</th>
-                                <th className="py-2 px-3 border-r border-slate-200 dark:border-slate-700">Boleta</th>
-                                <th className="py-2 px-3 border-r border-slate-200 dark:border-slate-700">Banco</th>
-                                <th className="py-2 px-3 text-right">Monto</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                              {items.map((it) => (
-                                <tr key={it.id || it.no} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                                  <td className="py-2 px-3 text-center font-bold text-slate-400 border-r border-slate-200 dark:border-slate-800">
-                                    {it.no}
-                                  </td>
-                                  <td className="py-2 px-3 font-mono font-medium text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-800">
-                                    {it.boleta ? it.boleta : <span className="text-slate-400 italic text-[11px]">Por ingresar</span>}
-                                  </td>
-                                  <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-800">
-                                    <span className="text-slate-700 dark:text-slate-300 font-medium">
-                                      {it.banco || '—'}
-                                    </span>
-                                  </td>
-                                  <td className="py-2 px-3 text-right font-black text-slate-900 dark:text-slate-100">
-                                    Q{Number(it.monto || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </td>
-                                </tr>
-                              ))}
-                              {/* Fila Total */}
-                              <tr className="bg-slate-50 dark:bg-slate-800/80 border-t-2 border-slate-300 dark:border-slate-700 font-black">
-                                <td colSpan={3} className="py-2.5 px-3 text-right uppercase text-slate-700 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700">
-                                  Total
-                                </td>
-                                <td className="py-2.5 px-3 text-right text-emerald-600 dark:text-emerald-400 text-sm font-black">
-                                  Q{totalMonto.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
+                        {/* MODO EDICIÓN ADMINISTRADOR */}
+                        {isEditing ? (
+                          <div className="p-3 sm:p-4 bg-amber-50/30 dark:bg-amber-950/20 space-y-3">
+                            <div className="bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-1.5 flex items-center justify-between text-xs text-amber-900 dark:text-amber-200">
+                              <span className="font-extrabold flex items-center gap-1.5">
+                                🛡️ Modo Administrador: Modifica directamente la boleta, banco o monto
+                              </span>
+                              <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                                Vendedor: {cr.vendorName}
+                              </span>
+                            </div>
 
-                      {/* Observaciones al pie */}
-                      <div className="p-3 bg-slate-50/80 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 text-xs">
-                        <span className="font-bold text-slate-600 dark:text-slate-300 block mb-0.5">Observaciones:</span>
-                        <p className="text-slate-500 dark:text-slate-400 italic text-[11px]">
-                          {cr.observations || 'Sin observaciones registradas.'}
-                        </p>
+                            {/* Tabla editable */}
+                            <div className="overflow-x-auto rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-slate-900 shadow-sm">
+                              <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                  <tr className="bg-amber-100/70 dark:bg-amber-900/50 text-amber-950 dark:text-amber-100 font-extrabold border-b border-amber-200 dark:border-amber-800">
+                                    <th className="py-2 px-2.5 w-12 text-center border-r border-amber-200 dark:border-amber-800">No.</th>
+                                    <th className="py-2 px-2.5 min-w-[130px] border-r border-amber-200 dark:border-amber-800">Boleta (Solo Números)</th>
+                                    <th className="py-2 px-2.5 min-w-[170px] border-r border-amber-200 dark:border-amber-800">Banco</th>
+                                    <th className="py-2 px-2.5 min-w-[120px] text-right border-r border-amber-200 dark:border-amber-800">Monto (Q)</th>
+                                    <th className="py-2 px-2 w-10 text-center"></th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-amber-100 dark:divide-amber-950/40">
+                                  {items.map((row, rIdx) => (
+                                    <tr key={row.id || rIdx} className="hover:bg-amber-50/50 dark:hover:bg-slate-800/60">
+                                      {/* No. */}
+                                      <td className="py-2 px-2.5 text-center font-bold text-amber-700 dark:text-amber-400 border-r border-amber-100 dark:border-amber-900/40 bg-amber-50/40">
+                                        {rIdx + 1}
+                                      </td>
+
+                                      {/* Boleta editable */}
+                                      <td className="py-1.5 px-2.5 border-r border-amber-100 dark:border-amber-900/40">
+                                        <input
+                                          type="text"
+                                          inputMode="numeric"
+                                          pattern="[0-9]*"
+                                          placeholder="Ej: 8492019"
+                                          value={row.boleta || ''}
+                                          onChange={(e) => handleDraftRowChange(rIdx, 'boleta', e.target.value)}
+                                          className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border-2 border-amber-300 dark:border-amber-600 rounded-lg font-mono font-bold text-xs text-blue-700 dark:text-blue-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                        />
+                                        {row.clientName && (
+                                          <span className="block text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                            Ref: {row.clientName}
+                                          </span>
+                                        )}
+                                      </td>
+
+                                      {/* Banco dropdown editable */}
+                                      <td className="py-1.5 px-2.5 border-r border-amber-100 dark:border-amber-900/40">
+                                        <select
+                                          value={row.banco || BANK_OPTIONS[1]}
+                                          onChange={(e) => handleDraftRowChange(rIdx, 'banco', e.target.value)}
+                                          className="w-full px-2 py-1.5 bg-white dark:bg-slate-900 border-2 border-amber-300 dark:border-amber-600 rounded-lg text-xs font-bold text-blue-700 dark:text-blue-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                        >
+                                          {BANK_OPTIONS.map(b => (
+                                            <option key={b} value={b}>{b}</option>
+                                          ))}
+                                        </select>
+                                      </td>
+
+                                      {/* Monto editable */}
+                                      <td className="py-1.5 px-2.5 border-r border-amber-100 dark:border-amber-900/40 text-right">
+                                        <div className="relative">
+                                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold text-blue-600 dark:text-blue-400 text-xs">
+                                            Q
+                                          </span>
+                                          <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            placeholder="0.00"
+                                            value={row.monto !== undefined && row.monto !== null ? row.monto : ''}
+                                            onChange={(e) => handleDraftRowChange(rIdx, 'monto', e.target.value)}
+                                            className="w-full pl-6 pr-2 py-1.5 bg-white dark:bg-slate-900 border-2 border-amber-300 dark:border-amber-600 rounded-lg font-mono font-bold text-xs text-right text-blue-700 dark:text-blue-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                          />
+                                        </div>
+                                      </td>
+
+                                      {/* Eliminar fila */}
+                                      <td className="py-1.5 px-2 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteDraftRow(rIdx)}
+                                          className="text-slate-300 hover:text-red-500 p-1 rounded-md transition-colors"
+                                          title="Eliminar este registro"
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot>
+                                  <tr className="bg-amber-100/70 dark:bg-amber-950/60 font-black border-t-2 border-amber-200 dark:border-amber-800">
+                                    <td colSpan={3} className="py-2.5 px-3 text-right uppercase text-xs text-amber-950 dark:text-amber-200 border-r border-amber-200 dark:border-amber-800">
+                                      Total Modificado
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-mono font-black text-sm text-emerald-600 dark:text-emerald-400 border-r border-amber-200 dark:border-amber-800">
+                                      Q{totalMonto.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </td>
+                                    <td></td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+
+                            {/* Botón Agregar Fila en modo edición */}
+                            <div className="flex items-center justify-between">
+                              <button
+                                type="button"
+                                onClick={handleAddDraftRow}
+                                className="px-3 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                              >
+                                <Plus size={14} />
+                                <span>Agregar Fila / Boleta</span>
+                              </button>
+                              <span className="text-[11px] text-slate-400 font-medium">
+                                {items.length} {items.length === 1 ? 'registro' : 'registros'}
+                              </span>
+                            </div>
+
+                            {/* Observaciones editables */}
+                            <div className="space-y-1">
+                              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                                Observaciones
+                              </label>
+                              <textarea
+                                rows={2}
+                                value={editingCashReportDraft.observaciones || ''}
+                                onChange={(e) => setEditingCashReportDraft({ ...editingCashReportDraft, observaciones: e.target.value })}
+                                placeholder="Escriba aquí observaciones de las boletas o depósitos..."
+                                className="w-full p-2.5 bg-white dark:bg-slate-900 border-2 border-amber-300 dark:border-amber-600 rounded-xl text-xs font-semibold text-blue-800 dark:text-blue-300 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                              />
+                            </div>
+
+                            {/* Botones de Guardar / Cancelar */}
+                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-amber-200 dark:border-amber-800/40">
+                              <button
+                                type="button"
+                                onClick={handleCancelEditCashReport}
+                                className="px-3.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleSaveCashReportDraft}
+                                className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+                              >
+                                <Save size={14} />
+                                <span>Guardar Modificación</span>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* MODO VISTA NORMAL */
+                          <>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                  <tr className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold">
+                                    <th className="py-2 px-3 w-12 text-center border-r border-slate-200 dark:border-slate-700">No.</th>
+                                    <th className="py-2 px-3 border-r border-slate-200 dark:border-slate-700">Boleta</th>
+                                    <th className="py-2 px-3 border-r border-slate-200 dark:border-slate-700">Banco</th>
+                                    <th className="py-2 px-3 text-right">Monto</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                  {items.map((it) => (
+                                    <tr key={it.id || it.no} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                      <td className="py-2 px-3 text-center font-bold text-slate-400 border-r border-slate-200 dark:border-slate-800">
+                                        {it.no}
+                                      </td>
+                                      <td className="py-2 px-3 font-mono font-medium text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-800">
+                                        {it.boleta ? it.boleta : <span className="text-slate-400 italic text-[11px]">Por ingresar</span>}
+                                        {it.clientName && (
+                                          <span className="block text-[10px] text-slate-400 truncate mt-0.5">
+                                            Ref: {it.clientName}
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-800">
+                                        <span className="text-slate-700 dark:text-slate-300 font-medium">
+                                          {it.banco || '—'}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-3 text-right font-black text-slate-900 dark:text-slate-100">
+                                        Q{Number(it.monto || 0).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                  {/* Fila Total */}
+                                  <tr className="bg-slate-50 dark:bg-slate-800/80 border-t-2 border-slate-300 dark:border-slate-700 font-black">
+                                    <td colSpan={3} className="py-2.5 px-3 text-right uppercase text-slate-700 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700">
+                                      Total
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right text-emerald-600 dark:text-emerald-400 text-sm font-black">
+                                      Q{totalMonto.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Observaciones al pie */}
+                            <div className="p-3 bg-slate-50/80 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 text-xs">
+                              <span className="font-bold text-slate-600 dark:text-slate-300 block mb-0.5">Observaciones:</span>
+                              <p className="text-slate-500 dark:text-slate-400 italic text-[11px]">
+                                {cr.observations || 'Sin observaciones registradas.'}
+                              </p>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   );

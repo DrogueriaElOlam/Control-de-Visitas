@@ -6,6 +6,7 @@ import {
   getOtpKeysVault, 
   saveOtpKeysVault, 
   verifyAndConsumeOtpKey, 
+  verifyAndConsumeOtpKeyAsync,
   isOtpKeyFormat, 
   getOtpKeysStats,
   getOtpKeysVaultAsync,
@@ -13,6 +14,7 @@ import {
   getLogoutOtpKeysVault,
   saveLogoutOtpKeysVault,
   verifyAndConsumeLogoutOtpKey,
+  verifyAndConsumeLogoutOtpKeyAsync,
   isLogoutOtpKeyFormat,
   getLogoutOtpKeysStats,
   getLogoutOtpKeysVaultAsync,
@@ -29,6 +31,7 @@ export {
   getOtpKeysVault,
   saveOtpKeysVault,
   verifyAndConsumeOtpKey,
+  verifyAndConsumeOtpKeyAsync,
   isOtpKeyFormat,
   getOtpKeysStats,
   getOtpKeysVaultAsync,
@@ -36,6 +39,7 @@ export {
   getLogoutOtpKeysVault,
   saveLogoutOtpKeysVault,
   verifyAndConsumeLogoutOtpKey,
+  verifyAndConsumeLogoutOtpKeyAsync,
   isLogoutOtpKeyFormat,
   getLogoutOtpKeysStats,
   getLogoutOtpKeysVaultAsync,
@@ -1069,7 +1073,7 @@ export async function deleteVisitRecord(visitId) {
   return updated;
 }
 
-// Update only Sales, Collections and Observations of an existing visit (Allowed for Vendors & Admins)
+// Update Sales, Collections, Phone numbers and Observations of an existing visit (Allowed for Vendors & Admins)
 export async function updateVisitSalesAndCollections(visitId, updates) {
   let visits = [];
   try {
@@ -1094,9 +1098,13 @@ export async function updateVisitSalesAndCollections(visitId, updates) {
   const collectionAmount = hasCollection ? (collectionCash + collectionTransfer + collectionCheck + collectionBoleta) : 0;
 
   const observations = updates.observations !== undefined ? updates.observations : current.observations;
+  const phone = updates.phone !== undefined ? updates.phone : current.phone;
+  const secondaryPhone = updates.secondaryPhone !== undefined ? updates.secondaryPhone : current.secondaryPhone;
 
   const updatedVisit = {
     ...current,
+    phone,
+    secondaryPhone,
     hasSale,
     saleAmount,
     saleType,
@@ -1123,7 +1131,7 @@ export async function updateVisitSalesAndCollections(visitId, updates) {
   const targetId = current.cloud_id || (typeof current.id === 'string' && current.id.length > 20 ? current.id : null);
   if (targetId) {
     try {
-      await supabase.from('visits').update({
+      const sbPayload = {
         has_sale: hasSale,
         sale_amount: saleAmount,
         sale_type: saleType,
@@ -1134,7 +1142,11 @@ export async function updateVisitSalesAndCollections(visitId, updates) {
         collection_boleta: collectionBoleta,
         collection_amount: collectionAmount,
         observations: observations
-      }).eq('id', targetId);
+      };
+      if (phone !== undefined) {
+        sbPayload.phone = phone || null;
+      }
+      await supabase.from('visits').update(sbPayload).eq('id', targetId);
     } catch (e) {
       console.warn('Error updating visit in Supabase:', e);
     }
@@ -1223,7 +1235,7 @@ export async function authenticate(role, usernameOrName, password, selectedRoute
 
   // 1. VERIFICAR SI ES UNA CLAVE DE UN SOLO TOQUE (OTP)
   if (isOtpKeyFormat(cleanPass)) {
-    const otpResult = verifyAndConsumeOtpKey(cleanPass, {
+    const otpResult = await verifyAndConsumeOtpKeyAsync(cleanPass, {
       role,
       username: usernameOrName || (role === 'admin' ? 'admin' : 'vendedor'),
       name: usernameOrName || (role === 'admin' ? 'Administrador General' : 'Vendedor')

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, User, ShieldCheck, Eye, EyeOff, Building2, ChevronRight, CheckCircle2, Key, Sparkles } from 'lucide-react';
-import { getVendorsList, authenticate, isOtpKeyFormat } from '../lib/db';
+import { getVendorsList, authenticate, isOtpKeyFormat, fetchOtpVaultFromCloud } from '../lib/db';
 
 export default function LoginModal({ onLoginSuccess }) {
   const [role, setRole] = useState('vendor'); // 'vendor' or 'admin'
@@ -17,6 +17,8 @@ export default function LoginModal({ onLoginSuccess }) {
 
   useEffect(() => {
     loadVendors();
+    // Descargar las claves OTP quemadas más recientes de Supabase para evitar desincronización
+    fetchOtpVaultFromCloud().catch(() => {});
   }, []);
 
   async function loadVendors() {

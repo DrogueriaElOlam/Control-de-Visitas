@@ -26,6 +26,7 @@ import {
   syncCashFromVisits 
 } from '../lib/cashCollections';
 import { getLocalDateString } from '../lib/dateUtils';
+import { isSuperUser } from '../lib/formsPermissions';
 
 export default function CashCollectionsModal({ 
   isOpen, 
@@ -33,15 +34,18 @@ export default function CashCollectionsModal({
   currentUser, 
   vendors = [], 
   visits = [], 
-  onReportsUpdated 
+  onReportsUpdated,
+  initialVendorName = null,
+  initialReportId = null
 }) {
   if (!isOpen) return null;
 
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin' || isSuperUser(currentUser);
   const todayStr = getLocalDateString();
 
   // Selected vendor
   const [selectedVendorName, setSelectedVendorName] = useState(() => {
+    if (initialVendorName) return initialVendorName;
     if (!isAdmin && currentUser?.name) return currentUser.name;
     const vendorWithVisits = visits.find(v => v.vendorName)?.vendorName;
     return vendorWithVisits || vendors[0]?.name || currentUser?.name || 'Karina Pineda';
@@ -52,11 +56,23 @@ export default function CashCollectionsModal({
   const [newReportDate, setNewReportDate] = useState(todayStr);
 
   // Active report ID
-  const [activeReportId, setActiveReportId] = useState(null);
+  const [activeReportId, setActiveReportId] = useState(initialReportId || null);
 
   // Success message state
   const [successMsg, setSuccessMsg] = useState('');
   const [syncTick, setSyncTick] = useState(0);
+
+  // Sincronizar selección inicial al abrir el modal con parámetros específicos
+  useEffect(() => {
+    if (isOpen) {
+      if (initialVendorName) {
+        setSelectedVendorName(initialVendorName);
+      }
+      if (initialReportId) {
+        setActiveReportId(initialReportId);
+      }
+    }
+  }, [isOpen, initialVendorName, initialReportId]);
 
   // Listener para actualización en tiempo real cuando se guarda una visita con cobro en efectivo
   useEffect(() => {
@@ -174,8 +190,8 @@ export default function CashCollectionsModal({
   // Save report
   const handleSave = () => {
     if (!draftReport) return;
-    const saved = saveCashReport(draftReport);
-    setSuccessMsg('¡Reporte de Cobros en Efectivo guardado con éxito!');
+    const saved = saveCashReport(draftReport, true);
+    setSuccessMsg('¡Reporte de Cobros en Efectivo modificado y guardado con éxito!');
     setTimeout(() => setSuccessMsg(''), 3500);
     if (onReportsUpdated) onReportsUpdated(saved);
   };
@@ -265,6 +281,18 @@ export default function CashCollectionsModal({
               <CheckCircle2 size={16} /> {successMsg}
             </span>
             <button onClick={() => setSuccessMsg('')} className="text-emerald-200 hover:text-white">✕</button>
+          </div>
+        )}
+
+        {/* Admin modification indicator */}
+        {isAdmin && (
+          <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800/60 px-5 py-2 flex items-center justify-between text-xs text-amber-900 dark:text-amber-200 shrink-0">
+            <span className="font-extrabold flex items-center gap-1.5">
+              🛡️ Modo Administrador Activo: Puedes modificar el No. de Boleta, Banco y Monto de cualquier registro guardado.
+            </span>
+            <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 hidden sm:inline">
+              Sincronización automática con la nube
+            </span>
           </div>
         )}
 

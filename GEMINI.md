@@ -349,6 +349,27 @@
         11) `src/components/SupervisionForm.jsx`: Integrado `FormHeader` oficial en el sistema de control de viáticos y supervisión.
         12) `src/components/FormIndex.jsx`: Actualizado el banner central del catálogo con el nuevo lema y PBX.
 
+
+  57. **Modificación de Cuadros Guardados de Reporte Cobros en Efectivo (Boleta, Banco y Monto) por el Administrador:**
+      - **Requerimiento del Usuario:** Permitir que una vez guardado un cuadro de 'Reporte Cobros en Efectivo', el Administrador pueda modificar el número de boleta, el banco y el monto recaudado.
+      - **Implementación en Reporte de Rendimiento de Vendedores (`VendorReportModal.jsx`):**
+        1) **Botón Interactivo 'Modificar Boleta/Banco/Monto':** En cada cuadro guardado de cobros en efectivo, se agregó un botón ámbar destacado visible exclusivamente para el Administrador y Superusuario (`isAdmin || isSuper`).
+        2) **Modo Edición Inline Directo:** Al hacer clic, el cuadro se transforma en un editor visual en vivo con borde ámbar iluminado y banner identificativo:
+           * **No. de Boleta:** Campo de texto editable con filtro numérico (`inputMode="numeric"`).
+           * **Banco:** Menú desplegable con los 4 bancos autorizados (*BAM*, *Banco Industrial*, *G&T Continental*, *BAC*).
+           * **Monto:** Input decimal editable con prefijo monetario en Quetzales (`Q`).
+           * **Recálculo de Total en Tiempo Real:** El total acumulado del cuadro se actualiza instantáneamente con cada dígito o cambio de monto.
+           * **Agregar / Eliminar Filas:** Permite insertar nuevas boletas o depósitos y retirar filas no deseadas.
+           * **Observaciones:** Área de texto editable para justificar o detallar ajustes administrativos.
+           * **Acciones:** Botón '💾 Guardar Modificación' (guarda localmente y en Supabase, recalcula métricas y genera badge '✏️ Modificado por Admin') y botón '✕ Cancelar'.
+      - **Sincronización en la Nube y Multi-Dispositivo (`cashCollections.js`):**
+        1) Las funciones `saveCashReport`, `saveAllCashReports`, `syncCashReportsToCloud` y `fetchCashReportsFromCloud` persisten los reportes en Supabase (`daily_supervision_history` con `tipo: 'cash_collection_reports_master'`).
+        2) Cualquier modificación efectuada por el Administrador en su computadora se propaga de inmediato a Supabase y se refleja en los reportes descargables (HTML, PDF y Excel).
+        3) Si una fila editada proviene de una visita registrada en campo (`visitId`), la modificación de boleta y monto se sincroniza también en el registro de la visita en la tabla `visits`.
+      - **Soporte en Modal Completo (`CashCollectionsModal.jsx`):**
+        * Soporta parámetros `initialVendorName` e `initialReportId` para enfocar directamente el cuadro a modificar cuando se abre desde el reporte o la barra superior.
+        * Integra el distintivo de modo administrador activo y guardado sincronizado.
+
 - **Hilo de Ideas en Curso:**
   - Garantizar la recuperación total de contexto ante reinicios repentinos o cierres forzados del equipo del usuario.
   - Mantener la bitácora viva para que la IA retome exactamente en el punto donde se suspendió la sesión previa.
@@ -363,9 +384,49 @@
 
 - **Punto de Estado Oficial y Clave de Continuidad:**
   - **Fecha y Hora de Publicación:** 19 de Octubre de 2026 - 16:35.
-  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261019-V156
+  - **CLAVE OFICIAL DE CONTINUIDAD:** OLAM-CONTINUAR-20261019-V157
   - **Estado al Momento de la Publicación:**
     - Lema institucional actualizado a "Droguería El Olam • Atención, Servicio y Calidad" en todos los formularios y plantillas de exportación.
     - Integrado FormHeader en todos los formularios que no contaban con él (Inventario, Supervisión Diaria, Ventas, Evaluación, Broadcast, etc.).
     - Servidor Vite en desarrollo corriendo activamente en localhost:3000.
   - **Instrucción al Reanudar:** Al presentar la clave de continuidad o retomar la sesión, la IA validará el estado y continuará con los siguientes requerimientos.
+
+
+  58. **Separación Estricta y Desacoplamiento Total de Proyectos (Droguería El Olam 100% Exclusivo):**
+      - **Instrucción y Regla Operativa del Usuario:** Los proyectos jamás deben mezclarse ni tener accesos cruzados, barras de alternancia ni botones híbridos. Droguería El Olam debe ser 100% puro y exclusivo en su código e interfaz.
+      - **Acciones Implementadas:**
+        1) Eliminadas al 100% de `App.jsx` las barras superiores tanto en la pantalla de Login como en la sesión activa que mostraban *"Proyecto Principal: Droguería El Olam / 🥖 Ir a Panadería de los Recuerdos"*.
+        2) Desacoplado el estado `appMode` y removido el renderizado condicional de `PanaderiaApp` de la aplicación de Droguería El Olam.
+        3) Agregada purga de la clave `olam_active_app_mode` en `localStorage` al inicializar para erradicar cualquier residuo en el navegador.
+        4) Interfaz limpia, formal y dedicada 100% al sistema corporativo de Droguería El Olam.
+
+  59. **Modificación de Número Telefónico en Información General de Visitas (Clientes Nuevos y Existentes):**
+      - **Requerimiento Operativo:** Si al realizar una visita en campo no fue posible ingresar o guardar el número de teléfono del cliente (por ejemplo, cliente nuevo sin número a la mano al momento del registro), permitir agregarlo o corregirlo posteriormente en el apartado de 'Información General de Visitas' (Historial).
+      - **Implementación en `VisitsListAndFilters.jsx` y `db.js`:**
+        1) **Acceso Rápido desde la Lista y Tabla:** Tanto en las tarjetas móviles como en la tabla de escritorio, el número telefónico es ahora un botón interactivo (`Tel: XXXX-XXXX ✏️` o `➕ Agregar Teléfono`) que abre de forma inmediata el modal de edición.
+        2) **Botón de Acción Actualizado:** En cada visita el botón principal indica claramente `Modificar Venta / Cobro / Teléfono`.
+        3) **Sección Dedicada en el Modal de Edición:** Creado bloque en azul de alta visibilidad: *"Teléfono(s) del Cliente / Farmacia"* con distintivo destacado si es *"✨ Cliente Nuevo"*. Permite ingresar o actualizar:
+           * **Teléfono Principal (8 dígitos)**
+           * **Teléfono 2 / Celular (Opcional - 8 dígitos)**
+        4) **Sincronización Integral (Visita + Directorio Maestro + Supabase):**
+           * Actualiza los campos `phone` y `secondaryPhone` de la visita en `localStorage` y en la tabla `visits` de Supabase.
+           * Ejecuta `saveClientRecord` para persistir los números en el Directorio Maestro de Clientes (`olam_pharmacy_directory_v2` y tabla `client_codes` en Supabase), garantizando que los reportes de Clientes Nuevos, exportaciones a Excel y futuras visitas ya cuenten permanentemente con el número actualizado.
+
+  60. **Corrección Definitiva y Quema Indestructible de Claves OTP (Login y Cierre):**
+      - **Causa Raíz Diagnosticada:**
+        1) **Falta de Espera Asíncrona (await):** La función verifyAndConsumeOtpKey se ejecutaba sincrónicamente y disparaba saveOtpVaultToCloud(vault).catch(() => {}) en segundo plano sin esperar confirmación de Supabase. Al autorizarse el login de inmediato, la navegación de la página o cierres de ventana interrumpían el guardado en la nube.
+        2) **Inconsistencia de Filas en Supabase (date: 2099-12-30):** Al guardar se actualizaba únicamente la primera fila obtenida por select('id').limit(1) sin ordenar, mientras que al leer se obtenía la fila más reciente (order('created_at', { ascending: false })). Si existían filas duplicadas, las lecturas devolvían una versión donde la clave aún estaba en used: false, resucitándola y permitiendo reingresos.
+        3) **Ausencia de Registro Indestructible (Blacklist):** Las claves dependían únicamente del array en memoria; ante cualquier fallo de red o lectura de JSON inicial, las claves se restablecían como disponibles.
+        4) **Falta de Precarga en LoginModal:** Al abrirse la pantalla de Login no se sincronizaban las claves quemadas más recientes de Supabase.
+      - **Solución Implementada:**
+        1) **Registro Indestructible de Claves Quemadas (olam_burned_otp_login_registry_v2 y olam_burned_otp_logout_registry_v2):** Implementadas las funciones getBurnedKeysRegistry(), recordKeyInBurnedRegistry() y ensureBurnedKeys(). Cualquier clave consumida se registra permanentemente en esta lista negra indestructible. Si una clave está en este registro, JAMÁS podrá ser reutilizada bajo ninguna circunstancia.
+        2) **Quema Atómica Asíncrona (verifyAndConsumeOtpKeyAsync y verifyAndConsumeLogoutOtpKeyAsync):** La autenticación en db.js y el cierre en SupervisorLogoutModal.jsx ahora esperan obligatoriamente (await) la confirmación de quema antes de conceder acceso o salida.
+        3) **Consistencia Universal en Supabase:** Se actualizan todas las filas coincidentes con .eq('date', OTP_LOGIN_VAULT_DATE) y .eq('date', OTP_LOGOUT_VAULT_DATE), erradicando discrepancias entre filas huérfanas en la nube.
+        4) **Precarga Inmediata en LoginModal:** Al renderizarse la pantalla de login, se invoca fetchOtpVaultFromCloud() para sincronizar de inmediato cualquier clave quemada en otros dispositivos antes de que el usuario intente ingresar.
+        5) **Bloqueo Categórico:** Al reintentar ingresar con una clave ya consumida, el sistema detiene el proceso y muestra en pantalla la tarjeta roja de advertencia: ⛔ ACCESO DENEGADO: Esta clave de un solo toque (OLAM-XXXX-XXXX) ya fue utilizada el [FECHA] por [USUARIO] y fue invalidada de forma permanente por seguridad.
+
+## 5. Regla Fundamental de Separación de Proyectos
+- **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
+- Queda **estrictamente prohibido** mezclarlo con otros proyectos, colocar barras compartidas, botones de salto o código cruzado. Cada proyecto que se inicie o trabaje debe manejarse de forma 100% aislada e independiente.
+
+

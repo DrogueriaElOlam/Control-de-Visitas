@@ -124,24 +124,74 @@ export function verifyPassword(inputPassword, storedHashOrPlain, role = 'vendor'
 const OTP_LOGIN_VAULT_DATE = '2099-12-30';
 const OTP_LOGOUT_VAULT_DATE = '2099-12-31';
 
+const OTP_BURNED_REGISTRY_KEY = 'olam_burned_otp_login_registry_v2';
+const OTP_LOGOUT_BURNED_REGISTRY_KEY = 'olam_burned_otp_logout_registry_v2';
+
 /**
- * Garantiza de forma estricta que la clave 1 (OLAM-X5F9-96RM) permanezca quemada
- * por Danny Perez el 2026-10-08 en cualquier instancia local o remota.
+ * Registro permanente de claves de login quemadas (Blacklist a prueba de fallos).
+ * Cualquier clave que se queme se registra aquí y JAMÁS podrá ser reutilizada,
+ * incluso si la caché local o un JSON inicial la mostraba como disponible.
  */
-function ensureDannyBurned(vault) {
+export function getBurnedKeysRegistry() {
+  let reg = {};
+  try {
+    const raw = localStorage.getItem(OTP_BURNED_REGISTRY_KEY);
+    if (raw) reg = JSON.parse(raw);
+  } catch (_) {}
+
+  // Clave #1 histórica siempre quemada
+  reg['OLAM-X5F9-96RM'] = reg['OLAM-X5F9-96RM'] || {
+    used: true,
+    usedBy: 'Danny Perez',
+    usedAt: '2026-10-08 14:30:00',
+    usedRole: 'vendor'
+  };
+
+  return reg;
+}
+
+export function recordKeyInBurnedRegistry(key, metadata = {}) {
+  try {
+    const cleanKey = String(key || '').trim().toUpperCase();
+    if (!cleanKey) return;
+    const reg = getBurnedKeysRegistry();
+    reg[cleanKey] = {
+      used: true,
+      usedBy: metadata.usedBy || metadata.name || metadata.username || 'Usuario',
+      usedAt: metadata.usedAt || `${getLocalDateString()} ${new Date().toLocaleTimeString('es-GT', { hour12: false })}`,
+      usedRole: metadata.usedRole || metadata.role || 'general'
+    };
+    localStorage.setItem(OTP_BURNED_REGISTRY_KEY, JSON.stringify(reg));
+  } catch (e) {
+    console.warn('Error guardando en registro quemado:', e);
+  }
+}
+
+/**
+ * Garantiza que toda clave quemada en el registro permanente
+ * permanezca marcada como used: true en cualquier instancia del vault.
+ */
+export function ensureBurnedKeys(vault) {
   if (!Array.isArray(vault)) return vault;
+  const reg = getBurnedKeysRegistry();
   return vault.map((item) => {
-    if (item.id === 1 || item.key === 'OLAM-X5F9-96RM') {
+    const itemKey = (item.key || '').trim().toUpperCase();
+    if (reg[itemKey]) {
+      const info = reg[itemKey];
       return {
         ...item,
         used: true,
-        usedBy: item.usedBy || 'Danny Perez',
-        usedAt: item.usedAt || '2026-10-08 14:30:00',
-        usedRole: item.usedRole || 'vendor'
+        usedBy: info.usedBy || item.usedBy || 'Usuario',
+        usedAt: info.usedAt || item.usedAt || '2026-10-08 14:30:00',
+        usedRole: info.usedRole || item.usedRole || 'general'
       };
     }
     return item;
   });
+}
+
+function ensureDannyBurned(vault) {
+  return ensureBurnedKeys(vault);
 }
 
 /**
@@ -153,10 +203,9 @@ export function getOtpKeysVault() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const protectedVault = ensureDannyBurned(parsed);
+        const protectedVault = ensureBurnedKeys(parsed);
         localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(protectedVault));
-        // Disparar sincronización silenciosa con la nube en segundo plano
-        setTimeout(() => { fetchOtpVaultFromCloud().catch(() => {}); }, 100);
+        setTimeout(() => { fetchOtpVaultFromCloud().catch(() => {}); }, 50);
         return protectedVault;
       }
     }
@@ -164,20 +213,20 @@ export function getOtpKeysVault() {
     console.error('Error al leer bóveda de claves OTP:', e);
   }
 
-  // Si no existe, inicializar con las 50 claves generadas
+  // Inicializar con las 50 claves generadas y aplicar registro de quemadas
   const initial = initialOtpKeys.map((item) => ({
     ...item,
     hash: hashPassword(item.key)
   }));
-  const protectedInitial = ensureDannyBurned(initial);
+  const protectedInitial = ensureBurnedKeys(initial);
   saveOtpKeysVault(protectedInitial);
-  setTimeout(() => { fetchOtpVaultFromCloud().catch(() => {}); }, 100);
+  setTimeout(() => { fetchOtpVaultFromCloud().catch(() => {}); }, 50);
   return protectedInitial;
 }
 
 export function saveOtpKeysVault(vault) {
   try {
-    const protectedVault = ensureDannyBurned(vault);
+    const protectedVault = ensureBurnedKeys(vault);
     localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(protectedVault));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('olam_otp_vault_changed', { detail: { vault: protectedVault } }));
@@ -188,7 +237,7 @@ export function saveOtpKeysVault(vault) {
 }
 
 /**
- * Sincroniza la bóveda de claves de login con Supabase de forma bidireccional
+ * Sincroniza la bóveda de claves de login con Supabase de forma bidireccional y sin pérdidas
  */
 export async function fetchOtpVaultFromCloud() {
   let localVault = [];
@@ -204,6 +253,8 @@ export async function fetchOtpVaultFromCloud() {
     }));
   }
 
+  localVault = ensureBurnedKeys(localVault);
+
   try {
     const { data, error } = await supabase
       .from('daily_supervision_history')
@@ -214,14 +265,36 @@ export async function fetchOtpVaultFromCloud() {
 
     if (!error && data && data.length > 0 && data[0]?.datos?.vault) {
       const cloudVault = data[0].datos.vault;
-      let hasNewCloudBurn = false;
-      let hasNewLocalBurn = false;
+      const cloudRegistry = data[0].datos?.burnedRegistry || {};
 
+      // 1. Fusionar claves quemadas de la nube en el registro local
+      if (typeof cloudRegistry === 'object') {
+        Object.keys(cloudRegistry).forEach((k) => {
+          recordKeyInBurnedRegistry(k, cloudRegistry[k]);
+        });
+      }
+
+      let hasNewLocalBurn = false;
+      const reg = getBurnedKeysRegistry();
+
+      // 2. Fusionar los arrays: si local o nube dice quemada, queda quemada siempre
       const merged = localVault.map((localItem) => {
-        const cloudItem = cloudVault.find(c => c.key === localItem.key || c.id === localItem.id);
-        // Si en la nube ya está quemada y localmente no, actualizar local
-        if (cloudItem && cloudItem.used && !localItem.used) {
-          hasNewCloudBurn = true;
+        const itemKey = (localItem.key || '').trim().toUpperCase();
+        const cloudItem = cloudVault.find(c => (c.key || '').trim().toUpperCase() === itemKey || c.id === localItem.id);
+        const regInfo = reg[itemKey];
+
+        if (regInfo) {
+          return {
+            ...localItem,
+            used: true,
+            usedAt: regInfo.usedAt || localItem.usedAt || cloudItem?.usedAt,
+            usedBy: regInfo.usedBy || localItem.usedBy || cloudItem?.usedBy,
+            usedRole: regInfo.usedRole || localItem.usedRole || cloudItem?.usedRole
+          };
+        }
+
+        if (cloudItem && cloudItem.used) {
+          recordKeyInBurnedRegistry(itemKey, cloudItem);
           return {
             ...localItem,
             used: true,
@@ -230,21 +303,25 @@ export async function fetchOtpVaultFromCloud() {
             usedRole: cloudItem.usedRole
           };
         }
-        // Si localmente está quemada y en la nube no, avisar para actualizar nube
-        if (localItem.used && (!cloudItem || !cloudItem.used)) {
+
+        if (localItem.used) {
           hasNewLocalBurn = true;
+          recordKeyInBurnedRegistry(itemKey, localItem);
           return localItem;
         }
+
         return localItem;
       });
 
-      saveOtpKeysVault(merged);
+      const protectedMerged = ensureBurnedKeys(merged);
+      saveOtpKeysVault(protectedMerged);
+
+      // Si localmente teníamos quemas que la nube no tenía, sincronizar nube
       if (hasNewLocalBurn) {
-        saveOtpVaultToCloud(merged).catch(() => {});
+        saveOtpVaultToCloud(protectedMerged).catch(() => {});
       }
-      return merged;
+      return protectedMerged;
     } else {
-      // Inicializar la nube con la bóveda
       saveOtpVaultToCloud(localVault).catch(() => {});
     }
   } catch (err) {
@@ -255,36 +332,35 @@ export async function fetchOtpVaultFromCloud() {
 }
 
 export async function saveOtpVaultToCloud(vault) {
-  const protectedVault = ensureDannyBurned(vault);
+  const protectedVault = ensureBurnedKeys(vault);
   saveOtpKeysVault(protectedVault);
-  try {
-    const { data: existing } = await supabase
-      .from('daily_supervision_history')
-      .select('id')
-      .eq('date', OTP_LOGIN_VAULT_DATE)
-      .limit(1);
+  const currentRegistry = getBurnedKeysRegistry();
 
+  try {
     const payload = {
       date: OTP_LOGIN_VAULT_DATE,
       datos: {
         tipo: 'otp_vault_login',
         vault: protectedVault,
+        burnedRegistry: currentRegistry,
         updated_at: new Date().toISOString()
       }
     };
 
-    if (existing && existing.length > 0) {
-      await supabase
-        .from('daily_supervision_history')
-        .update(payload)
-        .eq('id', existing[0].id);
-    } else {
+    // Actualizar todas las filas que tengan esta fecha para evitar inconsistencias
+    const { data: updatedRows, error: updateErr } = await supabase
+      .from('daily_supervision_history')
+      .update(payload)
+      .eq('date', OTP_LOGIN_VAULT_DATE)
+      .select('id');
+
+    if (!updatedRows || updatedRows.length === 0) {
       await supabase
         .from('daily_supervision_history')
         .insert([payload]);
     }
 
-    // Broadcast en tiempo real para refrescar otras pestañas/dispositivos
+    // Broadcast en tiempo real para avisar a otras pestañas y dispositivos
     try {
       const channel = supabase.channel('olam_otp_vault_live');
       channel.send({
@@ -312,19 +388,43 @@ export function isOtpKeyFormat(str) {
 }
 
 /**
- * Verifica y quema (invalida) una clave de un solo toque al iniciar sesión.
- * Si ya fue usada, rechaza el ingreso indicando cuándo fue consumida.
+ * VERIFICACIÓN Y QUEMA ATÓMICA ASÍNCRONA (A PRUEBA DE FALLOS):
+ * 1. Comprueba inmediatamente contra el registro permanente de quemadas.
+ * 2. Consulta en vivo a Supabase para verificar si fue usada en otro dispositivo.
+ * 3. Si está usada, RECHAZA e impide el acceso al 100%.
+ * 4. Si está disponible, la quema en memoria, registro permanente y Supabase antes de autorizar.
  */
-export function verifyAndConsumeOtpKey(inputKey, userContext = {}) {
+export async function verifyAndConsumeOtpKeyAsync(inputKey, userContext = {}) {
   if (!inputKey || typeof inputKey !== 'string') {
     return { valid: false, message: 'Clave no proporcionada' };
   }
 
   const cleanKey = inputKey.trim().toUpperCase();
-  const vault = getOtpKeysVault();
 
+  // 1. Verificación contra registro persistente de quemadas
+  const burnedReg = getBurnedKeysRegistry();
+  if (burnedReg[cleanKey]) {
+    const burntInfo = burnedReg[cleanKey];
+    return {
+      valid: false,
+      isOtp: true,
+      alreadyUsed: true,
+      message: `⛔ ACCESO DENEGADO: Esta clave de un solo toque (${cleanKey}) ya fue utilizada el ${burntInfo.usedAt || 'fecha anterior'} por "${burntInfo.usedBy || 'otro usuario'}" y fue invalidada de forma permanente por seguridad.`
+    };
+  }
+
+  // 2. Traer versión más fresca de Supabase (con timeout seguro de 2.5s)
+  try {
+    await Promise.race([
+      fetchOtpVaultFromCloud(),
+      new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 2500))
+    ]);
+  } catch (_) {}
+
+  // 3. Volver a consultar la bóveda protegida
+  const vault = getOtpKeysVault();
   const keyIndex = vault.findIndex(
-    (item) => item.key.toUpperCase() === cleanKey
+    (item) => (item.key || '').trim().toUpperCase() === cleanKey
   );
 
   if (keyIndex === -1) {
@@ -337,7 +437,89 @@ export function verifyAndConsumeOtpKey(inputKey, userContext = {}) {
 
   const targetKey = vault[keyIndex];
 
-  // 1. Si la clave YA fue consumida previamente: RECHAZAR y advertir
+  // 4. Si ya fue consumida previamente: RECHAZAR
+  if (targetKey.used || getBurnedKeysRegistry()[cleanKey]) {
+    const usedDate = targetKey.usedAt || getBurnedKeysRegistry()[cleanKey]?.usedAt || 'fecha anterior';
+    const usedBy = targetKey.usedBy || getBurnedKeysRegistry()[cleanKey]?.usedBy || 'otro usuario';
+    return {
+      valid: false,
+      isOtp: true,
+      alreadyUsed: true,
+      message: `⛔ ACCESO DENEGADO: Esta clave de un solo toque (${targetKey.key}) ya fue utilizada el ${usedDate} por "${usedBy}" y fue invalidada de forma permanente por seguridad.`
+    };
+  }
+
+  // 5. La clave está DISPONIBLE: MARCARLA COMO CONSUMIDA INMEDIATAMENTE
+  const now = new Date();
+  const dateStr = getLocalDateString(now);
+  const timeStr = now.toLocaleTimeString('es-GT', { hour12: false });
+  const consumedTimestamp = `${dateStr} ${timeStr}`;
+
+  targetKey.used = true;
+  targetKey.usedAt = consumedTimestamp;
+  targetKey.usedBy = userContext.name || userContext.username || 'Usuario';
+  targetKey.usedRole = userContext.role || 'general';
+
+  // Registrar de forma indestructible en el registro de quemadas
+  recordKeyInBurnedRegistry(cleanKey, targetKey);
+
+  vault[keyIndex] = targetKey;
+  saveOtpKeysVault(vault);
+
+  // Sincronizar y ESPERAR confirmación en Supabase (timeout de 3.5s)
+  try {
+    await Promise.race([
+      saveOtpVaultToCloud(vault),
+      new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 3500))
+    ]);
+  } catch (errCloud) {
+    console.warn('Timeout o error guardando quema en Supabase:', errCloud);
+  }
+
+  return {
+    valid: true,
+    isOtp: true,
+    consumed: true,
+    keyData: targetKey,
+    message: `✅ Clave de un solo toque validada con éxito. Ha sido invalidada de forma permanente para futuros accesos.`
+  };
+}
+
+/**
+ * Función sincrónica compatible con llamadas existentes
+ */
+export function verifyAndConsumeOtpKey(inputKey, userContext = {}) {
+  if (!inputKey || typeof inputKey !== 'string') {
+    return { valid: false, message: 'Clave no proporcionada' };
+  }
+
+  const cleanKey = inputKey.trim().toUpperCase();
+  const burnedReg = getBurnedKeysRegistry();
+  if (burnedReg[cleanKey]) {
+    const burntInfo = burnedReg[cleanKey];
+    return {
+      valid: false,
+      isOtp: true,
+      alreadyUsed: true,
+      message: `⛔ ACCESO DENEGADO: Esta clave de un solo toque (${cleanKey}) ya fue utilizada el ${burntInfo.usedAt || 'fecha anterior'} por "${burntInfo.usedBy || 'otro usuario'}" y fue invalidada de forma permanente por seguridad.`
+    };
+  }
+
+  const vault = getOtpKeysVault();
+  const keyIndex = vault.findIndex(
+    (item) => (item.key || '').trim().toUpperCase() === cleanKey
+  );
+
+  if (keyIndex === -1) {
+    return {
+      valid: false,
+      isOtp: false,
+      message: 'Clave de un solo toque no encontrada en la base de datos de claves autorizadas.'
+    };
+  }
+
+  const targetKey = vault[keyIndex];
+
   if (targetKey.used) {
     const usedDate = targetKey.usedAt || 'fecha anterior';
     const usedBy = targetKey.usedBy || 'otro usuario';
@@ -349,7 +531,6 @@ export function verifyAndConsumeOtpKey(inputKey, userContext = {}) {
     };
   }
 
-  // 2. La clave está DISPONIBLE: MARCARLA COMO CONSUMIDA INMEDIATAMENTE
   const now = new Date();
   const dateStr = getLocalDateString(now);
   const timeStr = now.toLocaleTimeString('es-GT', { hour12: false });
@@ -360,10 +541,9 @@ export function verifyAndConsumeOtpKey(inputKey, userContext = {}) {
   targetKey.usedBy = userContext.name || userContext.username || 'Usuario';
   targetKey.usedRole = userContext.role || 'general';
 
+  recordKeyInBurnedRegistry(cleanKey, targetKey);
   vault[keyIndex] = targetKey;
   saveOtpKeysVault(vault);
-
-  // Sincronizar de inmediato a Supabase en la nube para persistencia universal
   saveOtpVaultToCloud(vault).catch(() => {});
 
   return {
@@ -429,6 +609,53 @@ export function saveLogoutOtpKeysVault(vault) {
   }
 }
 
+export function getLogoutBurnedKeysRegistry() {
+  try {
+    const raw = localStorage.getItem(OTP_LOGOUT_BURNED_REGISTRY_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === 'object' && parsed !== null) return parsed;
+    }
+  } catch (_) {}
+  return {};
+}
+
+export function recordLogoutKeyInBurnedRegistry(key, meta = {}) {
+  try {
+    const clean = (key || '').trim().toUpperCase();
+    if (!clean) return;
+    const current = getLogoutBurnedKeysRegistry();
+    current[clean] = {
+      usedAt: meta.usedAt || `${getLocalDateString(new Date())} ${new Date().toLocaleTimeString('es-GT', { hour12: false })}`,
+      usedBy: meta.usedBy || 'Vendedor en Campo',
+      usedRole: meta.usedRole || 'supervisor_logout',
+      burnedAtTimestamp: Date.now()
+    };
+    localStorage.setItem(OTP_LOGOUT_BURNED_REGISTRY_KEY, JSON.stringify(current));
+  } catch (e) {
+    console.error('Error registrando clave de cierre quemada:', e);
+  }
+}
+
+export function ensureBurnedLogoutKeys(vault) {
+  if (!Array.isArray(vault)) return vault;
+  const burnedRegistry = getLogoutBurnedKeysRegistry();
+  return vault.map((item) => {
+    const cleanKey = (item.key || '').trim().toUpperCase();
+    if (burnedRegistry[cleanKey]) {
+      const reg = burnedRegistry[cleanKey];
+      return {
+        ...item,
+        used: true,
+        usedAt: item.usedAt || reg.usedAt,
+        usedBy: item.usedBy || reg.usedBy,
+        usedRole: item.usedRole || reg.usedRole || 'supervisor_logout'
+      };
+    }
+    return item;
+  });
+}
+
 /**
  * Sincroniza la bóveda de claves de cierre con Supabase de forma bidireccional
  */
@@ -446,6 +673,8 @@ export async function fetchLogoutOtpVaultFromCloud() {
     }));
   }
 
+  localVault = ensureBurnedLogoutKeys(localVault);
+
   try {
     const { data, error } = await supabase
       .from('daily_supervision_history')
@@ -459,10 +688,11 @@ export async function fetchLogoutOtpVaultFromCloud() {
       let hasNewCloudBurn = false;
       let hasNewLocalBurn = false;
 
-      const merged = localVault.map((localItem) => {
+      let merged = localVault.map((localItem) => {
         const cloudItem = cloudVault.find(c => c.key === localItem.key || c.id === localItem.id);
         if (cloudItem && cloudItem.used && !localItem.used) {
           hasNewCloudBurn = true;
+          recordLogoutKeyInBurnedRegistry(localItem.key, cloudItem);
           return {
             ...localItem,
             used: true,
@@ -477,6 +707,8 @@ export async function fetchLogoutOtpVaultFromCloud() {
         }
         return localItem;
       });
+
+      merged = ensureBurnedLogoutKeys(merged);
 
       saveLogoutOtpKeysVault(merged);
       if (hasNewLocalBurn) {
@@ -494,28 +726,28 @@ export async function fetchLogoutOtpVaultFromCloud() {
 }
 
 export async function saveLogoutOtpVaultToCloud(vault) {
-  saveLogoutOtpKeysVault(vault);
+  const finalizedVault = ensureBurnedLogoutKeys(vault);
+  saveLogoutOtpKeysVault(finalizedVault);
   try {
-    const { data: existing } = await supabase
-      .from('daily_supervision_history')
-      .select('id')
-      .eq('date', OTP_LOGOUT_VAULT_DATE)
-      .limit(1);
-
     const payload = {
       date: OTP_LOGOUT_VAULT_DATE,
       datos: {
         tipo: 'otp_vault_logout',
-        vault: vault,
+        vault: finalizedVault,
         updated_at: new Date().toISOString()
       }
     };
 
-    if (existing && existing.length > 0) {
+    const { data: existingRows } = await supabase
+      .from('daily_supervision_history')
+      .select('id')
+      .eq('date', OTP_LOGOUT_VAULT_DATE);
+
+    if (existingRows && existingRows.length > 0) {
       await supabase
         .from('daily_supervision_history')
         .update(payload)
-        .eq('id', existing[0].id);
+        .eq('date', OTP_LOGOUT_VAULT_DATE);
     } else {
       await supabase
         .from('daily_supervision_history')
@@ -549,7 +781,92 @@ export function isLogoutOtpKeyFormat(str) {
 }
 
 /**
- * Verifica y quema (invalida) una clave de un solo toque exclusiva para cierre de sesión.
+ * Verifica y quema (invalida) de forma asíncrona y atómica una clave de cierre de sesión
+ */
+export async function verifyAndConsumeLogoutOtpKeyAsync(inputKey, userContext = {}) {
+  if (!inputKey || typeof inputKey !== 'string') {
+    return { valid: false, message: 'Clave de cierre no proporcionada' };
+  }
+
+  const cleanKey = inputKey.trim().toUpperCase();
+
+  const burnedRegistry = getLogoutBurnedKeysRegistry();
+  if (burnedRegistry[cleanKey]) {
+    const burntInfo = burnedRegistry[cleanKey];
+    return {
+      valid: false,
+      isOtp: true,
+      alreadyUsed: true,
+      message: `⛔ ACCESO DENEGADO: Esta clave de cierre de sesión (${cleanKey}) ya fue utilizada el ${burntInfo.usedAt || 'fecha anterior'} por "${burntInfo.usedBy || 'otro usuario'}" y fue invalidada permanentemente.`
+    };
+  }
+
+  let vault = [];
+  try {
+    vault = await fetchLogoutOtpVaultFromCloud();
+  } catch (_) {
+    vault = getLogoutOtpKeysVault();
+  }
+
+  vault = ensureBurnedLogoutKeys(vault);
+
+  const keyIndex = vault.findIndex(
+    (item) => (item.key || '').trim().toUpperCase() === cleanKey
+  );
+
+  if (keyIndex === -1) {
+    return {
+      valid: false,
+      isOtp: false,
+      message: 'Clave de cierre de sesión no encontrada en la base de datos de claves autorizadas.'
+    };
+  }
+
+  const targetKey = vault[keyIndex];
+
+  if (targetKey.used) {
+    recordLogoutKeyInBurnedRegistry(cleanKey, targetKey);
+    const usedDate = targetKey.usedAt || 'fecha anterior';
+    const usedBy = targetKey.usedBy || 'otro usuario';
+    return {
+      valid: false,
+      isOtp: true,
+      alreadyUsed: true,
+      message: `⛔ ACCESO DENEGADO: Esta clave de cierre de sesión (${targetKey.key}) ya fue utilizada el ${usedDate} por "${usedBy}" y fue invalidada permanentemente.`
+    };
+  }
+
+  const now = new Date();
+  const dateStr = getLocalDateString(now);
+  const timeStr = now.toLocaleTimeString('es-GT', { hour12: false });
+  const consumedTimestamp = `${dateStr} ${timeStr}`;
+
+  targetKey.used = true;
+  targetKey.usedAt = consumedTimestamp;
+  targetKey.usedBy = userContext.name || userContext.username || 'Vendedor en Campo';
+  targetKey.usedRole = 'supervisor_logout';
+
+  recordLogoutKeyInBurnedRegistry(cleanKey, targetKey);
+  vault[keyIndex] = targetKey;
+  saveLogoutOtpKeysVault(vault);
+
+  try {
+    await saveLogoutOtpVaultToCloud(vault);
+  } catch (cloudErr) {
+    console.warn('[Security] Error persistiendo quema de clave de cierre en Supabase:', cloudErr);
+  }
+
+  return {
+    valid: true,
+    isOtp: true,
+    consumed: true,
+    keyData: targetKey,
+    message: `✅ Clave de cierre de sesión autorizada con éxito. Ha sido invalidada de forma permanente.`
+  };
+}
+
+/**
+ * Verifica y quema (invalida) una clave de un solo toque exclusiva para cierre de sesión (modo sincrónico).
  */
 export function verifyAndConsumeLogoutOtpKey(inputKey, userContext = {}) {
   if (!inputKey || typeof inputKey !== 'string') {
@@ -557,10 +874,22 @@ export function verifyAndConsumeLogoutOtpKey(inputKey, userContext = {}) {
   }
 
   const cleanKey = inputKey.trim().toUpperCase();
-  const vault = getLogoutOtpKeysVault();
+
+  const burnedRegistry = getLogoutBurnedKeysRegistry();
+  if (burnedRegistry[cleanKey]) {
+    const burntInfo = burnedRegistry[cleanKey];
+    return {
+      valid: false,
+      isOtp: true,
+      alreadyUsed: true,
+      message: `⛔ ACCESO DENEGADO: Esta clave de cierre de sesión (${cleanKey}) ya fue utilizada el ${burntInfo.usedAt || 'fecha anterior'} por "${burntInfo.usedBy || 'otro usuario'}" y fue invalidada permanentemente.`
+    };
+  }
+
+  const vault = ensureBurnedLogoutKeys(getLogoutOtpKeysVault());
 
   const keyIndex = vault.findIndex(
-    (item) => item.key.toUpperCase() === cleanKey
+    (item) => (item.key || '').trim().toUpperCase() === cleanKey
   );
 
   if (keyIndex === -1) {
@@ -575,6 +904,7 @@ export function verifyAndConsumeLogoutOtpKey(inputKey, userContext = {}) {
 
   // 1. Si la clave YA fue consumida previamente: RECHAZAR y advertir
   if (targetKey.used) {
+    recordLogoutKeyInBurnedRegistry(cleanKey, targetKey);
     const usedDate = targetKey.usedAt || 'fecha anterior';
     const usedBy = targetKey.usedBy || 'otro usuario';
     return {
@@ -596,6 +926,7 @@ export function verifyAndConsumeLogoutOtpKey(inputKey, userContext = {}) {
   targetKey.usedBy = userContext.name || userContext.username || 'Vendedor en Campo';
   targetKey.usedRole = 'supervisor_logout';
 
+  recordLogoutKeyInBurnedRegistry(cleanKey, targetKey);
   vault[keyIndex] = targetKey;
   saveLogoutOtpKeysVault(vault);
 
