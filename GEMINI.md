@@ -425,6 +425,15 @@
         4) **Precarga Inmediata en LoginModal:** Al renderizarse la pantalla de login, se invoca fetchOtpVaultFromCloud() para sincronizar de inmediato cualquier clave quemada en otros dispositivos antes de que el usuario intente ingresar.
         5) **Bloqueo Categórico:** Al reintentar ingresar con una clave ya consumida, el sistema detiene el proceso y muestra en pantalla la tarjeta roja de advertencia: ⛔ ACCESO DENEGADO: Esta clave de un solo toque (OLAM-XXXX-XXXX) ya fue utilizada el [FECHA] por [USUARIO] y fue invalidada de forma permanente por seguridad.
 
+  61. **Continuidad de Sesión Multi-Dispositivo en Tiempo Real (Cloud Active Sessions):**
+      - **Requerimiento Operativo del Usuario:** Si un usuario (vendedor o administrador) tiene su sesión activa en un teléfono celular, tablet o computadora, debe poder abrir el sistema en cualquier otro dispositivo y continuar su trabajo exactamente donde se quedó, sin que se le exija volver a ingresar contraseñas o quemar nuevas claves OTP de un solo uso.
+      - **Arquitectura Implementada en cloudSessions.js, db.js, App.jsx y LoginModal.jsx:**
+        1) **Registro Persistente en Supabase (daily_supervision_history date: 2099-12-25):** Al iniciar sesión en cualquier equipo, se registra o actualiza la sesión activa en la nube con metadatos del usuario, rol, dispositivo de origen (Android, iOS, Windows PC, etc.) y hora exacta.
+        2) **Detección Automática y Badge de Estado en Login:** Al abrir la pantalla de inicio de sesión en otro dispositivo, el selector de vendedores resalta con un indicador verde esmeralda "🟢 [Nombre] • Sesión Activa" a los usuarios con sesión en curso.
+        3) **Tarjeta de Reanudación de Un Solo Toque:** Si el usuario seleccionado tiene sesión activa en la nube, aparece la tarjeta destacada: "⚡ Sesión Activa en la Nube Detectada", informando en qué dispositivo y a qué hora inició. Un botón interactivo de un solo toque permite: "⚡ CONTINUAR TRABAJO AQUÍ (SIN CLAVE)", restaurando la sesión al instante.
+        4) **Continuidad de Visitas y Cobros:** Las visitas del día, registros de clientes y cobros están sincronizados en tiempo real en Supabase, permitiendo que el usuario continúe registrando o consultando datos donde lo dejó sin pérdida alguna.
+        5) **Cierre Centralizado:** Al realizar un cierre de sesión formal (logout autorizado por supervisor o administrador), la sesión activa en la nube se revoca automáticamente (revokeCloudActiveSession), protegiendo el acceso hasta el siguiente inicio de jornada.
+
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
 - Queda **estrictamente prohibido** mezclarlo con otros proyectos, colocar barras compartidas, botones de salto o código cruzado. Cada proyecto que se inicie o trabaje debe manejarse de forma 100% aislada e independiente.

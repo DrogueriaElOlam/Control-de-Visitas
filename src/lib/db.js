@@ -22,6 +22,16 @@ import {
   DEFAULT_VENDOR_HASH
 } from './security.js';
 
+import { 
+  registerCloudActiveSession, 
+  revokeCloudActiveSession, 
+  fetchCloudActiveSessions, 
+  getActiveSessionForUser, 
+  subscribeToCloudSessions, 
+  getLastKnownUserProfile,
+  normalizeUserKey
+} from './cloudSessions.js';
+
 export { 
   getLocalDateString, 
   getLocalYesterdayString, 
@@ -43,7 +53,14 @@ export {
   isLogoutOtpKeyFormat,
   getLogoutOtpKeysStats,
   getLogoutOtpKeysVaultAsync,
-  fetchLogoutOtpVaultFromCloud
+  fetchLogoutOtpVaultFromCloud,
+  registerCloudActiveSession,
+  revokeCloudActiveSession,
+  fetchCloudActiveSessions,
+  getActiveSessionForUser,
+  subscribeToCloudSessions,
+  getLastKnownUserProfile,
+  normalizeUserKey
 };
 
 const STORAGE_KEYS = {
@@ -1187,9 +1204,17 @@ export function saveSession(session) {
     sessionTimestamp: new Date().toISOString()
   };
   localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(secureSession));
+
+  // Registrar sesión activa en la nube para continuidad multi-dispositivo
+  registerCloudActiveSession(secureSession).catch(() => {});
 }
 
-export function clearSession() {
+export function clearSession(nameOrUsername = null) {
+  const current = getSavedSession();
+  const targetUser = nameOrUsername || current?.name || current?.username;
+  if (targetUser) {
+    revokeCloudActiveSession(targetUser).catch(() => {});
+  }
   localStorage.removeItem(STORAGE_KEYS.AUTH);
   localStorage.removeItem('olam_current_auth_v2');
   localStorage.removeItem('drogueriaElOlamAuthSession_v129');

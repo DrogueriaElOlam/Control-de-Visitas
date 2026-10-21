@@ -447,7 +447,8 @@ export default function App() {
   const executeLogout = () => {
     setShowLogoutSupervisorModal(false);
     stopSilentTracking();
-    clearSession();
+    const userToRevoke = currentUser?.name || currentUser?.username;
+    clearSession(userToRevoke);
     setCurrentUser(null);
   };
 
