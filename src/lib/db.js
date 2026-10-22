@@ -787,10 +787,15 @@ export async function getVisitsList(vendorFilter = null) {
     const { data, error } = await query;
 
     if (!error && Array.isArray(data)) {
-      // Si la base de datos de Supabase fue vaciada a 0 registros, limpiar inmediatamente el almacenamiento local
+      // Si la base de datos en la nube retorna 0 registros, NUNCA vaciar el almacenamiento local
       if (data.length === 0) {
-        localStorage.setItem(STORAGE_KEYS.VISITS, '[]');
-        localStorage.removeItem('drogueriaElOlamHistory');
+        const pending = getPendingSyncVisits();
+        const combinedLocal = deduplicateVisitsList([...localVisits, ...pending]);
+        if (combinedLocal.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(combinedLocal));
+          setTimeout(() => triggerReactiveSync(), 400);
+          return vendorFilter ? combinedLocal.filter((v) => v.vendorName === vendorFilter) : combinedLocal;
+        }
         return [];
       }
 
@@ -801,6 +806,7 @@ export async function getVisitsList(vendorFilter = null) {
         clientName: d.client_name,
         clientCode: d.client_code,
         phone: d.phone || '',
+        secondaryPhone: d.secondary_phone || '',
         visitType: d.visit_type,
         clientType: d.client_type,
         sector: d.sector,
@@ -815,7 +821,7 @@ export async function getVisitsList(vendorFilter = null) {
         collectionBoleta: Number(d.collection_boleta) || 0,
         collectionAmount: Number(d.collection_amount) || 0,
         observations: d.observations || '',
-        location: d.latitude ? { lat: Number(d.latitude), lng: Number(d.longitude), accuracy: Number(d.location_accuracy) } : null,
+        location: d.latitude ? { lat: Number(d.latitude), lng: Number(d.longitude), accuracy: Number(d.accuracy || d.location_accuracy) } : null,
         vendorName: d.vendor_name,
         route: d.route,
         visitDate: d.visit_date,
@@ -828,7 +834,8 @@ export async function getVisitsList(vendorFilter = null) {
 
       // Deduplicación estricta y sincronizada con la nube
       const cloudIds = new Set(normalizedCloud.map(c => String(c.id)));
-      const onlyUnsyncedLocal = localVisits.filter(l => !l.synced && !cloudIds.has(String(l.id)));
+      const pendingSync = getPendingSyncVisits();
+      const onlyUnsyncedLocal = [...localVisits, ...pendingSync].filter(l => !l.synced && !cloudIds.has(String(l.id)));
       const fullList = deduplicateVisitsList([...normalizedCloud, ...onlyUnsyncedLocal]);
       localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(fullList));
       return vendorFilter ? fullList.filter((v) => v.vendorName === vendorFilter) : fullList;
@@ -908,6 +915,7 @@ export async function syncPendingVisits() {
         client_name: (item.clientName || 'Cliente Droguería').trim(),
         client_code: (item.clientCode || '0000').trim(),
         phone: item.phone || null,
+        secondary_phone: item.secondaryPhone || item.secondary_phone || null,
         visit_type: (item.visitType || 'presencial').toLowerCase(),
         client_type: (item.clientType || 'propio').toLowerCase(),
         sector: item.sector || item.route || 'General',
@@ -924,7 +932,7 @@ export async function syncPendingVisits() {
         observations: item.observations || null,
         latitude: item.location?.lat ? Number(item.location.lat) : null,
         longitude: item.location?.lng ? Number(item.location.lng) : null,
-        location_accuracy: item.location?.accuracy ? Number(item.location.accuracy) : null,
+        accuracy: item.location?.accuracy ? Number(item.location.accuracy) : null,
         vendor_name: item.vendorName || 'Vendedor El Olam',
         route: item.route || item.sector || 'General',
         visit_date: item.visitDate || getLocalDateString()
@@ -1003,6 +1011,7 @@ export async function addVisitRecord(visit) {
     client_name: (enhancedVisit.clientName || 'Cliente').trim(),
     client_code: (enhancedVisit.clientCode || (enhancedVisit.clientType === 'nuevo' ? '0000' : '0001')).trim(),
     phone: enhancedVisit.phone || null,
+    secondary_phone: enhancedVisit.secondaryPhone || enhancedVisit.secondary_phone || null,
     visit_type: (enhancedVisit.visitType || 'presencial').toLowerCase(),
     client_type: (enhancedVisit.clientType || 'propio').toLowerCase(),
     sector: enhancedVisit.sector || enhancedVisit.route || 'General',
@@ -1019,7 +1028,7 @@ export async function addVisitRecord(visit) {
     observations: enhancedVisit.observations || null,
     latitude: enhancedVisit.location?.lat ? Number(enhancedVisit.location.lat) : null,
     longitude: enhancedVisit.location?.lng ? Number(enhancedVisit.location.lng) : null,
-    location_accuracy: enhancedVisit.location?.accuracy ? Number(enhancedVisit.location.accuracy) : null,
+    accuracy: enhancedVisit.location?.accuracy ? Number(enhancedVisit.location.accuracy) : null,
     vendor_name: enhancedVisit.vendorName || 'Vendedor El Olam',
     route: enhancedVisit.route || enhancedVisit.sector || 'General',
     visit_date: enhancedVisit.visitDate

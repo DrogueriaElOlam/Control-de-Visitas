@@ -175,9 +175,9 @@ export default function LiveVendorTrackingMap({ visits = [], vendors = [], curre
       // Limpiar también en Supabase las coordenadas de visitas
       try {
         if (purgeAll) {
-          await supabase.from('visits').update({ latitude: null, longitude: null, location_accuracy: null }).gt('id', 0);
+          await supabase.from('visits').update({ latitude: null, longitude: null, accuracy: null }).gt('id', 0);
         } else if (selectedDate) {
-          await supabase.from('visits').update({ latitude: null, longitude: null, location_accuracy: null }).eq('visit_date', selectedDate);
+          await supabase.from('visits').update({ latitude: null, longitude: null, accuracy: null }).eq('visit_date', selectedDate);
         }
       } catch (_) {}
 

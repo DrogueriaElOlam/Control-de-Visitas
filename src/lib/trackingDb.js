@@ -327,9 +327,9 @@ export async function purgeTrackingPoints({ dateStr = null, purgeAll = false, pu
   if (purgeVisitsCoords || purgeAll) {
     try {
       if (purgeAll) {
-        await supabase.from('visits').update({ latitude: null, longitude: null, location_accuracy: null }).gt('id', 0);
+        await supabase.from('visits').update({ latitude: null, longitude: null, accuracy: null }).gt('id', 0);
       } else if (dateStr) {
-        await supabase.from('visits').update({ latitude: null, longitude: null, location_accuracy: null }).eq('visit_date', dateStr);
+        await supabase.from('visits').update({ latitude: null, longitude: null, accuracy: null }).eq('visit_date', dateStr);
       }
     } catch (errVisits) {
       console.warn('[Tracking] Error limpiando coordenadas en visits:', errVisits);

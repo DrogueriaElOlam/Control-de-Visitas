@@ -501,6 +501,16 @@
       - **Persistencia en la Nube e Invalidez Permanente:** Las 12 claves fueron marcadas como `used: true` en Supabase (`daily_supervision_history`), en `initialOtpKeys.json` y en la lista negra `getBurnedKeysRegistry()`. Cualquier intento de reutilización es rechazado con mensaje de acceso denegado.
       - **Inventario Actual:** Quedan exactamente 38 claves de inicio disponibles (de la #13 a la #50) y 50 claves de salida (Logout OTP). El archivo descargable `claves 2.0.xlsx` fue actualizado con este estado en vivo.
 
+  68. **Blindaje Total contra Pérdida de Visitas al Refrescar y Corrección de Esquema en Supabase (`accuracy`):**
+      - **Causa Raíz Identificada:**
+        1) **Discrepancia de Nombre de Columna en Supabase:** La tabla `visits` en la base de datos de Supabase fue aprovisionada con el nombre de columna `accuracy`, mientras que las funciones `addVisitRecord()` y `syncPendingVisitsToSupabase()` enviaban `location_accuracy`. PostgREST rechazaba los inserts con error 400 (`PGRST204: Could not find the 'location_accuracy' column of 'visits' in the schema cache`), lo que provocaba que las visitas no se guardaran en la nube y quedaran encoladas localmente.
+        2) **Vaciado Automático Destructivo:** En `getVisitsList()`, si Supabase retornaba 0 registros (debido al error anterior), un bloque de código ejecutaba `localStorage.setItem(STORAGE_KEYS.VISITS, '[]')`, borrando por completo las visitas locales al presionar F5 o refrescar el navegador.
+      - **Solución y Blindaje Permanente:**
+        1) **Corrección de Columnas:** Actualizado `location_accuracy` a `accuracy` y añadido soporte para `secondary_phone` en `addVisitRecord()`, `syncPendingVisits()`, `fetchVisits()` y `purgeTrackingPoints()`.
+        2) **Erradicación del Borrado Destructivo:** Si la nube responde con 0 registros, el sistema nunca vacía el almacenamiento local; en su lugar, conserva las visitas locales y pendientes (`getPendingSyncVisits()`) y lanza una sincronización reactiva en segundo plano para persistirlas.
+        3) **Rescate de Datos:** Recuperadas e insertadas directamente en Supabase con éxito (status 201) las visitas de los clientes registrados por Antonio Celada: *Farmacia del Dr. Alivio* (código 1015) y *Transita Magdalena Hernandez* (código 3653), asegurando que al refrescar la pantalla aparezcan de inmediato en el historial.
+
+
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
 - Queda **estrictamente prohibido** mezclarlo con otros proyectos, colocar barras compartidas, botones de salto o código cruzado. Cada proyecto que se inicie o trabaje debe manejarse de forma 100% aislada e independiente.
