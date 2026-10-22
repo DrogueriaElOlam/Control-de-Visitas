@@ -349,24 +349,11 @@ export default function Navbar({
               </div>
             )}
 
-            {/* Sync Status / Supabase Cloud Reanudación */}
-            {isAdmin ? (
-              <button
-                type="button"
-                onClick={() => onOpenSupabaseModal && onOpenSupabaseModal()}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-400/50 rounded-full text-xs font-bold text-emerald-200 transition-all shadow-sm cursor-pointer hover:scale-105 active:scale-95"
-                title="Estado de la base de datos Supabase y reanudación en 1 clic"
-              >
-                <Cloud size={14} className="text-emerald-300 animate-pulse" />
-                <span className="hidden sm:inline">Nube Supabase</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              </button>
-            ) : (
-              <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-white/10 rounded-full text-xs text-blue-100" title="Sincronización en la nube activa">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>En Línea</span>
-              </div>
-            )}
+            {/* Sync Status indicator */}
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-white/10 rounded-full text-xs text-blue-100" title="Sincronización en la nube activa">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>En Línea</span>
+            </div>
 
             {/* Dark mode toggle */}
             <button
@@ -555,19 +542,6 @@ export default function Navbar({
               >
                 <Bell size={15} className="text-amber-300 animate-pulse" />
                 <span>Recordatorios & Seguimiento</span>
-              </button>
-
-              {/* Botón Reanudar / Servidor Supabase (Admin) */}
-              <button
-                onClick={() => onOpenSupabaseModal && onOpenSupabaseModal()}
-                className="flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap bg-teal-500/25 text-teal-100 hover:bg-teal-500 hover:text-white border border-teal-400/40 shadow-sm cursor-pointer"
-                title="Monitorear conexión y reanudar servidor de Supabase en 1 clic"
-              >
-                <Cloud size={15} className="text-teal-300" />
-                <span>Nube Supabase</span>
-                <span className="bg-teal-400 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">
-                  ⚡ Reanudar
-                </span>
               </button>
             </>
           ) : (
@@ -790,14 +764,7 @@ export default function Navbar({
               <span className="text-[10px] mt-0.5 font-bold">Salida OTP</span>
             </button>
 
-            <button
-              onClick={() => onOpenSupabaseModal && onOpenSupabaseModal()}
-              className="flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all text-teal-400 hover:text-teal-300"
-              title="Estado y Reanudación de Supabase"
-            >
-              <Cloud size={20} />
-              <span className="text-[10px] mt-0.5 font-bold">Supabase</span>
-            </button>
+
 
             <button
               onClick={onLogout}
