@@ -30,10 +30,24 @@ export default function SupervisionControlPanel({ onDataChange }) {
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   };
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthStr());
+  const [goalInputText, setGoalInputText] = useState('');
+  const [isSavingGoal, setIsSavingGoal] = useState(false);
+  const [goalSavedSuccess, setGoalSavedSuccess] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Sincronizar el texto del input cuando cambie el mes o los settings sin forzar un '0' que bloquee
+  useEffect(() => {
+    if (!settings) return;
+    const currentVal = settings.monthly_goals?.[selectedMonth] ?? settings.monthly_goal;
+    if (currentVal !== undefined && currentVal !== null && currentVal !== 0 && currentVal !== '0') {
+      setGoalInputText(String(currentVal));
+    } else {
+      setGoalInputText('');
+    }
+  }, [selectedMonth, settings]);
 
   const loadData = async () => {
     setLoading(true);
@@ -164,16 +178,35 @@ export default function SupervisionControlPanel({ onDataChange }) {
     loadData();
   };
 
-  // Settings
-  const handleUpdateMonthlyGoal = async (month, val) => {
+  // Guardar Meta General de forma limpia, asíncrona y reactiva sin trabas
+  const handleSaveMonthlyGoal = async (valToSave = goalInputText) => {
     if (!settings?.id) return;
-    const currentGoals = settings.monthly_goals || {};
-    const updatedGoals = { ...currentGoals, [month]: parseFloat(val) || 0 };
-    await supabase.from('supervision_settings').update({ 
-      monthly_goals: updatedGoals,
-      monthly_goal: parseFloat(val) || 0 // Sync the legacy field for compatibility
-    }).eq('id', settings.id);
-    loadData();
+    const numericVal = parseFloat(valToSave) || 0;
+    setIsSavingGoal(true);
+    try {
+      const currentGoals = settings.monthly_goals || {};
+      const updatedGoals = { ...currentGoals, [selectedMonth]: numericVal };
+      
+      // Actualizar estado local al instante para feedback inmediato
+      setSettings(prev => ({
+        ...prev,
+        monthly_goals: updatedGoals,
+        monthly_goal: numericVal
+      }));
+
+      await supabase.from('supervision_settings').update({ 
+        monthly_goals: updatedGoals,
+        monthly_goal: numericVal
+      }).eq('id', settings.id);
+
+      setGoalSavedSuccess(true);
+      setTimeout(() => setGoalSavedSuccess(false), 2500);
+      if (onDataChange) onDataChange();
+    } catch (err) {
+      console.error('Error guardando meta mensual:', err);
+    } finally {
+      setIsSavingGoal(false);
+    }
   };
 
   const handleAddPoint = async () => {
@@ -323,21 +356,42 @@ export default function SupervisionControlPanel({ onDataChange }) {
                 </h3>
                 <p className="text-sm text-blue-700">Selecciona el mes y asigna la meta global de ventas.</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Input 
                   type="month" 
                   value={selectedMonth}
                   onChange={e => setSelectedMonth(e.target.value)}
-                  className="w-40 bg-white"
+                  className="w-40 bg-white shadow-sm"
                 />
-                <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border shadow-sm">
-                  <span className="font-bold text-gray-500">Q</span>
+                <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-blue-200 shadow-sm focus-within:ring-2 focus-within:ring-blue-500">
+                  <span className="font-bold text-blue-700 text-lg">Q</span>
                   <Input 
-                    type="number" 
-                    value={settings?.monthly_goals?.[selectedMonth] ?? (settings?.monthly_goal || 0)} 
-                    onChange={e => handleUpdateMonthlyGoal(selectedMonth, e.target.value)}
-                    className="w-32 font-bold text-lg border-none focus-visible:ring-0 shadow-none text-right"
+                    type="text" 
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={goalInputText} 
+                    onChange={e => {
+                      const v = e.target.value.replace(/[^0-9.]/g, '');
+                      setGoalInputText(v);
+                    }}
+                    onBlur={() => handleSaveMonthlyGoal(goalInputText)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveMonthlyGoal(goalInputText);
+                      }
+                    }}
+                    className="w-36 font-bold text-lg border-none focus-visible:ring-0 shadow-none text-right px-1 bg-transparent"
                   />
+                  <Button 
+                    type="button"
+                    size="sm"
+                    disabled={isSavingGoal}
+                    onClick={() => handleSaveMonthlyGoal(goalInputText)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-3 font-semibold shadow-sm ml-1"
+                  >
+                    {isSavingGoal ? 'Guardando...' : (goalSavedSuccess ? '✓ Guardado' : 'Guardar')}
+                  </Button>
                 </div>
               </div>
             </div>
@@ -348,17 +402,30 @@ export default function SupervisionControlPanel({ onDataChange }) {
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {equipos.map(eq => (
-                  <div key={eq.id} className="border rounded-lg p-4 flex justify-between items-center bg-white">
-                    <span className="font-medium">{eq.name}</span>
+                  <div key={eq.id} className="border rounded-lg p-4 flex justify-between items-center bg-white shadow-sm">
+                    <span className="font-medium text-gray-800">{eq.name}</span>
                     <div className="flex flex-col items-end gap-1">
                       <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Meta Diaria</span>
-                      <div className="flex items-center gap-2 w-32 border rounded px-2">
-                        <span className="text-gray-400 text-sm">Q</span>
+                      <div className="flex items-center gap-2 w-36 border rounded-md px-2 bg-white focus-within:ring-1 focus-within:ring-blue-400">
+                        <span className="text-gray-400 font-bold text-sm">Q</span>
                         <Input 
-                          type="number" 
-                          value={eq.meta || 0} 
-                          onChange={e => handleUpdateTeamMeta(eq.id, e.target.value)}
-                          className="h-8 border-none focus-visible:ring-0 text-right px-1"
+                          type="text" 
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={eq.meta !== undefined && eq.meta !== null && eq.meta !== 0 ? eq.meta : ''} 
+                          onChange={e => {
+                            const val = e.target.value.replace(/[^0-9.]/g, '');
+                            const numeric = parseFloat(val) || 0;
+                            setEquipos(prev => prev.map(p => p.id === eq.id ? { ...p, meta: numeric } : p));
+                          }}
+                          onBlur={e => handleUpdateTeamMeta(eq.id, e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleUpdateTeamMeta(eq.id, e.target.value);
+                            }
+                          }}
+                          className="h-8 border-none focus-visible:ring-0 text-right px-1 font-semibold"
                         />
                       </div>
                     </div>

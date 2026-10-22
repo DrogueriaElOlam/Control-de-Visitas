@@ -536,6 +536,27 @@
         * Actualizado `vendorConnections.js` con persistencia dual: guarda simultáneamente en `vendor_connections` y en `daily_supervision_history`, y consulta ambas tablas garantizando que ninguna conexión se pierda.
       - **Rescate e Inserción de Datos Históricos:** Rescatadas e insertadas en Supabase las 10 visitas históricas reales con ventas (Q25,000+) y cobros (Q7,700+) de Karina Pineda, enriqueciendo los reportes y métricas del sistema.
 
+  71. **Quemado Integral y Sincronización de las 12 Primeras Claves de Acceso y Salida (Login y Logout OTP):**
+      - **Asignación Nominal a los 12 Vendedores Oficiales:**
+        1. Danny Perez -> `OLAM-X5F9-96RM` (Login) | `OLAM-OUT-ANTA-2GWC` (Salida)
+        2. Antonio Celada -> `OLAM-4G4A-K5Z4` (Login) | `OLAM-OUT-6U4B-SNXD` (Salida)
+        3. Ana Lucia Marroquin -> `OLAM-9292-ST8F` (Login) | `OLAM-OUT-BFGF-P8M5` (Salida)
+        4. Jessica Noriega -> `OLAM-TXTE-CB62` (Login) | `OLAM-OUT-RDJV-GLCF` (Salida)
+        5. Wally Natareno -> `OLAM-XR4P-6C73` (Login) | `OLAM-OUT-G6Q3-5F8B` (Salida)
+        6. Erick Curley -> `OLAM-BQ86-GMC2` (Login) | `OLAM-OUT-SKLZ-AQ3D` (Salida)
+        7. Estuardo Cordova -> `OLAM-ZDHF-TNK6` (Login) | `OLAM-OUT-T9HN-LPSC` (Salida)
+        8. Karina Pineda -> `OLAM-T5Q3-3SPY` (Login) | `OLAM-OUT-AYTW-7B6T` (Salida)
+        9. Klissman Hernandez -> `OLAM-6VN3-7GFZ` (Login) | `OLAM-OUT-RW4W-75H5` (Salida)
+        10. Elio Caceros -> `OLAM-4BAQ-FK83` (Login) | `OLAM-OUT-HFXE-WW5B` (Salida)
+        11. Josue Aguilar -> `OLAM-65JB-ZFA6` (Login) | `OLAM-OUT-KFCG-DY53` (Salida)
+        12. Elias Quiej -> `OLAM-64Q9-9R3T` (Login) | `OLAM-OUT-MN3F-WKER` (Salida)
+      - **Persistencia en la Nube y Archivos de Bóveda:**
+        * Sincronizadas en Supabase `daily_supervision_history` para las fechas `2099-12-30` (Login) y `2099-12-31` (Salida) con estado `used: true`.
+        * Actualizados los archivos maestros locales `src/lib/initialOtpKeys.json` e `initialLogoutOtpKeys.json`.
+        * Regenerados los libros Excel descargables `claves 2.0.xlsx` y `claves cierre sesion 2.0.xlsx` tanto en la raíz como en la carpeta `public/`.
+      - **Inventario Actual:** Exactamente 38 claves de inicio disponibles (#13 al #50) y 38 claves de salida disponibles (#13 al #50).
+      - **Regla Operativa:** Cualquier clave de inicio o cierre que sea asignada o consumida queda quemada de forma indestructible tanto para loguearse como para salir.
+
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
 - Queda **estrictamente prohibido** mezclarlo con otros proyectos, colocar barras compartidas, botones de salto o código cruzado. Cada proyecto que se inicie o trabaje debe manejarse de forma 100% aislada e independiente.
