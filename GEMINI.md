@@ -458,8 +458,23 @@
         * **Eliminación Total de Bloqueos en Guardado:** Se eliminó el `missing.push` en `handleSubmit` que arrojaba error de código ya registrado. Si un vendedor ingresa una farmacia homónima o especifica un nombre para ese código en su gira, el sistema procesa y guarda la visita de inmediato sin interrupciones ni atrasos.
         * **Banner Informativo No Bloqueante en UI:** La tarjeta roja ⛔ fue sustituida por un banner informativo en azul que notifica con amabilidad y permite guardar de inmediato sin trabas operativas.
 
+  64. **Conexión Exitosa a la Nueva Base de Datos Oficial de Supabase (`mxomzjaupettwpijftcr`):**
+      - **Nueva Infraestructura en la Nube:** Proyecto creado directamente en la consola oficial bajo la organización DrogueriaElOlam:
+        * **URL:** `https://mxomzjaupettwpijftcr.supabase.co`
+        * **Project ID:** `mxomzjaupettwpijftcr`
+        * **Región:** West US (Oregon) `us-west-2`
+        * **Estado:** `Healthy` (100% activo en verde)
+      - **Esquema de Tablas Inicializado al 100%:**
+        * Tablas creadas y verificadas: `vendors`, `visits`, `client_codes`, `daily_supervision_history`, `apertura_codigo_history` y `productos_tienda`.
+        * RLS deshabilitado para permitir sincronización directa desde teléfonos y computadoras.
+        * Insertado el catálogo de 12 vendedores oficiales de Droguería El Olam.
+      - **Actualización de Entorno y Producción:**
+        * `.env` y `src/lib/supabase.js` configurados con las nuevas credenciales.
+        * Cambios compilados y publicados a GitHub (`origin/main`) y desplegados en Vercel (`https://control-de-visitas-pi.vercel.app/`).
+
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
 - Queda **estrictamente prohibido** mezclarlo con otros proyectos, colocar barras compartidas, botones de salto o código cruzado. Cada proyecto que se inicie o trabaje debe manejarse de forma 100% aislada e independiente.
+
 
 
