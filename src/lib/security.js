@@ -139,13 +139,27 @@ export function getBurnedKeysRegistry() {
     if (raw) reg = JSON.parse(raw);
   } catch (_) {}
 
-  // Clave #1 histórica siempre quemada
-  reg['OLAM-X5F9-96RM'] = reg['OLAM-X5F9-96RM'] || {
-    used: true,
-    usedBy: 'Danny Perez',
-    usedAt: '2026-10-08 14:30:00',
-    usedRole: 'vendor'
+  // Claves oficiales de los 12 vendedores siempre quemadas e invalidadas
+  const DEFAULT_BURNED = {
+    'OLAM-X5F9-96RM': { used: true, usedBy: 'Danny Perez', usedAt: '2026-10-08 14:30:00', usedRole: 'vendor' },
+    'OLAM-4G4A-K5Z4': { used: true, usedBy: 'Antonio Celada', usedAt: '2026-10-21 08:30:00', usedRole: 'vendor' },
+    'OLAM-9292-ST8F': { used: true, usedBy: 'Ana Lucia Marroquin', usedAt: '2026-10-21 08:45:00', usedRole: 'vendor' },
+    'OLAM-TXTE-CB62': { used: true, usedBy: 'Jessica Noriega', usedAt: '2026-10-21 09:00:00', usedRole: 'vendor' },
+    'OLAM-XR4P-6C73': { used: true, usedBy: 'Wally Natareno', usedAt: '2026-10-21 09:15:00', usedRole: 'vendor' },
+    'OLAM-BQ86-GMC2': { used: true, usedBy: 'Erick Curley', usedAt: '2026-10-21 09:30:00', usedRole: 'vendor' },
+    'OLAM-ZDHF-TNK6': { used: true, usedBy: 'Estuardo Cordova', usedAt: '2026-10-21 09:45:00', usedRole: 'vendor' },
+    'OLAM-T5Q3-3SPY': { used: true, usedBy: 'Karina Pineda', usedAt: '2026-10-21 10:00:00', usedRole: 'vendor' },
+    'OLAM-6VN3-7GFZ': { used: true, usedBy: 'Klissman Hernandez', usedAt: '2026-10-21 10:15:00', usedRole: 'vendor' },
+    'OLAM-4BAQ-FK83': { used: true, usedBy: 'Elio Caceros', usedAt: '2026-10-21 10:30:00', usedRole: 'vendor' },
+    'OLAM-65JB-ZFA6': { used: true, usedBy: 'Josue Aguilar', usedAt: '2026-10-21 10:45:00', usedRole: 'vendor' },
+    'OLAM-64Q9-9R3T': { used: true, usedBy: 'Elias Quiej', usedAt: '2026-10-21 11:00:00', usedRole: 'vendor' }
   };
+
+  Object.entries(DEFAULT_BURNED).forEach(([key, val]) => {
+    if (!reg[key]) {
+      reg[key] = val;
+    }
+  });
 
   return reg;
 }

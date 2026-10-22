@@ -484,6 +484,23 @@
         * **Bóveda de Salida OTP (Fecha `2099-12-31`):** 50 claves generadas (`OLAM-OUT-XXXX-XXXX`) inicializadas y persistidas en Supabase con 0 usadas (50 disponibles).
         * Todas las consultas y actualizaciones en vivo sincronizan directamente con Supabase y replican en Realtime.
 
+  67. **Quemado Definitivo de las 12 Claves OTP Asignadas a los Vendedores Activos:**
+      - **Asignación y Quemado Exclusivo de 12 Claves:** Ante la solicitud del administrador para blindar el acceso y evitar ingresos no autorizados, se quemaron las claves del puesto #1 al #12 asociadas nominalmente a los 12 vendedores oficiales:
+        1. `OLAM-X5F9-96RM` -> Danny Perez (2026-10-08 14:30:00)
+        2. `OLAM-4G4A-K5Z4` -> Antonio Celada (2026-10-21 08:30:00)
+        3. `OLAM-9292-ST8F` -> Ana Lucia Marroquin (2026-10-21 08:45:00)
+        4. `OLAM-TXTE-CB62` -> Jessica Noriega (2026-10-21 09:00:00)
+        5. `OLAM-XR4P-6C73` -> Wally Natareno (2026-10-21 09:15:00)
+        6. `OLAM-BQ86-GMC2` -> Erick Curley (2026-10-21 09:30:00)
+        7. `OLAM-ZDHF-TNK6` -> Estuardo Cordova (2026-10-21 09:45:00)
+        8. `OLAM-T5Q3-3SPY` -> Karina Pineda (2026-10-21 10:00:00)
+        9. `OLAM-6VN3-7GFZ` -> Klissman Hernandez (2026-10-21 10:15:00)
+        10. `OLAM-4BAQ-FK83` -> Elio Caceros (2026-10-21 10:30:00)
+        11. `OLAM-65JB-ZFA6` -> Josue Aguilar (2026-10-21 10:45:00)
+        12. `OLAM-64Q9-9R3T` -> Elias Quiej (2026-10-21 11:00:00)
+      - **Persistencia en la Nube e Invalidez Permanente:** Las 12 claves fueron marcadas como `used: true` en Supabase (`daily_supervision_history`), en `initialOtpKeys.json` y en la lista negra `getBurnedKeysRegistry()`. Cualquier intento de reutilización es rechazado con mensaje de acceso denegado.
+      - **Inventario Actual:** Quedan exactamente 38 claves de inicio disponibles (de la #13 a la #50) y 50 claves de salida (Logout OTP). El archivo descargable `claves 2.0.xlsx` fue actualizado con este estado en vivo.
+
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
 - Queda **estrictamente prohibido** mezclarlo con otros proyectos, colocar barras compartidas, botones de salto o código cruzado. Cada proyecto que se inicie o trabaje debe manejarse de forma 100% aislada e independiente.
