@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
 export const DEFAULT_SUPABASE_URL = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL) 
-  || 'https://zqwjhmiavxhswgbgejzx.supabase.co';
+  || 'https://mxomzjaupettwpijftcr.supabase.co';
 
 export const DEFAULT_SUPABASE_ANON_KEY = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY) 
-  || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpxd2pobWlhdnhoc3dnYmdlanp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNzQ5MTEsImV4cCI6MjA3OTg1MDkxMX0.-FdEjQyGmuM6DVt58ciFmQoTzMKdvYW6prXHRp57UsQ';
+  || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14b216amF1cGV0dHdwaWpmdGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NjkzNzksImV4cCI6MjEwODI0NTM3OX0.6rXWKJTqiyaEThzUzUqrti1c8yO3wS7cHvB6fCMBRa4';
 
 export function getSupabaseConfig() {
   try {
@@ -13,7 +13,7 @@ export function getSupabaseConfig() {
     if (customUrl && customKey) {
       const urlClean = customUrl.trim();
       const match = urlClean.match(/https:\/\/([^.]+)\.supabase\.co/);
-      const projectId = match ? match[1] : 'zqwjhmiavxhswgbgejzx';
+      const projectId = match ? match[1] : 'mxomzjaupettwpijftcr';
       return {
         url: urlClean,
         anonKey: customKey.trim(),
@@ -24,7 +24,7 @@ export function getSupabaseConfig() {
   } catch (_) {}
 
   const match = DEFAULT_SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/);
-  const projectId = match ? match[1] : 'zqwjhmiavxhswgbgejzx';
+  const projectId = match ? match[1] : 'mxomzjaupettwpijftcr';
   return {
     url: DEFAULT_SUPABASE_URL,
     anonKey: DEFAULT_SUPABASE_ANON_KEY,
