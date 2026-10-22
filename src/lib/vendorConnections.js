@@ -104,8 +104,22 @@ export async function recordVendorLoginSession(user) {
     window.dispatchEvent(new CustomEvent('olam_vendor_connected', { detail: connectionRecord }));
   }
 
-  // 3. Persistir en Supabase (daily_supervision_history)
+  // 3. Persistir en Supabase (tabla dedicada vendor_connections y daily_supervision_history para redundancia)
   try {
+    // 3a. Tabla dedicada vendor_connections
+    await supabase.from('vendor_connections').insert([{
+      id: connectionRecord.id,
+      date: connectionRecord.date,
+      time: connectionRecord.time,
+      vendor_name: connectionRecord.vendor_name,
+      vendor_id: connectionRecord.vendor_id,
+      route: connectionRecord.route,
+      device: connectionRecord.device,
+      status: connectionRecord.status,
+      timestamp: connectionRecord.timestamp
+    }]).catch(() => {});
+
+    // 3b. Tabla maestra daily_supervision_history
     const entry = {
       date: dateStr,
       vendor_name: connectionRecord.vendor_name || 'Vendedor',
@@ -153,6 +167,38 @@ export async function fetchVendorConnections({ dateStr = null, limit = 500 } = {
   } catch (e) {}
 
   const remoteList = [];
+
+  // Consulta 1: Tabla dedicada vendor_connections
+  try {
+    let qDedicated = supabase
+      .from('vendor_connections')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(limit);
+
+    if (dateStr) {
+      qDedicated = qDedicated.eq('date', dateStr);
+    }
+
+    const { data: dedicatedData, error: dErr } = await qDedicated;
+    if (!dErr && Array.isArray(dedicatedData) && dedicatedData.length > 0) {
+      dedicatedData.forEach(row => {
+        remoteList.push({
+          id: row.id,
+          date: row.date,
+          time: row.time,
+          vendor_name: row.vendor_name,
+          vendor_id: row.vendor_id,
+          route: row.route,
+          device: row.device,
+          status: row.status,
+          timestamp: row.timestamp || row.created_at
+        });
+      });
+    }
+  } catch (_) {}
+
+  // Consulta 2: Tabla diaria daily_supervision_history
   try {
     let query = supabase
       .from('daily_supervision_history')
