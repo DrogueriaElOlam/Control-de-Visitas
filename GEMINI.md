@@ -472,9 +472,14 @@
         * `.env` y `src/lib/supabase.js` configurados con las nuevas credenciales.
         * Cambios compilados y publicados a GitHub (`origin/main`) y desplegados en Vercel (`https://control-de-visitas-pi.vercel.app/`).
 
+  65. **Optimización Visual de la Barra Superior (Retiro de Botón Duplicado de Supabase):**
+      - **Ajuste de Interfaz Solicitado:** Retirar el botón 'Nube Supabase' de la cabecera superior fija para evitar saturación visual y redundancia.
+      - **Ubicación Exclusiva y Cómoda:** Se restauró el indicador sutil de estado '🟢 En Línea' en la cabecera superior de `Navbar.jsx`, manteniendo el botón interactivo **`☁️ Nube Supabase (⚡ Reanudar)`** únicamente dentro del panel de control principal (`AdminDashboard.jsx`), ubicado exactamente al lado del botón de `Salir / Regresar`.
+
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
 - Queda **estrictamente prohibido** mezclarlo con otros proyectos, colocar barras compartidas, botones de salto o código cruzado. Cada proyecto que se inicie o trabaje debe manejarse de forma 100% aislada e independiente.
+
 
 
 
