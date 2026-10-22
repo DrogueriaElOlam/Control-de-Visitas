@@ -277,7 +277,8 @@ export async function syncCashReportsToCloud(reports) {
     if (!supabase) return;
     const payload = {
       date: CLOUD_SYNC_DATE,
-      datos: {
+      vendor_name: 'Reportes Maestros Cobros en Efectivo',
+      supervision_data: {
         tipo: CLOUD_SYNC_TIPO,
         reports: reports,
         updated_at: new Date().toISOString()
@@ -287,7 +288,7 @@ export async function syncCashReportsToCloud(reports) {
     const { data: existing } = await supabase
       .from('daily_supervision_history')
       .select('id')
-      .filter('datos->>tipo', 'eq', CLOUD_SYNC_TIPO)
+      .eq('date', CLOUD_SYNC_DATE)
       .limit(1);
 
     if (existing && existing.length > 0) {
@@ -311,13 +312,16 @@ export async function fetchCashReportsFromCloud() {
     if (!supabase) return getAllCashReports();
     const { data, error } = await supabase
       .from('daily_supervision_history')
-      .select('datos')
-      .filter('datos->>tipo', 'eq', CLOUD_SYNC_TIPO)
+      .select('*')
+      .eq('date', CLOUD_SYNC_DATE)
       .order('id', { ascending: false })
       .limit(1);
 
-    if (!error && data && data.length > 0 && Array.isArray(data[0]?.datos?.reports)) {
-      const cloudReports = data[0].datos.reports;
+    const row = data && data[0];
+    const rowPayload = row?.supervision_data || row?.datos;
+
+    if (!error && row && Array.isArray(rowPayload?.reports)) {
+      const cloudReports = rowPayload.reports;
       const localReports = getAllCashReports();
       
       const map = new Map();

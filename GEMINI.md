@@ -476,6 +476,14 @@
       - **Ajuste de Interfaz Solicitado:** Retirar el botón 'Nube Supabase' de la cabecera superior fija para evitar saturación visual y redundancia.
       - **Ubicación Exclusiva y Cómoda:** Se restauró el indicador sutil de estado '🟢 En Línea' en la cabecera superior de `Navbar.jsx`, manteniendo el botón interactivo **`☁️ Nube Supabase (⚡ Reanudar)`** únicamente dentro del panel de control principal (`AdminDashboard.jsx`), ubicado exactamente al lado del botón de `Salir / Regresar`.
 
+  66. **Auditoría y Quemado Definitivo de Claves OTP en Supabase (`mxomzjaupettwpijftcr`), Normalización Universal de `supervision_data`:**
+      - **Identificación de Causa Raíz:** La tabla `daily_supervision_history` en el nuevo proyecto de Supabase fue creada con la columna `supervision_data JSONB`. Sin embargo, algunos módulos históricos realizaban consultas esperando la columna `datos`, lo que generaba errores 400 (PGRST204) al persistir las bóvedas de claves y pings.
+      - **Normalización Universal de Persistencia:** Se adaptaron los 8 módulos clave del sistema (`security.js`, `trackingDb.js`, `vendorConnections.js`, `cashCollections.js`, `cloudSessions.js`, `internalChat.js`, `remindersDb.js`, `supervisionData.js`) para que lean de forma transparente tanto de `supervision_data` como de `datos` (con fallback de retrocompatibilidad) y almacenen con `supervision_data` y `vendor_name`.
+      - **Persistencia y Quemado en Supabase al 100%:**
+        * **Bóveda de Login (Fecha `2099-12-30`):** 50 claves sincronizadas en Supabase. Clave No. 1 (`OLAM-X5F9-96RM`) confirmada e indestructiblemente quemada como usada por **Danny Perez** el `2026-10-08 14:30:00`. Las restantes 49 claves se encuentran totalmente disponibles.
+        * **Bóveda de Salida OTP (Fecha `2099-12-31`):** 50 claves generadas (`OLAM-OUT-XXXX-XXXX`) inicializadas y persistidas en Supabase con 0 usadas (50 disponibles).
+        * Todas las consultas y actualizaciones en vivo sincronizan directamente con Supabase y replican en Realtime.
+
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
 - Queda **estrictamente prohibido** mezclarlo con otros proyectos, colocar barras compartidas, botones de salto o código cruzado. Cada proyecto que se inicie o trabaje debe manejarse de forma 100% aislada e independiente.

@@ -55,12 +55,14 @@ export async function saveGpsPoint(pointData) {
   }
 
   // 2. Persistir en Supabase:
-  // Se guarda en 'daily_supervision_history' con formato { date, datos: { tipo: 'gps_ping', ... } }
+  // 2. Persistir en Supabase:
+  // Se guarda en 'daily_supervision_history' con formato { date, vendor_name, supervision_data: { tipo: 'gps_ping', ... } }
   let savedInSupabase = false;
   try {
     const supervisionEntry = {
       date: todayStr,
-      datos: {
+      vendor_name: record.vendorName || record.vendor_name || 'Vendedor',
+      supervision_data: {
         tipo: 'gps_ping',
         ...record
       }
@@ -109,10 +111,11 @@ export async function getDailyTrackingPoints(dateStr, vendorName = null) {
 
     if (!supError && Array.isArray(supData)) {
       supData.forEach(row => {
-        if (row.datos && row.datos.tipo === 'gps_ping' && row.datos.latitude && row.datos.longitude) {
+        const payload = row.supervision_data || row.datos;
+        if (payload && (payload.tipo === 'gps_ping' || payload.tipo === 'gps_point') && payload.latitude && payload.longitude) {
           const norm = normalizePointRecord({
-            ...row.datos,
-            created_at: row.created_at || row.datos.created_at || row.datos.createdAt
+            ...payload,
+            created_at: row.created_at || payload.created_at || payload.createdAt
           });
           if (!vendorName || vendorName === 'all' || norm.vendorName === vendorName) {
             const key = norm.id || `${norm.vendorName}_${norm.latitude}_${norm.longitude}_${norm.createdAt}`;
@@ -189,10 +192,11 @@ export function subscribeToLiveTracking(onNewPoint) {
 
   // Escuchar por Postgres Changes en daily_supervision_history y vendor_gps_tracking
   channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'daily_supervision_history' }, (payload) => {
-    if (payload?.new?.datos?.tipo === 'gps_ping') {
+    const d = payload?.new?.supervision_data || payload?.new?.datos;
+    if (d?.tipo === 'gps_ping' || d?.tipo === 'gps_point') {
       onNewPoint(normalizePointRecord({
-        ...payload.new.datos,
-        created_at: payload.new.created_at || payload.new.datos.created_at
+        ...d,
+        created_at: payload.new.created_at || d.created_at
       }));
     }
   });

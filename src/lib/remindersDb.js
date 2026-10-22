@@ -49,12 +49,14 @@ export async function fetchRemoteReminders() {
   try {
     const { data, error } = await supabase
       .from('daily_supervision_history')
-      .select('datos')
+      .select('*')
       .eq('date', REMINDERS_SYNC_KEY)
       .maybeSingle();
 
-    if (!error && data?.datos?.reminders && Array.isArray(data.datos.reminders)) {
-      const remote = data.datos.reminders;
+    const payload = data?.supervision_data || data?.datos;
+
+    if (!error && payload?.reminders && Array.isArray(payload.reminders)) {
+      const remote = payload.reminders;
       const map = new Map();
       local.forEach(r => map.set(r.id, r));
       remote.forEach(r => {
@@ -87,16 +89,32 @@ export async function syncRemindersToSupabase(reminders) {
   try {
     // Conservar los últimos 300 recordatorios para optimizar espacio
     const payloadReminders = reminders.slice(0, 300);
-    await supabase
+    const payload = {
+      date: REMINDERS_SYNC_KEY,
+      vendor_name: 'Recordatorios Maestros de Clientes',
+      supervision_data: {
+        tipo: 'client_reminders_sync',
+        updatedAt: new Date().toISOString(),
+        reminders: payloadReminders
+      }
+    };
+
+    const { data: existing } = await supabase
       .from('daily_supervision_history')
-      .upsert({
-        date: REMINDERS_SYNC_KEY,
-        datos: {
-          tipo: 'client_reminders_sync',
-          updatedAt: new Date().toISOString(),
-          reminders: payloadReminders
-        }
-      }, { onConflict: 'date' });
+      .select('id')
+      .eq('date', REMINDERS_SYNC_KEY)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      await supabase
+        .from('daily_supervision_history')
+        .update(payload)
+        .eq('id', existing[0].id);
+    } else {
+      await supabase
+        .from('daily_supervision_history')
+        .insert([payload]);
+    }
   } catch (e) {
     console.warn('Error al sincronizar recordatorios en Supabase:', e);
   }

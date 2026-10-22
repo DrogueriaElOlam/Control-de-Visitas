@@ -66,10 +66,11 @@ export async function getDailyCommitments(dateStr = getLocalDateString()) {
       .limit(1)
       .maybeSingle();
 
-    if (data && data.datos?.commitments) {
-      localData[dateStr] = data.datos.commitments;
+    const payload = data?.supervision_data || data?.datos;
+    if (payload?.commitments) {
+      localData[dateStr] = payload.commitments;
       localStorage.setItem(STORAGE_KEYS.DAILY_COMMITMENTS, JSON.stringify(localData));
-      return data.datos.commitments;
+      return payload.commitments;
     }
   } catch (err) {
     console.warn('Fallback Supabase compromisos:', err);
@@ -116,16 +117,27 @@ export async function saveDailySupervisionSnapshot({
 
   // 2. Guardar / Vaciar en Supabase
   try {
-    const { error } = await supabase
-      .from('daily_supervision_history')
-      .upsert({
-        date,
-        datos: payload.datos
-      }, { onConflict: 'date' });
+    const dbPayload = {
+      date,
+      vendor_name: 'Compromisos Diarios de Venta',
+      supervision_data: payload.datos || payload.supervision_data || payload
+    };
 
-    if (error) {
-      // Si la tabla no tiene restricción de unicidad en date, insertar nuevo
-      await supabase.from('daily_supervision_history').insert([payload]);
+    const { data: existing } = await supabase
+      .from('daily_supervision_history')
+      .select('id')
+      .eq('date', date)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      await supabase
+        .from('daily_supervision_history')
+        .update(dbPayload)
+        .eq('id', existing[0].id);
+    } else {
+      await supabase
+        .from('daily_supervision_history')
+        .insert([dbPayload]);
     }
   } catch (err) {
     console.warn('Fallback al vaciar data en Supabase:', err);

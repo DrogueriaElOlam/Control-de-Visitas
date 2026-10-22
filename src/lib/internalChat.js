@@ -45,15 +45,16 @@ export function saveStoredChatMessages(messages) {
 export async function fetchRemoteChatMessages() {
   const local = getStoredChatMessages();
   try {
-    const today = getLocalDateString();
     const { data, error } = await supabase
       .from('daily_supervision_history')
-      .select('datos')
+      .select('*')
       .eq('date', 'chat_sync_master')
       .maybeSingle();
 
-    if (!error && data?.datos?.messages && Array.isArray(data.datos.messages)) {
-      const remoteMsgs = data.datos.messages;
+    const payload = data?.supervision_data || data?.datos;
+
+    if (!error && payload?.messages && Array.isArray(payload.messages)) {
+      const remoteMsgs = payload.messages;
       const map = new Map();
       local.forEach(m => map.set(m.id, m));
       remoteMsgs.forEach(m => map.set(m.id, m));
@@ -72,16 +73,32 @@ export async function fetchRemoteChatMessages() {
  */
 export async function syncChatMessagesToSupabase(messages) {
   try {
-    await supabase
+    const payload = {
+      date: 'chat_sync_master',
+      vendor_name: 'Chat Interno Soporte Olam',
+      supervision_data: {
+        tipo: 'internal_chat_messages',
+        updatedAt: new Date().toISOString(),
+        messages: messages.slice(-200) // Conservar los 200 más recientes
+      }
+    };
+
+    const { data: existing } = await supabase
       .from('daily_supervision_history')
-      .upsert({
-        date: 'chat_sync_master',
-        datos: {
-          tipo: 'internal_chat_messages',
-          updatedAt: new Date().toISOString(),
-          messages: messages.slice(-200) // Conservar los 200 más recientes
-        }
-      }, { onConflict: 'date' });
+      .select('id')
+      .eq('date', 'chat_sync_master')
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      await supabase
+        .from('daily_supervision_history')
+        .update(payload)
+        .eq('id', existing[0].id);
+    } else {
+      await supabase
+        .from('daily_supervision_history')
+        .insert([payload]);
+    }
   } catch (e) {
     console.warn('Error al sincronizar chat en Supabase:', e);
   }

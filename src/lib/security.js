@@ -258,14 +258,17 @@ export async function fetchOtpVaultFromCloud() {
   try {
     const { data, error } = await supabase
       .from('daily_supervision_history')
-      .select('datos')
+      .select('*')
       .eq('date', OTP_LOGIN_VAULT_DATE)
       .order('created_at', { ascending: false })
       .limit(1);
 
-    if (!error && data && data.length > 0 && data[0]?.datos?.vault) {
-      const cloudVault = data[0].datos.vault;
-      const cloudRegistry = data[0].datos?.burnedRegistry || {};
+    const row = data && data[0];
+    const rowPayload = row?.supervision_data || row?.datos;
+
+    if (!error && row && rowPayload?.vault) {
+      const cloudVault = rowPayload.vault;
+      const cloudRegistry = rowPayload?.burnedRegistry || {};
 
       // 1. Fusionar claves quemadas de la nube en el registro local
       if (typeof cloudRegistry === 'object') {
@@ -339,7 +342,8 @@ export async function saveOtpVaultToCloud(vault) {
   try {
     const payload = {
       date: OTP_LOGIN_VAULT_DATE,
-      datos: {
+      vendor_name: 'Bóveda Oficial OTP Login',
+      supervision_data: {
         tipo: 'otp_vault_login',
         vault: protectedVault,
         burnedRegistry: currentRegistry,
@@ -348,7 +352,7 @@ export async function saveOtpVaultToCloud(vault) {
     };
 
     // Actualizar todas las filas que tengan esta fecha para evitar inconsistencias
-    const { data: updatedRows, error: updateErr } = await supabase
+    const { data: updatedRows } = await supabase
       .from('daily_supervision_history')
       .update(payload)
       .eq('date', OTP_LOGIN_VAULT_DATE)
@@ -728,13 +732,16 @@ export async function fetchLogoutOtpVaultFromCloud() {
   try {
     const { data, error } = await supabase
       .from('daily_supervision_history')
-      .select('datos')
+      .select('*')
       .eq('date', OTP_LOGOUT_VAULT_DATE)
       .order('created_at', { ascending: false })
       .limit(1);
 
-    if (!error && data && data.length > 0 && data[0]?.datos?.vault) {
-      const cloudVault = data[0].datos.vault;
+    const row = data && data[0];
+    const rowPayload = row?.supervision_data || row?.datos;
+
+    if (!error && row && rowPayload?.vault) {
+      const cloudVault = rowPayload.vault;
       let hasNewCloudBurn = false;
       let hasNewLocalBurn = false;
 
@@ -781,7 +788,8 @@ export async function saveLogoutOtpVaultToCloud(vault) {
   try {
     const payload = {
       date: OTP_LOGOUT_VAULT_DATE,
-      datos: {
+      vendor_name: 'Bóveda Oficial OTP Salida',
+      supervision_data: {
         tipo: 'otp_vault_logout',
         vault: finalizedVault,
         updated_at: new Date().toISOString()

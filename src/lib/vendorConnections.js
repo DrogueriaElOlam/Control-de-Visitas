@@ -108,7 +108,8 @@ export async function recordVendorLoginSession(user) {
   try {
     const entry = {
       date: dateStr,
-      datos: {
+      vendor_name: connectionRecord.vendor_name || 'Vendedor',
+      supervision_data: {
         tipo: 'vendor_login_session',
         ...connectionRecord
       }
@@ -155,7 +156,7 @@ export async function fetchVendorConnections({ dateStr = null, limit = 500 } = {
   try {
     let query = supabase
       .from('daily_supervision_history')
-      .select('id, date, datos, created_at')
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -166,18 +167,19 @@ export async function fetchVendorConnections({ dateStr = null, limit = 500 } = {
     const { data, error } = await query;
     if (!error && Array.isArray(data)) {
       data.forEach(row => {
-        if (row.datos && row.datos.tipo === 'vendor_login_session') {
+        const payload = row.supervision_data || row.datos;
+        if (payload && payload.tipo === 'vendor_login_session') {
           remoteList.push({
             supabase_id: row.id,
-            id: row.datos.id || `sup_${row.id}`,
-            date: row.date || row.datos.date,
-            time: row.datos.time || 'N/A',
-            vendor_name: row.datos.vendor_name || 'Vendedor',
-            vendor_id: row.datos.vendor_id,
-            route: row.datos.route || 'Sin ruta asignada',
-            device: row.datos.device || 'Dispositivo Web',
-            status: row.datos.status || 'Conectado',
-            timestamp: row.datos.timestamp || row.created_at
+            id: payload.id || `sup_${row.id}`,
+            date: row.date || payload.date,
+            time: payload.time || 'N/A',
+            vendor_name: payload.vendor_name || row.vendor_name || 'Vendedor',
+            vendor_id: payload.vendor_id,
+            route: payload.route || 'Sin ruta asignada',
+            device: payload.device || 'Dispositivo Web',
+            status: payload.status || 'Conectado',
+            timestamp: payload.timestamp || row.created_at
           });
         }
       });

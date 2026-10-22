@@ -66,13 +66,16 @@ export async function fetchCloudActiveSessions() {
   try {
     const { data, error } = await supabase
       .from('daily_supervision_history')
-      .select('datos')
+      .select('*')
       .eq('date', CLOUD_SESSIONS_DATE)
       .order('created_at', { ascending: false })
       .limit(1);
 
-    if (!error && data && data.length > 0 && data[0]?.datos?.sessions) {
-      const cloudSessions = data[0].datos.sessions;
+    const row = data && data[0];
+    const rowPayload = row?.supervision_data || row?.datos;
+
+    if (!error && row && rowPayload?.sessions) {
+      const cloudSessions = rowPayload.sessions;
       const merged = { ...localMap, ...cloudSessions };
       
       // Filtrar sesiones expiradas (mayores a 36 horas)
@@ -149,7 +152,8 @@ export async function registerCloudActiveSession(session) {
 
     const payload = {
       date: CLOUD_SESSIONS_DATE,
-      datos: {
+      vendor_name: 'Sesiones Activas Multi-Dispositivo',
+      supervision_data: {
         tipo: 'cloud_active_sessions_v1',
         sessions: freshMap,
         updated_at: now.toISOString()
