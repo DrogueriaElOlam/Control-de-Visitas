@@ -508,8 +508,15 @@
       - **Solución y Blindaje Permanente:**
         1) **Corrección de Columnas:** Actualizado `location_accuracy` a `accuracy` y añadido soporte para `secondary_phone` en `addVisitRecord()`, `syncPendingVisits()`, `fetchVisits()` y `purgeTrackingPoints()`.
         2) **Erradicación del Borrado Destructivo:** Si la nube responde con 0 registros, el sistema nunca vacía el almacenamiento local; en su lugar, conserva las visitas locales y pendientes (`getPendingSyncVisits()`) y lanza una sincronización reactiva en segundo plano para persistirlas.
-        3) **Rescate de Datos:** Recuperadas e insertadas directamente en Supabase con éxito (status 201) las visitas de los clientes registrados por Antonio Celada: *Farmacia del Dr. Alivio* (código 1015) y *Transita Magdalena Hernandez* (código 3653), asegurando que al refrescar la pantalla aparezcan de inmediato en el historial.
-
+  69. **Migración Exitosa de Clientes a la Nueva Base de Datos de Supabase (`mxomzjaupettwpijftcr`) & Bóveda en la Nube:**
+      - **Contexto Operativo:** Ante la inactividad del proveedor anterior y la falta de acceso a la antigua instancia de Supabase, se ejecutó la consolidación y rescate directo de los clientes desde las plantillas maestras de Excel del equipo (`Plantilla_Clientes_Farmacias_El_Olam.xlsx` y `Plantilla_Clientes_Farmacias_El_Olam2.xlsx`).
+      - **Población de Tablas en Supabase:**
+        * Se insertaron exitosamente **790 clientes** en la tabla oficial `client_codes`.
+        * Se persistió la **Bóveda Integral de Clientes** con códigos, nombres, teléfonos primarios/secundarios, rutas oficiales y sectores en `daily_supervision_history` con fecha fija `2099-12-28` (`boveda_directorio_clientes`, 786 registros consolidados).
+      - **Sincronización en `catalog.js`:**
+        * Implementada la función `fetchClientsCloudVault()` que descarga la bóveda completa de la nube si el navegador o teléfono móvil del vendedor inicia con almacenamiento local vacío o al forzar refresco (`forceRefresh`).
+        * En `saveBulkClientsToDirectory()`, cualquier actualización masiva actualiza de forma atómica tanto `client_codes` como la bóveda en `daily_supervision_history`.
+      - **Compilación Limpia:** Proyecto compilado con éxito para producción con Vite (`vite build`) al 100%.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

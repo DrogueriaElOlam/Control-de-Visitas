@@ -185,10 +185,40 @@ export function getStoredPharmacyDirectory() {
   return [];
 }
 
+export async function fetchClientsCloudVault() {
+  try {
+    const { data, error } = await supabase
+      .from('daily_supervision_history')
+      .select('supervision_data')
+      .eq('date', '2099-12-28')
+      .limit(1);
+    if (!error && data && data.length > 0) {
+      const v = data[0].supervision_data;
+      if (v && Array.isArray(v.clients) && v.clients.length > 0) {
+        return v.clients;
+      }
+    }
+  } catch (e) {
+    console.warn('Error al consultar bóveda de clientes en la nube:', e);
+  }
+  return [];
+}
+
 // Fetch complete pharmacy directory combining Supabase, LocalStorage and historical visits
 export async function fetchPharmacyDirectory(allVisits = [], forceRefresh = false) {
   const codes = await fetchClientCodes(forceRefresh);
-  const stored = getStoredPharmacyDirectory();
+  let stored = getStoredPharmacyDirectory();
+
+  // Si el almacenamiento local está vacío o se fuerza refresco, descargar la bóveda completa de la nube
+  if (stored.length === 0 || forceRefresh) {
+    const cloudVault = await fetchClientsCloudVault();
+    if (cloudVault && cloudVault.length > 0) {
+      stored = deduplicateClientsList([...stored, ...cloudVault]);
+      try {
+        localStorage.setItem('olam_pharmacy_directory_v2', JSON.stringify(stored));
+      } catch (_) {}
+    }
+  }
 
   // Diccionario unificado indexado EXCLUSIVAMENTE por código de cliente.
   // Regla Droguería El Olam: Pueden existir múltiples farmacias con el mismo nombre comercial,
@@ -820,6 +850,22 @@ export async function saveBulkClientsToDirectory(clientsList = []) {
       }
     } catch (e) {
       console.warn('Supabase bulk upsert note:', e);
+    }
+
+    // 4. Actualizar la bóveda integral de clientes en daily_supervision_history
+    try {
+      await supabase.from('daily_supervision_history').upsert({
+        date: '2099-12-28',
+        vendor_name: 'Bóveda Directorio Clientes El Olam',
+        supervision_data: {
+          tipo: 'boveda_directorio_clientes',
+          total_clients: finalDirectory.length,
+          updated_at: new Date().toISOString(),
+          clients: finalDirectory
+        }
+      }, { onConflict: 'date,vendor_name' });
+    } catch (vaultErr) {
+      console.warn('Error actualizando bóveda de clientes en la nube:', vaultErr);
     }
   }
 
