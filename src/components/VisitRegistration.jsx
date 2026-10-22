@@ -776,9 +776,11 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       const pNameLower = pName.toLowerCase();
       const pCode = (p.code || '').trim();
       const pCodeLower = pCode.toLowerCase();
+      const pRouteLower = (p.route || '').trim().toLowerCase();
 
       if (!pName && !pCode) continue;
-      const uniqueKey = p.name ? `n-${pNameLower}` : `c-${pCodeLower}`;
+      // Regla El Olam: Permitir farmacias homónimas con distinto código o de distintas rutas/giras
+      const uniqueKey = `${pCodeLower || 's-c'}__${pNameLower}__${pRouteLower}`;
       if (seen.has(uniqueKey)) continue;
 
       // 1. Nombre empieza exactamente con lo escrito (ej: "far" -> "Farmacia...")
@@ -803,32 +805,50 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       }
     }
 
-    const alphaSort = (a, b) => (a.name || '').localeCompare(b.name || '');
-    startsWithName.sort(alphaSort);
-    startsWithWord.sort(alphaSort);
+    const currentRouteLower = (route || '').toLowerCase().trim();
+    const routeAndAlphaSort = (a, b) => {
+      const aRouteMatch = a.route && currentRouteLower && a.route.toLowerCase().includes(currentRouteLower);
+      const bRouteMatch = b.route && currentRouteLower && b.route.toLowerCase().includes(currentRouteLower);
+      if (aRouteMatch && !bRouteMatch) return -1;
+      if (!aRouteMatch && bRouteMatch) return 1;
+      return (a.name || '').localeCompare(b.name || '');
+    };
+
+    startsWithName.sort(routeAndAlphaSort);
+    startsWithWord.sort(routeAndAlphaSort);
+    containsName.sort(routeAndAlphaSort);
 
     const merged = [...startsWithName, ...startsWithWord, ...containsName, ...codeMatch];
-    return merged.slice(0, 35);
-  }, [clientName, vendorPharmacyDirectory]);
+    return merged.slice(0, 40);
+  }, [clientName, route, vendorPharmacyDirectory]);
 
-  // Cliente coincidente exacto para feedback visual (Filtrado por las rutas del vendedor)
+  // Cliente coincidente exacto para feedback visual (El código es el distintivo único)
   const matchedClient = React.useMemo(() => {
     const trimmedCode = (clientCode || '').trim().toLowerCase();
     const trimmedName = (clientName || '').trim().toLowerCase();
     if (!trimmedCode && !trimmedName) return null;
 
-    return vendorPharmacyDirectory.find(p => {
-      const pCode = (p.code || '').trim().toLowerCase();
-      const pName = (p.name || '').trim().toLowerCase();
-      if (trimmedCode && (pCode === trimmedCode || (trimmedCode.length > 1 && pCode.replace(/^0+/, '') === trimmedCode.replace(/^0+/, '')))) {
-        return true;
+    // Regla Droguería El Olam: Si hay código ingresado (y no es 0000), buscar estrictamente por código
+    if (trimmedCode && trimmedCode !== '0000') {
+      return vendorPharmacyDirectory.find(p => {
+        const pCode = (p.code || '').trim().toLowerCase();
+        return pCode === trimmedCode || (trimmedCode.length > 1 && pCode.replace(/^0+/, '') === trimmedCode.replace(/^0+/, ''));
+      }) || null;
+    }
+
+    // Si el código está vacío o es 0000, buscar por nombre respetando la ruta actual del vendedor
+    if (trimmedName) {
+      const currentRouteLower = (route || '').toLowerCase().trim();
+      const matches = vendorPharmacyDirectory.filter(p => (p.name || '').trim().toLowerCase() === trimmedName);
+      if (matches.length === 1) return matches[0];
+      if (matches.length > 1) {
+        const sameRoute = matches.find(p => p.route && p.route.toLowerCase().includes(currentRouteLower));
+        return sameRoute || matches[0];
       }
-      if (trimmedName && pName === trimmedName) {
-        return true;
-      }
-      return false;
-    }) || null;
-  }, [clientCode, clientName, vendorPharmacyDirectory]);
+    }
+
+    return null;
+  }, [clientCode, clientName, route, vendorPharmacyDirectory]);
 
   // SUGERENCIAS INTERACTIVAS DE SECTOR A MEDIDA QUE SE ESCRIBE (O ENFOCA EL CAMPO)
   const sectorSuggestions = useMemo(() => {
@@ -951,8 +971,8 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       searchClientLive(trimmed).then(liveMatches => {
         if (liveMatches && liveMatches.length > 0) {
           setPharmacyDirectory(prev => {
-            const seen = new Set((prev || []).map(p => (p.name || '').toLowerCase()));
-            const toAdd = liveMatches.filter(m => m.name && !seen.has(m.name.toLowerCase()));
+            const seen = new Set((prev || []).map(p => `${(p.code || '').toLowerCase()}__${(p.name || '').toLowerCase()}__${(p.route || '').toLowerCase()}`));
+            const toAdd = liveMatches.filter(m => !seen.has(`${(m.code || '').toLowerCase()}__${(m.name || '').toLowerCase()}__${(m.route || '').toLowerCase()}`));
             return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
           });
         }
@@ -972,13 +992,24 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     }
   };
 
-  // Autollenar suave al salir del campo si escribió el nombre exacto
+  // Autollenar suave al salir del campo SOLO si NO ha escrito ningún código aún
   const handleNameBlur = () => {
     const trimmed = (clientName || '').trim().toLowerCase();
     if (!trimmed) return;
-    const match = pharmacyDirectory.find(p => (p.name || '').trim().toLowerCase() === trimmed);
-    if (match && !clientCode) {
-      applyClientSelection(match);
+    // Si el vendedor ya escribió un código propio, no sobreescribirlo jamás
+    const hasExplicitCode = clientCode && clientCode.trim() !== '' && clientCode.trim() !== '0000';
+    if (!hasExplicitCode) {
+      const currentRouteLower = (route || '').toLowerCase().trim();
+      const matches = pharmacyDirectory.filter(p => (p.name || '').trim().toLowerCase() === trimmed);
+      if (matches.length === 1) {
+        applyClientSelection(matches[0]);
+      } else if (matches.length > 1) {
+        // Si hay varias con el mismo nombre en diferentes giras, priorizar la de su ruta actual
+        const sameRoute = matches.find(p => p.route && p.route.toLowerCase().includes(currentRouteLower));
+        if (sameRoute) {
+          applyClientSelection(sameRoute);
+        }
+      }
     }
   };
 
@@ -1076,13 +1107,11 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       setSector(cSector);
     }
 
-    // BLOQUEO CONTRA REEMPLAZO INVOLUNTARIO DE CÓDIGO (Solo aplica a vendedores regulares; Antonio Celada y Admin tienen permiso total)
-    if (!isSpecialVendor && cCode && cCode !== '0000') {
+    // REGISTRO FLUIDO: Si el código coincide con otra farmacia del catálogo, se permite guardar normalmente sin bloquear ni atrasar al vendedor
+    if (cCode && cCode !== '0000') {
       const existingByCode = pharmacyDirectory.find(p => (p.code || '').trim().toLowerCase() === cCode.toLowerCase());
       if (existingByCode && cName && existingByCode.name.trim().toLowerCase() !== cName.toLowerCase()) {
-        missing.push(
-          `⛔ CÓDIGO YA REGISTRADO: El código #${cCode} ya pertenece a "${existingByCode.name}". Para evitar reemplazos involuntarios en la base de datos, verifique el código ingresado. Si requiere un cambio de nombre o corrección de catálogo, comuníquese con el administrador mediante el botón de Soporte.`
-        );
+        console.info(`[Info Registro] Código #${cCode} ingresado como "${cName}" (en catálogo previo: "${existingByCode.name}"). Se procesa sin bloquear.`);
       }
     }
 
@@ -1807,19 +1836,18 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
 
               if (isNameUpdated) {
                 return (
-                  <div className="p-4 bg-gradient-to-r from-rose-50 to-red-50 dark:from-rose-950/70 dark:to-red-950/60 border-2 border-rose-500 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in">
+                  <div className="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/60 dark:to-indigo-950/50 border-2 border-blue-400 dark:border-blue-600 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md animate-in fade-in">
                     <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center font-black text-lg shrink-0 shadow">
-                        ⛔
+                      <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow">
+                        ℹ️
                       </div>
                       <div>
-                        <div className="text-xs font-black text-rose-900 dark:text-rose-100 flex items-center gap-1.5">
-                          <span>CÓDIGO YA REGISTRADO EN EL SISTEMA:</span>
-                          <span className="underline decoration-rose-500">#{clientCode}</span>
+                        <div className="text-xs font-black text-blue-900 dark:text-blue-100 flex items-center gap-1.5">
+                          <span>Código #{clientCode} en Catálogo:</span>
+                          <span className="font-semibold text-blue-700 dark:text-blue-300">"{matchedClient.name}"</span>
                         </div>
-                        <div className="text-[11px] text-rose-800 dark:text-rose-200 font-medium mt-1">
-                          Este código ya pertenece a la farmacia: <strong className="underline decoration-rose-400">"{matchedClient.name}"</strong>.<br />
-                          Para evitar reemplazos involuntarios en el catálogo, verifique el código. Si necesita modificarlo, solicítelo al Administrador.
+                        <div className="text-[11px] text-blue-800 dark:text-blue-200 font-medium mt-0.5">
+                          Registrando para esta visita como: <strong className="underline decoration-blue-400">"{clientName}"</strong>. Puedes guardar directamente sin interrupciones.
                         </div>
                       </div>
                     </div>
@@ -1827,8 +1855,8 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                       <button
                         type="button"
                         onClick={() => applyClientSelection(matchedClient)}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold rounded-xl shadow-sm transition-all cursor-pointer"
-                        title="Usar el nombre y datos registrados originalmente para este código"
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold rounded-lg shadow-sm transition-all cursor-pointer"
+                        title="Usar el nombre original registrado en el catálogo para este código"
                       >
                         ✓ Usar "{matchedClient.name}"
                       </button>
@@ -1842,10 +1870,11 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                           });
                           setShowSupportChat(true);
                         }}
-                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1"
+                        className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg shadow-sm transition-all cursor-pointer flex items-center gap-1"
+                        title="Notificar al Administrador para actualización de catálogo"
                       >
-                        <MessageSquare size={13} />
-                        <span>Solicitar Cambio al Admin</span>
+                        <MessageSquare size={12} />
+                        <span>Notificar Admin</span>
                       </button>
                     </div>
                   </div>

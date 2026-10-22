@@ -572,6 +572,56 @@ export function getOtpKeysStats() {
 }
 
 /**
+ * Quema manualmente una clave OTP de inicio de sesión desde el panel de administrador
+ */
+export async function burnOtpKeyManually(inputKey, assignedUser = 'Vendedor en Campo', role = 'vendor') {
+  if (!inputKey) return { success: false, message: 'Clave no proporcionada' };
+  const cleanKey = inputKey.trim().toUpperCase();
+
+  const vault = getOtpKeysVault();
+  const keyIndex = vault.findIndex(
+    (item) => (item.key || '').trim().toUpperCase() === cleanKey
+  );
+
+  if (keyIndex === -1) {
+    return { success: false, message: `Clave ${cleanKey} no encontrada en la bóveda.` };
+  }
+
+  const targetKey = vault[keyIndex];
+  if (targetKey.used) {
+    return { 
+      success: false, 
+      alreadyUsed: true,
+      message: `La clave ${cleanKey} ya estaba quemada previamente por ${targetKey.usedBy} el ${targetKey.usedAt}.` 
+    };
+  }
+
+  const now = new Date();
+  const dateStr = getLocalDateString(now);
+  const timeStr = now.toLocaleTimeString('es-GT', { hour12: false });
+  const consumedTimestamp = `${dateStr} ${timeStr}`;
+
+  targetKey.used = true;
+  targetKey.usedAt = consumedTimestamp;
+  targetKey.usedBy = assignedUser;
+  targetKey.usedRole = role;
+
+  recordKeyInBurnedRegistry(cleanKey, targetKey);
+  vault[keyIndex] = targetKey;
+  saveOtpKeysVault(vault);
+
+  try {
+    await saveOtpVaultToCloud(vault);
+  } catch (_) {}
+
+  return {
+    success: true,
+    keyData: targetKey,
+    message: `🔥 Clave ${cleanKey} quemada exitosamente y asignada a ${assignedUser}.`
+  };
+}
+
+/**
  * Gestión de la Bóveda de 50 Claves de Un Solo Toque para Cierre de Sesión (Logout OTP)
  */
 export function getLogoutOtpKeysVault() {
@@ -955,5 +1005,55 @@ export function getLogoutOtpKeysStats() {
     used,
     available,
     percentageAvailable: total > 0 ? Math.round((available / total) * 100) : 0
+  };
+}
+
+/**
+ * Quema manualmente una clave OTP de cierre de sesión desde el panel de administrador
+ */
+export async function burnLogoutOtpKeyManually(inputKey, assignedUser = 'Vendedor en Campo') {
+  if (!inputKey) return { success: false, message: 'Clave no proporcionada' };
+  const cleanKey = inputKey.trim().toUpperCase();
+
+  const vault = getLogoutOtpKeysVault();
+  const keyIndex = vault.findIndex(
+    (item) => (item.key || '').trim().toUpperCase() === cleanKey
+  );
+
+  if (keyIndex === -1) {
+    return { success: false, message: `Clave de cierre ${cleanKey} no encontrada en la bóveda.` };
+  }
+
+  const targetKey = vault[keyIndex];
+  if (targetKey.used) {
+    return { 
+      success: false, 
+      alreadyUsed: true,
+      message: `La clave ${cleanKey} ya estaba quemada previamente por ${targetKey.usedBy} el ${targetKey.usedAt}.` 
+    };
+  }
+
+  const now = new Date();
+  const dateStr = getLocalDateString(now);
+  const timeStr = now.toLocaleTimeString('es-GT', { hour12: false });
+  const consumedTimestamp = `${dateStr} ${timeStr}`;
+
+  targetKey.used = true;
+  targetKey.usedAt = consumedTimestamp;
+  targetKey.usedBy = assignedUser;
+  targetKey.usedRole = 'supervisor_logout';
+
+  recordLogoutKeyInBurnedRegistry(cleanKey, targetKey);
+  vault[keyIndex] = targetKey;
+  saveLogoutOtpKeysVault(vault);
+
+  try {
+    await saveLogoutOtpVaultToCloud(vault);
+  } catch (_) {}
+
+  return {
+    success: true,
+    keyData: targetKey,
+    message: `🔥 Clave de cierre ${cleanKey} quemada exitosamente para ${assignedUser}.`
   };
 }

@@ -7,15 +7,19 @@ import {
   Search, 
   ShieldCheck, 
   X,
-  CheckCircle2
+  CheckCircle2,
+  Flame,
+  AlertTriangle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
   getLogoutOtpKeysVault, 
   getLogoutOtpKeysVaultAsync, 
-  getLogoutOtpKeysStats 
+  getLogoutOtpKeysStats,
+  burnLogoutOtpKeyManually
 } from '../lib/security';
 import { getLocalDateString } from '../lib/dateUtils';
+import { getVendorsList } from '../lib/db';
 
 export default function AdminLogoutOtpModal({ isOpen, onClose }) {
   const [keysList, setKeysList] = useState([]);
@@ -23,12 +27,29 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
   const [search, setSearch] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
   const [toastMessage, setToastMessage] = useState('');
+  const [vendors, setVendors] = useState([]);
+
+  // Estado para quemado directo de deslogueo
+  const [burnTargetKey, setBurnTargetKey] = useState(null);
+  const [selectedBurnVendor, setSelectedBurnVendor] = useState('');
+  const [quickKeyInput, setQuickKeyInput] = useState('');
+  const [quickVendorInput, setQuickVendorInput] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
 
     // Cargar inicial local inmediato
     setKeysList(getLogoutOtpKeysVault());
+
+    // Cargar lista de vendedores
+    getVendorsList().then(list => {
+      const active = list.filter(v => v.active !== false);
+      setVendors(active);
+      if (active.length > 0) {
+        setSelectedBurnVendor(active[0].name);
+        setQuickVendorInput(active[0].name);
+      }
+    }).catch(() => {});
 
     // Cargar versión más fresca desde Supabase
     getLogoutOtpKeysVaultAsync().then((fresh) => {
@@ -56,6 +77,21 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
       setCopiedKey('');
       setToastMessage('');
     }, 2500);
+  };
+
+  const handleExecuteBurn = async (keyToBurn, vendorToAssign) => {
+    if (!keyToBurn) return;
+    const assigned = vendorToAssign || selectedBurnVendor || 'Vendedor en Campo';
+    const res = await burnLogoutOtpKeyManually(keyToBurn, assigned);
+    if (res.success) {
+      setToastMessage(`🔥 ¡Clave de salida ${keyToBurn} quemada para ${assigned}!`);
+      setKeysList(getLogoutOtpKeysVault());
+      setBurnTargetKey(null);
+      setQuickKeyInput('');
+    } else {
+      setToastMessage(`⚠️ ${res.message}`);
+    }
+    setTimeout(() => setToastMessage(''), 3500);
   };
 
   const handleDownloadExcel = () => {
@@ -171,6 +207,46 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
           </div>
         </div>
 
+        {/* Panel de Quema Manual Directa para el Administrador */}
+        <div className="shrink-0 p-2 sm:p-3 sm:px-6 bg-rose-500/10 dark:bg-rose-950/30 border-b border-rose-300 dark:border-rose-700/50 flex flex-wrap gap-2 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Flame size={16} className="text-rose-600 dark:text-rose-400 shrink-0 animate-bounce" />
+            <span className="text-xs font-black text-rose-950 dark:text-rose-200">
+              Quemar Clave de Salida Manualmente:
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 flex-1 max-w-xl justify-end">
+            <input
+              type="text"
+              placeholder="Ej: OLAM-OUT-XXXX-XXXX"
+              value={quickKeyInput}
+              onChange={(e) => setQuickKeyInput(e.target.value.toUpperCase())}
+              className="px-2.5 py-1 text-xs font-mono uppercase bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-700 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none dark:text-white w-48"
+            />
+            
+            <select
+              value={quickVendorInput}
+              onChange={(e) => setQuickVendorInput(e.target.value)}
+              className="px-2.5 py-1 text-xs bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-700 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none font-bold dark:text-white"
+            >
+              {vendors.map(v => (
+                <option key={v.id} value={v.name}>{v.name}</option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              disabled={!quickKeyInput.trim()}
+              onClick={() => handleExecuteBurn(quickKeyInput, quickVendorInput)}
+              className="px-3 py-1 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs transition-all flex items-center gap-1 shadow-md cursor-pointer active:scale-95"
+            >
+              <Flame size={13} />
+              <span>🔥 Quemar Salida</span>
+            </button>
+          </div>
+        </div>
+
         {/* Filtros y Búsqueda Limpios */}
         <div className="shrink-0 p-2 sm:p-3 sm:px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-wrap gap-2 items-center justify-between">
           <div className="relative flex-1 min-w-[140px] max-w-xs">
@@ -217,13 +293,14 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
 
         {/* Tabla con Scroll Vertical y Horizontal 100% Táctil con el Dedo */}
         <div className="flex-1 min-h-0 overflow-auto p-2 sm:p-4">
-          <table className="w-full text-left text-xs border-collapse min-w-[620px]">
+          <table className="w-full text-left text-xs border-collapse min-w-[700px]">
             <thead className="sticky top-0 z-10 shadow-sm bg-slate-100 dark:bg-slate-800">
               <tr className="text-slate-600 dark:text-slate-300 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200 dark:border-slate-700">
                 <th className="py-2.5 px-3 w-12 text-center">No.</th>
                 <th className="py-2.5 px-3">Clave de Cierre (OTP)</th>
-                <th className="py-2.5 px-3 text-center w-28">Copiar Clave</th>
-                <th className="py-2.5 px-3 text-center w-28">Estado</th>
+                <th className="py-2.5 px-3 text-center w-24">Copiar</th>
+                <th className="py-2.5 px-3 text-center w-24">Estado</th>
+                <th className="py-2.5 px-3 text-center w-28">Acción</th>
                 <th className="py-2.5 px-3">Consumida Por</th>
                 <th className="py-2.5 px-3">Fecha de Uso</th>
               </tr>
@@ -260,7 +337,7 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
                       type="button"
                       onClick={() => handleCopyKey(item.key)}
                       disabled={item.used}
-                      className={`px-3 py-1 rounded-xl text-xs font-black transition-all inline-flex items-center justify-center gap-1 cursor-pointer shadow-sm ${
+                      className={`px-2.5 py-1 rounded-xl text-xs font-black transition-all inline-flex items-center justify-center gap-1 cursor-pointer shadow-sm ${
                         copiedKey === item.key
                           ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
                           : item.used
@@ -284,6 +361,21 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
                       </span>
                     )}
                   </td>
+                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                    {item.used ? (
+                      <span className="text-[10px] text-slate-400 italic">Inutilizada</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setBurnTargetKey(item)}
+                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 rounded-xl text-xs font-black transition-all inline-flex items-center gap-1 cursor-pointer shadow-sm active:scale-95"
+                        title="Marcar como quemada e invalidar para siempre"
+                      >
+                        <Flame size={12} className="text-rose-600" />
+                        <span>Quemar</span>
+                      </button>
+                    )}
+                  </td>
                   <td className="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                     {item.usedBy ? (
                       <span className="text-rose-700 dark:text-rose-400 font-extrabold">
@@ -301,6 +393,64 @@ export default function AdminLogoutOtpModal({ isOpen, onClose }) {
             </tbody>
           </table>
         </div>
+
+        {/* Modal Emergente de Asignación y Quema Individual para Logout */}
+        {burnTargetKey && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn">
+            <div className="bg-white dark:bg-slate-900 border-2 border-rose-500 rounded-3xl p-5 max-w-sm w-full shadow-2xl">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 flex items-center justify-center shrink-0">
+                  <Flame size={22} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                    Quemar Clave de Salida
+                  </h4>
+                  <p className="text-xs font-mono font-bold text-rose-600">
+                    {burnTargetKey.key}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 dark:text-slate-300 mb-3">
+                Al quemar esta clave quedará <strong>invalidada permanentemente</strong>. Selecciona para qué vendedor se autorizó la salida:
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+                  Vendedor Autorizado:
+                </label>
+                <select
+                  value={selectedBurnVendor}
+                  onChange={(e) => setSelectedBurnVendor(e.target.value)}
+                  className="w-full p-2.5 text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl dark:text-white"
+                >
+                  {vendors.map(v => (
+                    <option key={v.id} value={v.name}>{v.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBurnTargetKey(null)}
+                  className="px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExecuteBurn(burnTargetKey.key, selectedBurnVendor)}
+                  className="px-4 py-1.5 text-xs font-black text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-md flex items-center gap-1 cursor-pointer"
+                >
+                  <Flame size={13} />
+                  <span>Confirmar y Quemar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal Footer Compacto */}
         <div className="shrink-0 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 p-2.5 sm:px-6 flex items-center justify-between text-xs text-slate-600 dark:text-slate-300 shadow-lg">

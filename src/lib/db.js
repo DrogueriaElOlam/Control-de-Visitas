@@ -19,6 +19,8 @@ import {
   getLogoutOtpKeysStats,
   getLogoutOtpKeysVaultAsync,
   fetchLogoutOtpVaultFromCloud,
+  burnOtpKeyManually,
+  burnLogoutOtpKeyManually,
   DEFAULT_VENDOR_HASH
 } from './security.js';
 
@@ -54,6 +56,8 @@ export {
   getLogoutOtpKeysStats,
   getLogoutOtpKeysVaultAsync,
   fetchLogoutOtpVaultFromCloud,
+  burnOtpKeyManually,
+  burnLogoutOtpKeyManually,
   registerCloudActiveSession,
   revokeCloudActiveSession,
   fetchCloudActiveSessions,

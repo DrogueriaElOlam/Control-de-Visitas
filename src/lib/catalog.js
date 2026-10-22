@@ -148,9 +148,7 @@ export async function searchClientLive(query) {
 
     if (visitData && Array.isArray(visitData)) {
       visitData.forEach(v => {
-        const k = v.client_code || v.client_name;
-        if (!k) return;
-        const existing = results.find(r => (r.code && r.code === v.client_code) || (r.name && r.name.toLowerCase() === (v.client_name || '').toLowerCase()));
+        const existing = v.client_code ? results.find(r => r.code && r.code.toLowerCase() === v.client_code.toLowerCase()) : null;
         if (existing) {
           if (!existing.sector && (v.sector || v.route)) existing.sector = v.sector || v.route || '';
           if (!existing.route && (v.route || v.sector)) existing.route = v.route || v.sector || '';
@@ -415,11 +413,10 @@ export async function saveClientRecord({ code, name, sector, route, visitDate, p
       const rawCodes = localStorage.getItem('olam_client_codes_cache');
       let codesList = rawCodes ? JSON.parse(rawCodes) : [];
       if (Array.isArray(codesList)) {
-        // Si tiene código propio real, actualizar o insertar en la lista de códigos oficiales
+        // Si tiene código propio real, actualizar o insertar en la lista de códigos oficiales exclusivamente por código
         if (finalCode && finalCode !== '0000') {
           const cIdx = codesList.findIndex(c => 
-            (c.code || '').trim().toLowerCase() === finalCode.toLowerCase() ||
-            (c.name || '').trim().toLowerCase() === finalName.toLowerCase()
+            (c.code || '').trim().toLowerCase() === finalCode.toLowerCase()
           );
           if (cIdx !== -1) {
             codesList[cIdx] = { code: finalCode, name: finalName };

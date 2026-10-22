@@ -18,7 +18,8 @@ import {
   Shield,
   Settings,
   Wifi,
-  Key
+  Key,
+  Cloud
 } from 'lucide-react';
 import { getLocalDateString, getLocalYesterdayString } from '../lib/dateUtils';
 import { getOtpKeysStats, getLogoutOtpKeysStats } from '../lib/security';
@@ -35,6 +36,7 @@ export default function AdminDashboard({
   onOpenConnectionsModal,
   onOpenOtpModal,
   onOpenLogoutOtpModal,
+  onOpenSupabaseModal,
   onlineVendors = {}
 }) {
   const todayStr = getLocalDateString();
@@ -190,6 +192,19 @@ export default function AdminDashboard({
                 <span>Claves Salida (OTP)</span>
                 <span className="bg-rose-950/70 text-rose-200 text-[10px] font-black px-1.5 py-0.2 rounded-full border border-rose-400/50">
                   {getLogoutOtpKeysStats().available}
+                </span>
+              </button>
+            )}
+            {onOpenSupabaseModal && (
+              <button
+                onClick={onOpenSupabaseModal}
+                className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-700 hover:from-teal-700 hover:to-emerald-800 text-white font-extrabold text-xs sm:text-sm transition-all shadow-md flex items-center gap-1.5 border border-teal-400/40 cursor-pointer active:scale-95"
+                title="Monitorear y reanudar servidor Supabase en 1 clic"
+              >
+                <Cloud size={16} className="text-teal-200" />
+                <span>Nube Supabase</span>
+                <span className="bg-teal-950/70 text-teal-200 text-[10px] font-black px-1.5 py-0.2 rounded-full border border-teal-400/50">
+                  ⚡ Reanudar
                 </span>
               </button>
             )}

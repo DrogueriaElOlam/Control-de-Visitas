@@ -25,6 +25,7 @@ import AdminOtpVaultModal from './components/AdminOtpVaultModal';
 import AdminLogoutOtpModal from './components/AdminLogoutOtpModal';
 import SupervisorRemindersModal from './components/SupervisorRemindersModal';
 import ActiveReminderAlertModal from './components/ActiveReminderAlertModal';
+import AdminSupabaseStatusModal from './components/AdminSupabaseStatusModal';
 import VisualFeedbackSelector from './components/VisualFeedbackSelector';
 
 import { 
@@ -84,6 +85,7 @@ export default function App() {
   const [showConnectionsModal, setShowConnectionsModal] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [showLogoutOtpModal, setShowLogoutOtpModal] = useState(false);
+  const [showSupabaseModal, setShowSupabaseModal] = useState(false);
   const [vendorOnlineToast, setVendorOnlineToast] = useState(null);
   const [connectionNotifications, setConnectionNotifications] = useState([]);
   const prevOnlineVendorsRef = useRef({});
@@ -507,6 +509,7 @@ export default function App() {
         onOpenOtpModal={() => setShowOtpModal(true)}
         onOpenLogoutOtpModal={() => setShowLogoutOtpModal(true)}
         onOpenRemindersModal={() => setShowSupervisorRemindersModal(true)}
+        onOpenSupabaseModal={() => setShowSupabaseModal(true)}
         pendingTicketsCount={pendingTicketsCount}
         onlineVendors={onlineVendors}
         connectionNotifications={connectionNotifications}
@@ -587,6 +590,7 @@ export default function App() {
                 onOpenConnectionsModal={() => setShowConnectionsModal(true)}
                 onOpenOtpModal={() => setShowOtpModal(true)}
                 onOpenLogoutOtpModal={() => setShowLogoutOtpModal(true)}
+                onOpenSupabaseModal={() => setShowSupabaseModal(true)}
                 onlineVendors={onlineVendors}
               />
             )}
@@ -788,6 +792,12 @@ export default function App() {
       <AdminLogoutOtpModal
         isOpen={showLogoutOtpModal}
         onClose={() => setShowLogoutOtpModal(false)}
+      />
+
+      {/* Modal del Administrador: Monitoreo y Reanudación de Servidor Supabase */}
+      <AdminSupabaseStatusModal
+        isOpen={showSupabaseModal}
+        onClose={() => setShowSupabaseModal(false)}
       />
 
       {/* Modal de Monitoreo de Recordatorios & Seguimiento para Supervisor / Admin */}
