@@ -365,7 +365,7 @@ export function CentralSupervisionView({ onClose, isEmbedded = false }) {
       </div>
 
       {/* AVISO DE GUARDADO EXITOSO */}
-      {saveSuccessMsg && (
+      {Boolean(typeof saveSuccessMsg !== 'undefined' && saveSuccessMsg) && (
         <div className="bg-emerald-500 text-white text-xs px-4 py-2 font-bold text-center animate-in fade-in flex items-center justify-center gap-2">
           <CheckCircle className="w-4 h-4" />
           <span>{saveSuccessMsg}</span>

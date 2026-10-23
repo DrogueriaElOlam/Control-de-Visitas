@@ -26,6 +26,7 @@ import AdminLogoutOtpModal from './components/AdminLogoutOtpModal';
 import SupervisorRemindersModal from './components/SupervisorRemindersModal';
 import ActiveReminderAlertModal from './components/ActiveReminderAlertModal';
 import AdminSupabaseStatusModal from './components/AdminSupabaseStatusModal';
+import VisualFeedbackSelector from './components/VisualFeedbackSelector';
 
 import { 
   getStoredReminders, 
@@ -477,6 +478,7 @@ export default function App() {
     return (
       <>
         <LoginModal onLoginSuccess={handleLoginSuccess} />
+        <VisualFeedbackSelector />
       </>
     );
   }
@@ -689,23 +691,25 @@ export default function App() {
       </main>
 
       {/* Official Vendor & Admin Report Modal */}
-      <VendorReportModal
-        isOpen={showReportModal || activeTab === 'report'}
-        onClose={() => {
-          setShowReportModal(false);
-          if (activeTab === 'report') {
-            setActiveTab(currentUser?.role === 'admin' ? 'dashboard' : 'my_visits');
-          }
-        }}
-        currentUser={currentUser}
-        visits={visits}
-        vendors={vendors}
-        onVisitAdded={handleVisitAdded}
-        onOpenCashModal={(vendorName, reportId) => {
-          setCashModalTarget({ vendorName, reportId });
-          setShowCashModal(true);
-        }}
-      />
+      {(showReportModal || activeTab === 'report') && (
+        <VendorReportModal
+          isOpen={true}
+          onClose={() => {
+            setShowReportModal(false);
+            if (activeTab === 'report') {
+              setActiveTab(currentUser?.role === 'admin' ? 'dashboard' : 'my_visits');
+            }
+          }}
+          currentUser={currentUser}
+          visits={visits}
+          vendors={vendors}
+          onVisitAdded={handleVisitAdded}
+          onOpenCashModal={(vendorName, reportId) => {
+            setCashModalTarget({ vendorName, reportId });
+            setShowCashModal(true);
+          }}
+        />
+      )}
 
       {/* Modal Reporte Cobros en Efectivo (conforme formato PDF solicitado) */}
       <CashCollectionsModal
@@ -816,6 +820,7 @@ export default function App() {
       />
 
       {/* Herramienta Visual para Seleccionar y Marcar Cambios Específicos (Desactivada temporalmente por el usuario) */}
+      {/* <VisualFeedbackSelector /> */}
 
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 py-4 mb-16 md:mb-0 text-center text-xs text-slate-400">

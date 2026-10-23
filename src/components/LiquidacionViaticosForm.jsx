@@ -58,6 +58,7 @@ export default function LiquidacionViaticosForm({ currentUser }) {
   }, [currentUser?.name, currentUser?.route, isSuper, rutasFiltradas]);
 
 
+  const [rutas, setRutas] = useState(ALL_ROUTES);
   const [liquidadores, setLiquidadores] = useState([
     'Ana Lucia Marroquin',
     'Antonio Celada',

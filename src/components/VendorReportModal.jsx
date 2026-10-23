@@ -53,7 +53,6 @@ import {
 } from '../lib/cashCollections';
 import { getLocalDateString } from '../lib/dateUtils';
 import { resolveClientPhoneForVisit } from '../lib/catalog';
-import { supabase } from '../lib/supabase';
 
 const CHART_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#64748b'];
 
@@ -118,20 +117,12 @@ export default function VendorReportModal({
   // Metadata overrides (prefilled but customizable)
   const currentVendorData = vendors.find(v => v.name === selectedVendorName) || currentUser;
   const [routeInput, setRouteInput] = useState(currentVendorData?.route || 'Chiquimula II #63');
+  const activeMonth = periodType === 'monthly' ? selectedMonth : (selectedDate ? selectedDate.slice(0, 7) : todayStr.slice(0, 7));
 
-  // Mes activo para indexar y persistir metas mensuales
-  const activeMonth = useMemo(() => {
-    if (periodType === 'month' && selectedMonth) return selectedMonth;
-    if (periodType === 'day' && selectedDate) return selectedDate.slice(0, 7);
-    if (periodType === 'custom' && customStartDate) return customStartDate.slice(0, 7);
-    return getLocalDateString().slice(0, 7);
-  }, [periodType, selectedMonth, selectedDate, customStartDate]);
-
-  // Claves de persistencia por mes y vendedor
+  // Helper key to store and recover team goal for active month
   const getTeamGoalKey = (month) => `olam_team_general_goal_${month || 'global'}`;
-  const getCommitmentKey = (vendor, period, month) => `olam_commitment_${vendor || 'default'}_${period || 'daily'}_${month || 'global'}`;
 
-  // 1. Meta General / Equipo fijada por mes (recupera de localStorage o de la nube, sin restablecer a 50000)
+  // 1. Meta General / Equipo fijada por mes
   const [teamGoalInput, setTeamGoalInput] = useState(() => {
     const todayMonth = getLocalDateString().slice(0, 7);
     const key = `olam_team_general_goal_${todayMonth}`;
@@ -155,6 +146,8 @@ export default function VendorReportModal({
   const [chartActiveTab, setChartActiveTab] = useState('commitment');
 
   // 2. Meta Diaria / Compromiso del Vendedor fijada por mes
+  const getCommitmentKey = (vendor, period, month) => `olam_commitment_${vendor || 'default'}_${period || 'daily'}_${month || activeMonth}`;
+
   const [commitmentGoalInput, setCommitmentGoalInput] = useState(() => {
     const todayMonth = getLocalDateString().slice(0, 7);
     const key = `olam_commitment_${selectedVendorName || currentUser?.name || 'default'}_daily_${todayMonth}`;
@@ -186,8 +179,32 @@ export default function VendorReportModal({
     } catch (_) {}
   };
 
+  // Quick Inline Visit Entry Form State
+  const [showQuickForm, setShowQuickForm] = useState(false);
+  const [qCode, setQCode] = useState('');
+  const [qName, setQName] = useState('');
+  const [qSector, setQSector] = useState(routeInput);
+  const [qVisitType, setQVisitType] = useState('presencial');
+  const [qClientType, setQClientType] = useState('propio');
+  const [qPeriod, setQPeriod] = useState('AM');
+  const [qHasSale, setQHasSale] = useState(false);
+  const [qSaleType, setQSaleType] = useState('presencial');
+  const [qSaleAmount, setQSaleAmount] = useState('');
+  const [qHasCollection, setQHasCollection] = useState(false);
+  const [qCollType, setQCollType] = useState('Transferencia');
+  const [qCollAmount, setQCollAmount] = useState('');
+  const [qObs, setQObs] = useState('');
+  const [qGPS, setQGPS] = useState(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [savingVisit, setSavingVisit] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+
   // Sincronizar metas fijas cuando cambie el mes, el vendedor o el período
   useEffect(() => {
+    if (currentVendorData?.route) {
+      setRouteInput(currentVendorData.route);
+      setQSector(currentVendorData.route);
+    }
     // Sincronizar Meta General / Equipo para el mes activo
     const teamKey = getTeamGoalKey(activeMonth);
     const savedTeam = localStorage.getItem(teamKey);
@@ -1613,7 +1630,7 @@ export default function VendorReportModal({
         <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
 
           {/* Success message banner if quick visit saved */}
-          {saveSuccessMsg && (
+          {Boolean(typeof saveSuccessMsg !== 'undefined' && saveSuccessMsg) && (
             <div className="bg-emerald-600 text-white p-3.5 rounded-2xl shadow-lg flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
               <CheckCircle2 size={20} className="animate-bounce" />
               <div className="text-xs font-bold">{saveSuccessMsg}</div>
@@ -2039,9 +2056,9 @@ export default function VendorReportModal({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-                    Compromiso / Meta Diaria ({activeMonth})
+                    Compromiso de Venta (Meta a Evaluar en Quetzales)
                   </label>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">✓ Guardada fija por mes</span>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">Guardado auto.</span>
                 </div>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">Q</span>
