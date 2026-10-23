@@ -33,6 +33,7 @@ import {
   getLastKnownUserProfile,
   normalizeUserKey
 } from './cloudSessions.js';
+import { recordVendorLoginSession } from './vendorConnections.js';
 
 export { 
   getLocalDateString, 
@@ -1076,28 +1077,75 @@ export async function addVisitRecord(visit) {
     const pending = getPendingSyncVisits();
     pending.push(enhancedVisit);
     savePendingSyncVisits(pending);
-    // Disparar reintento reactivo inmediato en segundo plano
     setTimeout(() => triggerReactiveSync(), 400);
+  }
+
+  // Asegurar registro de actividad del vendedor en control de conexiones
+  if (enhancedVisit.vendorName && enhancedVisit.vendorName !== 'Administrador') {
+    recordVendorLoginSession({ 
+      name: enhancedVisit.vendorName, 
+      route: enhancedVisit.route 
+    }, { trigger: 'visit_record' }).catch(() => {});
   }
 
   return enhancedVisit;
 }
 
-// Delete visit (Admin only)
+// Delete visit (Allowed for all users: Vendors, Supervisor and Admin)
 export async function deleteVisitRecord(visitId) {
+  if (!visitId) return [];
+
   let visits = [];
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.VISITS);
     if (raw) visits = JSON.parse(raw);
   } catch {}
 
-  const updated = visits.filter((v) => v.id !== visitId && v.cloud_id !== visitId);
+  // Localizar la visita que se eliminará
+  const targetVisit = visits.find((v) => 
+    v.id === visitId || 
+    v.cloud_id === visitId || 
+    String(v.id) === String(visitId) || 
+    (v.cloud_id && String(v.cloud_id) === String(visitId))
+  );
+
+  const updated = visits.filter((v) => 
+    v.id !== visitId && 
+    v.cloud_id !== visitId && 
+    String(v.id) !== String(visitId) && 
+    (!targetVisit?.cloud_id || String(v.cloud_id) !== String(targetVisit.cloud_id))
+  );
   localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(updated));
 
+  // Limpiar también de la cola pendiente de sincronización
   try {
-    await supabase.from('visits').delete().eq('id', visitId);
+    const pendingRaw = localStorage.getItem(STORAGE_KEYS.PENDING_SYNC);
+    if (pendingRaw) {
+      const pending = JSON.parse(pendingRaw).filter((v) => 
+        v.id !== visitId && 
+        v.cloud_id !== visitId && 
+        String(v.id) !== String(visitId) &&
+        (!targetVisit?.cloud_id || String(v.cloud_id) !== String(targetVisit.cloud_id))
+      );
+      localStorage.setItem(STORAGE_KEYS.PENDING_SYNC, JSON.stringify(pending));
+    }
+  } catch {}
+
+  // Eliminar en Supabase (por cloud_id numérico o por id)
+  try {
+    const cloudIdToDelete = targetVisit?.cloud_id || (!isNaN(Number(visitId)) ? Number(visitId) : null);
+    if (cloudIdToDelete) {
+      await supabase.from('visits').delete().eq('id', cloudIdToDelete);
+    } else {
+      await supabase.from('visits').delete().eq('id', visitId);
+    }
   } catch (e) {
     console.warn('Supabase delete visit fallback:', e);
+  }
+
+  // Disparar evento para que toda la interfaz se actualice en tiempo real
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('olam_visits_updated', { detail: { action: 'delete', id: visitId } }));
   }
 
   return updated;
@@ -1220,6 +1268,11 @@ export function saveSession(session) {
 
   // Registrar sesión activa en la nube para continuidad multi-dispositivo
   registerCloudActiveSession(secureSession).catch(() => {});
+
+  // Registrar conexión oficial del vendedor en Supabase
+  if (secureSession.role === 'vendor' || (secureSession.name && secureSession.name !== 'Administrador')) {
+    recordVendorLoginSession(secureSession, { force: true }).catch(() => {});
+  }
 }
 
 export function clearSession(nameOrUsername = null) {

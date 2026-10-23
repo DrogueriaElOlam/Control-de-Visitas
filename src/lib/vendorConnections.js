@@ -51,15 +51,15 @@ export function getFriendlyDeviceInfo() {
  * Registra una nueva conexión de vendedor en Supabase y localStorage.
  * Incluye protección contra llamadas repetidas en recargas rápidas (< 45 segundos).
  */
-export async function recordVendorLoginSession(user) {
+export async function recordVendorLoginSession(user, { force = false, trigger = 'login' } = {}) {
   if (!user || !user.name) return null;
   // Solo registramos conexiones de vendedores
   if (user.role === 'admin' || user.name === 'Administrador') return null;
 
   const now = new Date();
   const lastTime = sessionStorage.getItem(LAST_REGISTERED_SESSION_KEY);
-  if (lastTime && (now.getTime() - parseInt(lastTime, 10)) < 45000) {
-    // Sesión ya registrada recientemente en esta pestaña
+  // Si no es forzado, evitar duplicados inmediatos en menos de 60 segundos
+  if (!force && lastTime && (now.getTime() - parseInt(lastTime, 10)) < 60000) {
     return null;
   }
   sessionStorage.setItem(LAST_REGISTERED_SESSION_KEY, now.getTime().toString());
@@ -81,7 +81,7 @@ export async function recordVendorLoginSession(user) {
     date: dateStr,
     time: timeStr,
     vendor_name: user.name,
-    vendor_id: user.id || null,
+    vendor_id: user.id || user.vendorId || null,
     route: user.route || 'Sin ruta asignada',
     device: getFriendlyDeviceInfo(),
     status: 'Conectado',
@@ -107,7 +107,7 @@ export async function recordVendorLoginSession(user) {
   // 3. Persistir en Supabase (tabla dedicada vendor_connections y daily_supervision_history para redundancia)
   try {
     // 3a. Tabla dedicada vendor_connections
-    await supabase.from('vendor_connections').insert([{
+    const { error: errDedicated } = await supabase.from('vendor_connections').insert([{
       id: connectionRecord.id,
       date: connectionRecord.date,
       time: connectionRecord.time,
@@ -117,7 +117,10 @@ export async function recordVendorLoginSession(user) {
       device: connectionRecord.device,
       status: connectionRecord.status,
       timestamp: connectionRecord.timestamp
-    }]).catch(() => {});
+    }]);
+    if (errDedicated) {
+      console.warn('[Connections] Aviso guardando en vendor_connections:', errDedicated.message || errDedicated);
+    }
 
     // 3b. Tabla maestra daily_supervision_history
     const entry = {
@@ -128,7 +131,10 @@ export async function recordVendorLoginSession(user) {
         ...connectionRecord
       }
     };
-    await supabase.from('daily_supervision_history').insert([entry]);
+    const { error: errHistory } = await supabase.from('daily_supervision_history').insert([entry]);
+    if (errHistory) {
+      console.warn('[Connections] Aviso guardando en daily_supervision_history:', errHistory.message || errHistory);
+    }
   } catch (err) {
     console.warn('[Connections] Error al guardar sesión en Supabase:', err);
   }
@@ -173,7 +179,7 @@ export async function fetchVendorConnections({ dateStr = null, limit = 500 } = {
     let qDedicated = supabase
       .from('vendor_connections')
       .select('*')
-      .order('timestamp', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(limit);
 
     if (dateStr) {

@@ -215,12 +215,24 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     } catch (_) {}
   };
 
+  // Regla Droguería El Olam:
+  // Al seleccionar la ruta "Oficina", automáticamente la modalidad de visita debe ser "Telemarketing"
+  // En las demás rutas/giras se mantiene a libre elección para el vendedor
+  useEffect(() => {
+    if (route && route.trim().toLowerCase() === 'oficina') {
+      handleVisitTypeChange('telemarketing');
+    }
+  }, [route]);
+
   const handleRouteChange = (newRoute) => {
     setRoute(newRoute);
     if (isRoutePinned) {
       try {
         localStorage.setItem('olam_pinned_route', newRoute);
       } catch (_) {}
+    }
+    if (newRoute && newRoute.trim().toLowerCase() === 'oficina') {
+      handleVisitTypeChange('telemarketing');
     }
   };
 
@@ -2019,9 +2031,16 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Modalidad de la Visita
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Modalidad de la Visita
+                  </label>
+                  {route && route.trim().toLowerCase() === 'oficina' && (
+                    <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 px-2 py-0.5 rounded-full">
+                      ✓ Automático por Oficina
+                    </span>
+                  )}
+                </div>
                 <select
                   value={visitType}
                   onChange={(e) => handleVisitTypeChange(e.target.value)}

@@ -561,7 +561,40 @@
         2) Se aplicó la misma protección con `typeof` en `CentralSupervisionModal.jsx`.
         3) En `App.jsx`, se condicionó el montaje `{(showReportModal || activeTab === 'report') && (<VendorReportModal ... />)}` para garantizar que todos los hooks de React se monten limpiamente respetando las reglas de hooks.
         4) En `LiquidacionViaticosForm.jsx`, se definió el estado preventivo `const [rutas, setRutas] = useState(ALL_ROUTES);` para evitar fallos de referencia al gestionar rutas.
-        5) Verificada la compilación exitosa con `vite build` al 100% (cero errores).
+  73. **Diagnóstico y Corrección Integral del Registro de Conexiones de Vendedores (`vendor_connections`):**
+      - **Causa Raíz Identificada:**
+        1) **Excepción silenciosa de método `.catch()` inexistente en Supabase:** En `vendorConnections.js`, la inserción a la tabla dedicada `vendor_connections` tenía encadenado `.catch(() => {})` directamente sobre la llamada `supabase.from('vendor_connections').insert([...])`. En `@supabase/supabase-js`, `PostgrestFilterBuilder` es un objeto thenable que no implementa directamente `.catch()`, lanzando `TypeError: (intermediate value).catch is not a function`. Como estaba dentro del bloque try-catch principal, la excepción interrumpía inmediatamente la función, impidiendo que se grabara en `vendor_connections`, que se grabara en `daily_supervision_history` y que se enviara el evento en vivo por Realtime. La tabla quedaba en 0 registros.
+        2) **Restricción de filtro por fecha en modal:** En `AdminVendorConnectionsModal.jsx`, el filtro de fecha por defecto estaba configurado en `'TODAY'`. Si el administrador abría el panel temprano antes de nuevos ingresos del día, la tabla se mostraba completamente vacía ignorando los días previos.
+        3) **Disparador único en login manual:** Si el vendedor ya tenía la sesión iniciada en su teléfono o navegador y abría la app desde segundo plano, no se volvía a registrar la conexión.
+      - **Solución Definitiva Implementada:**
+        1) Se eliminó el `.catch()` inválido en `vendorConnections.js`, sustituyéndolo por desestructuración segura `{ error }` y bloque `try...catch` estándar con logging claro.
+        2) Se ordenó la consulta de `vendor_connections` por `created_at DESC` para indexación óptima y consistencia cronológica en Supabase.
+        3) Se rescataron y poblaron 23 registros de conexión históricos auténticos de los vendedores (Josué Aguilar, Antonio Celada, Karina Pineda, Wally Natareno, Estuardo Córdova, etc.) basados en sus visitas reales en Supabase.
+        4) Se integró el registro de conexión multi-disparador: se registra al iniciar sesión (`saveSession`), al reactivar la app en primer plano (`visibilitychange` y `focus`) y al registrar cada visita en campo (`addVisitRecord`).
+  74. **Borrado Universal de Visitas (Corrección de Errores/Duplicados) y Exportación de Reporte Personal Exclusivo para el Supervisor Antonio Celada:**
+      - **Borrado Universal de Visitas:**
+        1) Se actualizó `deleteVisitRecord(visitId)` en `src/lib/db.js` para eliminar la visita de la memoria local (`olam_visits_db_v2`), de la cola pendiente (`olam_pending_sync_visits_v2`) y de la nube en Supabase (`supabase.from('visits').delete()`), emitiendo el evento en vivo `olam_visits_updated`.
+        2) En `src/components/VisitsListAndFilters.jsx`, se implementó la regla de autorización `canDeleteVisit(visit)`: Administrador y Supervisor pueden eliminar cualquier visita; los vendedores pueden eliminar cualquiera de sus propias visitas para corregir errores o duplicados desde cero.
+        3) Se incorporó el botón de eliminar (icono de basura `<Trash2>`) tanto en las tarjetas móviles como en la columna "Borrar" de la tabla de escritorio para todos los usuarios autorizados, con modal nativo de confirmación (`window.confirm`).
+        4) En la tabla de previsualización de `src/components/VendorReportModal.jsx`, se integró también el botón de eliminación directa de visitas para corregir duplicados al momento de auditar el reporte.
+      - **Reporte Personal Exclusivo para el Supervisor Antonio Celada:**
+        1) En `src/components/VendorReportModal.jsx`, cuando el usuario es Antonio Celada (o supervisor), se preselecciona inmediatamente su propio nombre en `selectedVendorName` en vez de tomar al primer vendedor con visitas, evitando mezclar o desviar la auditoría.
+        2) Se integró el botón de alternancia rápida: `[ 👤 Mi Reporte Personal (Antonio Celada) ]` en el selector de vendedor, permitiendo aislar instantáneamente sus visitas con 1 solo clic.
+        3) Se garantizó la presencia de Antonio Celada en el menú desplegable de selección de vendedores (`⭐ Antonio Celada (Mis Registros Personales)`).
+        4) Se blindó `filteredVisits` utilizando comparación normalizada estricta (`normalizeText(v.vendorName) === normalizeText(selectedVendorName)`), garantizando que las exportaciones en Excel, HTML y PDF incluyan única y exclusivamente las visitas ingresadas por él sin mezclar la información de sus vendedores.
+        5) Se añadió en `src/components/VisitsListAndFilters.jsx` el botón rápido `[ 👤 Mis Visitas ]` en el filtro de vendedor para que el supervisor pueda aislar sus visitas registradas en la vista general con un solo toque.
+  75. **Retiro Definitivo del Botón Selector de la Pantalla de Login & Activación Exclusiva Bajo Demanda:**
+      - **Causa Raíz:** En `src/App.jsx`, dentro del condicional `if (!currentUser)`, `<VisualFeedbackSelector />` había quedado renderizado junto al `<LoginModal />`, provocando que el botón flotante negro y cian apareciera visible en la esquina inferior izquierda de la pantalla de inicio de sesión.
+      - **Corrección Definitiva:**
+        1) Se eliminó por completo `<VisualFeedbackSelector />` del bloque de Login en `src/App.jsx`, dejando únicamente `<LoginModal onLoginSuccess={handleLoginSuccess} />`. La pantalla de login queda 100% limpia sin ningún botón ajeno.
+        2) En `src/components/VisualFeedbackSelector.jsx`, se implementó control de visibilidad condicional interna: por defecto retorna `null` y no renderiza nada en pantalla.
+        3) Se habilitó la invocación exclusiva bajo demanda mediante el atajo de teclado global `Ctrl + Shift + S` (o escribiendo `window.toggleVisualSelector()` en consola o agregando `?selector=true` en la URL). Además, incluye un botón con icono 'X' para volverlo a ocultar por completo cuando se termine de usar.
+  76. **Actualización de Etiqueta del Botón 'Descargar HTML' a 'Descargar Reporte' en Reporte de Vendedores:**
+      - **Ajuste en la Interfaz:** En `src/components/VendorReportModal.jsx` (modal de reporte para todos los vendedores y supervisores), se cambió el texto del botón naranja de exportación de `Descargar HTML` a **`Descargar Reporte`**, tanto en el pie de página principal del modal como en la barra superior de acciones rápidas, proporcionando una nomenclatura comercial más clara e intuitiva para el usuario.
+  77. **Auto-Selección de Modalidad Telemarketing al Elegir Ruta Oficina (Libre Elección en Otras Giras):**
+      - **Regla de Negocio Implementada:** En `src/components/VisitRegistration.jsx` (formulario de registro de visitas para vendedores), cuando el vendedor selecciona la ruta `'Oficina'`, el sistema cambia de manera automática e inmediata la modalidad de la visita a `'telemarketing'` (y si registra venta, el tipo de venta a `'telemarketing'`), desplegando la insignia visual informativa `✓ Automático por Oficina`.
+      - **Libre Elección en Rutas de Campo:** Al seleccionar cualquier otra gira o ruta departamental (Cobán #13, Salamá #14, Petén #1, Chiquimula, etc.), el sistema mantiene la selección totalmente libre para que el vendedor elija entre `'Presencial'` o `'Telemarketing'` a su discreción.
+      - **Consistencia en Formularios Rápidos:** Se aplicó la misma regla reactiva en el formulario rápido de `src/components/VendorReportModal.jsx`.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

@@ -20,6 +20,13 @@ import {
  * qué elementos de la pantalla desea MODIFICAR o ELIMINAR.
  */
 export default function VisualFeedbackSelector() {
+  // Control de visibilidad: 100% oculto por defecto para no invadir la pantalla.
+  // Solo se invoca si el usuario lo solicita expresamente (atajo Ctrl+Shift+S o window.toggleVisualSelector())
+  const [isInvoked, setIsInvoked] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.location.search.includes('selector=true') || localStorage.getItem('olam_show_selector_tool') === 'true';
+  });
+
   const [isActive, setIsActive] = useState(false);
   const [hoveredElement, setHoveredElement] = useState(null);
   const [selectedElement, setSelectedElement] = useState(null);
@@ -33,6 +40,38 @@ export default function VisualFeedbackSelector() {
   const [hiddenElements, setHiddenElements] = useState([]);
 
   const overlayRef = useRef(null);
+
+  // Escucha de invocación bajo demanda (Ctrl + Shift + S o comando global)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'S' || e.key === 's')) {
+        e.preventDefault();
+        setIsInvoked(prev => {
+          const nextVal = !prev;
+          localStorage.setItem('olam_show_selector_tool', nextVal ? 'true' : 'false');
+          return nextVal;
+        });
+      }
+    };
+
+    window.toggleVisualSelector = () => {
+      setIsInvoked(prev => {
+        const nextVal = !prev;
+        localStorage.setItem('olam_show_selector_tool', nextVal ? 'true' : 'false');
+        return nextVal;
+      });
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  // Si no ha sido invocado expresamente, no renderizar absolutamente nada en pantalla
+  if (!isInvoked) {
+    return null;
+  }
 
   // Inspector de Hover y Clics cuando el modo está activo
   useEffect(() => {
@@ -279,6 +318,19 @@ export default function VisualFeedbackSelector() {
               {markedList.length}
             </span>
           )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setIsInvoked(false);
+            setIsActive(false);
+            localStorage.removeItem('olam_show_selector_tool');
+          }}
+          className="p-2.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-700 text-xs font-bold transition-all shadow-xl cursor-pointer"
+          title="Ocultar selector (solo se volverá a invocar con Ctrl + Shift + S)"
+        >
+          <X size={14} />
         </button>
 
         {markedList.length > 0 && !isActive && (

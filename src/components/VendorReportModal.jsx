@@ -40,7 +40,7 @@ import {
   Trash2,
   Edit3
 } from 'lucide-react';
-import { addVisitRecord, ALL_ROUTES } from '../lib/db';
+import { addVisitRecord, deleteVisitRecord, ALL_ROUTES } from '../lib/db';
 import { isSuperUser, normalizeText } from '../lib/formsPermissions';
 import { LOGO_DATA_URI, LOGO_URL } from '../lib/logo';
 import { 
@@ -71,19 +71,27 @@ export default function VendorReportModal({
   const isSuper = isAdmin || isSuperUser(currentUser) || (currentUser?.name && normalizeText(currentUser.name).includes('antonio celada')) || currentUser?.role === 'supervisor';
   const todayStr = getLocalDateString();
 
-  // Vendor selection (Admin y Supervisor pueden elegir cualquier vendedor, vendedor regular queda bloqueado a sí mismo)
+  // Vendor selection (Para Antonio Celada o vendedor regular, predeterminar estrictamente a sí mismo)
   const [selectedVendorName, setSelectedVendorName] = useState(() => {
+    // Si el usuario es supervisor Antonio Celada, predeterminar directamente a sí mismo para su reporte personal
+    if (currentUser?.name && normalizeText(currentUser.name).includes('antonio celada')) {
+      return currentUser.name;
+    }
     if (!isSuper && currentUser?.name) return currentUser.name;
+    // Si el usuario actual tiene visitas registradas, preferir su propio nombre
+    if (currentUser?.name && visits.some(v => v.vendorName && normalizeText(v.vendorName) === normalizeText(currentUser.name))) {
+      return currentUser.name;
+    }
     // If visits exist, prefer the vendor that has visits or first vendor
     const vendorWithVisits = visits.find(v => v.vendorName)?.vendorName;
     return vendorWithVisits || vendors[0]?.name || currentUser?.name || 'Karina Pineda';
   });
 
-  // Calculate available dates for this vendor
+  // Calculate available dates for this vendor (con normalización tolerante para no perder registros)
   const availableDatesForVendor = useMemo(() => {
     const dates = Array.from(new Set(
       visits
-        .filter(v => !selectedVendorName || v.vendorName === selectedVendorName)
+        .filter(v => !selectedVendorName || (v.vendorName && normalizeText(v.vendorName) === normalizeText(selectedVendorName)))
         .map(v => v.visitDate)
         .filter(Boolean)
     )).sort((a, b) => b.localeCompare(a));
@@ -204,6 +212,10 @@ export default function VendorReportModal({
     if (currentVendorData?.route) {
       setRouteInput(currentVendorData.route);
       setQSector(currentVendorData.route);
+      if (currentVendorData.route.trim().toLowerCase() === 'oficina') {
+        setQVisitType('telemarketing');
+        setQSaleType('telemarketing');
+      }
     }
     // Sincronizar Meta General / Equipo para el mes activo
     const teamKey = getTeamGoalKey(activeMonth);
@@ -368,8 +380,8 @@ export default function VendorReportModal({
     }
 
     const filtered = visits.filter(v => {
-      // Vendor filter
-      if (selectedVendorName && v.vendorName !== selectedVendorName) {
+      // Vendor filter estricto (no mezclar con otros vendedores)
+      if (selectedVendorName && (!v.vendorName || normalizeText(v.vendorName) !== normalizeText(selectedVendorName))) {
         return false;
       }
       // Date filter
@@ -1268,10 +1280,8 @@ export default function VendorReportModal({
 
   // Helper to generate clean vendor name
   const getCleanVendorName = () => {
-    // Para vendedores, usar siempre su nombre de usuario de forma canónica
-    const rawVendor = (!isAdmin && currentUser?.name)
-      ? currentUser.name
-      : (selectedVendorName || currentUser?.name || 'Vendedor');
+    // Usar el vendedor seleccionado en el reporte
+    const rawVendor = selectedVendorName || currentUser?.name || 'Vendedor';
     return rawVendor
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '') // remove accents for safe filename
@@ -1667,10 +1677,10 @@ export default function VendorReportModal({
                 type="button"
                 onClick={handleDownloadHTML}
                 className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm transition-all whitespace-nowrap"
-                title={`Descargar archivo HTML: ${getHtmlFileName()}`}
+                title={`Descargar reporte oficial: ${getHtmlFileName()}`}
               >
                 <FileCode size={14} />
-                <span>Descargar HTML</span>
+                <span>Descargar Reporte</span>
               </button>
 
               <button
@@ -2026,17 +2036,39 @@ export default function VendorReportModal({
 
               {/* Vendor Selector */}
               <div>
-                <label className="block text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">
-                  Vendedor
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+                    Vendedor o Supervisor
+                  </label>
+                  {isSuper && currentUser?.name && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedVendorName(currentUser.name)}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                        normalizeText(selectedVendorName) === normalizeText(currentUser.name)
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                          : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-100'
+                      }`}
+                      title="Generar reporte únicamente con las visitas ingresadas por mí sin mezclar con vendedores"
+                    >
+                      {normalizeText(selectedVendorName) === normalizeText(currentUser.name) ? '✓ Mi Reporte Activo' : '👤 Mi Reporte Personal'}
+                    </button>
+                  )}
+                </div>
                 {isSuper ? (
                   <select
                     value={selectedVendorName}
                     onChange={(e) => setSelectedVendorName(e.target.value)}
                     className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-semibold dark:text-white"
                   >
+                    {/* Opción destacada para el Supervisor si es Antonio Celada o usuario actual */}
+                    {currentUser?.name && !vendors.some(v => normalizeText(v.name) === normalizeText(currentUser.name)) && (
+                      <option value={currentUser.name}>⭐ {currentUser.name} (Mis Registros Personales)</option>
+                    )}
                     {vendors.map(v => (
-                      <option key={v.id} value={v.name}>{v.name}</option>
+                      <option key={v.id || v.name} value={v.name}>
+                        {currentUser?.name && normalizeText(v.name) === normalizeText(currentUser.name) ? `⭐ ${v.name} (Mis Registros Personales)` : v.name}
+                      </option>
                     ))}
                   </select>
                 ) : (
@@ -3047,6 +3079,7 @@ export default function VendorReportModal({
                       <th className="p-2.5">Cobro</th>
                       <th className="p-2.5">Observaciones</th>
                       {isAdmin && <th className="p-2.5">GPS</th>}
+                      <th className="p-2.5 text-right">Borrar</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -3054,7 +3087,7 @@ export default function VendorReportModal({
                       const sVal = Number(v.saleAmount) || 0;
                       const cVal = Number(v.collectionAmount) || 0;
                       return (
-                        <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                        <tr key={v.id || i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                           <td className="p-2 font-bold text-blue-600">{v.clientCode || '0000'}</td>
                           <td className="p-2 font-medium">{v.clientName}</td>
                           <td className="p-2 text-slate-500">{v.sector || v.route}</td>
@@ -3072,6 +3105,28 @@ export default function VendorReportModal({
                               {v.location?.lat ? '✓ Con GPS' : 'Sin GPS'}
                             </td>
                           )}
+                          <td className="p-2 text-right">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const confirm = window.confirm(`¿Seguro que deseas eliminar la visita a "${v.clientName}" de este reporte y de la base de datos?`);
+                                if (!confirm) return;
+                                try {
+                                  await deleteVisitRecord(v.id);
+                                  setSaveSuccessMsg(`Visita a "${v.clientName}" eliminada correctamente.`);
+                                  setTimeout(() => setSaveSuccessMsg(''), 4000);
+                                  if (onVisitAdded) onVisitAdded(null);
+                                } catch (e) {
+                                  console.error(e);
+                                  alert('Error al eliminar la visita');
+                                }
+                              }}
+                              className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                              title="Eliminar visita errónea o duplicada"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -3098,15 +3153,15 @@ export default function VendorReportModal({
               Cerrar
             </button>
 
-            {/* BOTÓN 2: Descargar HTML con Nombre y Fecha */}
+            {/* BOTÓN 2: Descargar Reporte con Nombre y Fecha */}
             <button
               type="button"
               onClick={handleDownloadHTML}
               className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs sm:text-sm font-bold shadow-md hover:shadow-orange-500/25 transition-all"
-              title={`Descargar archivo HTML: ${getHtmlFileName()}`}
+              title={`Descargar reporte interactivo: ${getHtmlFileName()}`}
             >
               <FileCode size={16} />
-              <span>Descargar HTML</span>
+              <span>Descargar Reporte</span>
             </button>
 
             {/* BOTÓN 3: Descargar Excel (.xlsx) */}

@@ -22,7 +22,7 @@ export default function AdminVendorConnectionsModal({ isOpen, onClose, onlineVen
   const [exporting, setExporting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVendor, setSelectedVendor] = useState('ALL');
-  const [dateFilter, setDateFilter] = useState('TODAY'); // 'TODAY', 'WEEK', 'ALL', 'CUSTOM'
+  const [dateFilter, setDateFilter] = useState('ALL'); // 'ALL', 'TODAY', 'WEEK', 'CUSTOM'
   const [customDate, setCustomDate] = useState('');
 
   // Obtener fecha actual en formato YYYY-MM-DD
@@ -113,6 +113,14 @@ export default function AdminVendorConnectionsModal({ isOpen, onClose, onlineVen
   const todayConnectionsCount = useMemo(() => {
     return connections.filter(c => c.date === todayStr).length;
   }, [connections, todayStr]);
+
+  const weekConnectionsCount = useMemo(() => {
+    const now = new Date();
+    return connections.filter(c => {
+      const itemDate = new Date(c.date);
+      return (now - itemDate) / (1000 * 60 * 60 * 24) <= 7;
+    }).length;
+  }, [connections]);
 
   const lastConnection = connections[0] || null;
 
@@ -248,6 +256,16 @@ export default function AdminVendorConnectionsModal({ isOpen, onClose, onlineVen
             {/* Píldoras de Filtro de Fecha */}
             <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
               <button
+                onClick={() => setDateFilter('ALL')}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                  dateFilter === 'ALL'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                }`}
+              >
+                Todo ({connections.length})
+              </button>
+              <button
                 onClick={() => setDateFilter('TODAY')}
                 className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
                   dateFilter === 'TODAY'
@@ -255,7 +273,7 @@ export default function AdminVendorConnectionsModal({ isOpen, onClose, onlineVen
                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
-                Hoy
+                Hoy ({todayConnectionsCount})
               </button>
               <button
                 onClick={() => setDateFilter('WEEK')}
@@ -265,17 +283,7 @@ export default function AdminVendorConnectionsModal({ isOpen, onClose, onlineVen
                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
-                7 días
-              </button>
-              <button
-                onClick={() => setDateFilter('ALL')}
-                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
-                  dateFilter === 'ALL'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                }`}
-              >
-                Todo
+                7 días ({weekConnectionsCount})
               </button>
               <button
                 onClick={() => setDateFilter('CUSTOM')}

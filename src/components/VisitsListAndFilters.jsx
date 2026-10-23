@@ -443,17 +443,30 @@ export default function VisitsListAndFilters({
     }
   };
 
-  // Handle delete (Admin only)
+  // Verifica si el usuario actual tiene permisos para eliminar una visita (Admin y Supervisor cualquier visita, Vendedores sus propias visitas)
+  const canDeleteVisit = (visit) => {
+    if (isAdmin || isSuper) return true;
+    if (!currentUser?.name || !visit?.vendorName) return false;
+    return normalizeText(visit.vendorName) === normalizeText(currentUser.name);
+  };
+
+  // Handle delete universal (todos los usuarios pueden borrar visitas para corregir errores o duplicados)
   const handleDelete = async (visit) => {
-    if (!isAdmin) return;
-    const confirm = window.confirm(`¿Seguro que deseas eliminar la visita a "${visit.clientName}"?`);
+    if (!canDeleteVisit(visit)) {
+      alert('Solo puedes eliminar visitas registradas por ti.');
+      return;
+    }
+    const confirm = window.confirm(`¿Seguro que deseas eliminar la visita a "${visit.clientName}"? Esta acción borrará el registro de la nube y del dispositivo para que puedas corregirlo o volverlo a registrar.`);
     if (!confirm) return;
 
     try {
       await deleteVisitRecord(visit.id);
+      setStatusNotification(`Visita a "${visit.clientName}" eliminada correctamente.`);
+      setTimeout(() => setStatusNotification(''), 4500);
       if (onVisitsChange) onVisitsChange();
     } catch (e) {
-      alert('Error al eliminar visita');
+      console.error(e);
+      alert('Error al eliminar la visita');
     }
   };
 
@@ -645,17 +658,38 @@ export default function VisitsListAndFilters({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">
             {isSuper && (
               <div>
-                <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1">
-                  Filtrar por Vendedor
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold uppercase text-slate-400">
+                    Filtrar por Vendedor
+                  </label>
+                  {currentUser?.name && (
+                    <button
+                      type="button"
+                      onClick={() => setVendorFilter(vendorFilter === currentUser.name ? 'all' : currentUser.name)}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                        vendorFilter === currentUser.name
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                          : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-100'
+                      }`}
+                      title="Filtrar al instante solo mis visitas registradas"
+                    >
+                      {vendorFilter === currentUser.name ? '✓ Solo Mis Visitas' : '👤 Mis Visitas'}
+                    </button>
+                  )}
+                </div>
                 <select
                   value={vendorFilter}
                   onChange={(e) => setVendorFilter(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold dark:text-white"
                 >
-                  <option value="all">Todos los Vendedores</option>
+                  <option value="all">👥 Todos los Vendedores (Equipo Completo)</option>
+                  {currentUser?.name && !uniqueVendors.some(v => normalizeText(v) === normalizeText(currentUser.name)) && (
+                    <option value={currentUser.name}>⭐ {currentUser.name} (Mis Registros)</option>
+                  )}
                   {uniqueVendors.map(v => (
-                    <option key={v} value={v}>{v}</option>
+                    <option key={v} value={v}>
+                      {currentUser?.name && normalizeText(v) === normalizeText(currentUser.name) ? `⭐ ${v} (Mis Registros)` : v}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -949,12 +983,12 @@ export default function VisitsListAndFilters({
                         <span>Modificar Venta / Cobro / Teléfono</span>
                       </button>
 
-                      {isAdmin && (
+                      {canDeleteVisit(visit) && (
                         <button
                           type="button"
                           onClick={() => handleDelete(visit)}
-                          className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                          title="Eliminar registro"
+                          className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                          title="Eliminar visita para corregir errores o duplicados"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -979,13 +1013,13 @@ export default function VisitsListAndFilters({
                   <th className="py-4 px-4">Cobro (Q)</th>
                   <th className="py-4 px-4 text-center">Modificar</th>
                   {isAdmin && <th className="py-4 px-4">GPS</th>}
-                  {isAdmin && <th className="py-4 px-6 text-right">Borrar</th>}
+                  <th className="py-4 px-6 text-right">Borrar</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={isAdmin ? 8 : 6} className="py-12 text-center text-slate-400 font-medium">
+                    <td colSpan={isAdmin ? 8 : 7} className="py-12 text-center text-slate-400 font-medium">
                       No hay visitas que coincidan con los criterios seleccionados.
                     </td>
                   </tr>
@@ -1138,18 +1172,21 @@ export default function VisitsListAndFilters({
                           </td>
                         )}
 
-                        {/* Action (Admin delete) */}
-                        {isAdmin && (
-                          <td className="py-4 px-6 text-right">
+                        {/* Action (Delete for authorized users) */}
+                        <td className="py-4 px-6 text-right">
+                          {canDeleteVisit(visit) ? (
                             <button
+                              type="button"
                               onClick={() => handleDelete(visit)}
                               className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
-                              title="Eliminar registro"
+                              title="Eliminar visita para corregir errores o duplicados"
                             >
                               <Trash2 size={16} />
                             </button>
-                          </td>
-                        )}
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+                          )}
+                        </td>
 
                       </tr>
                     );

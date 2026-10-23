@@ -273,9 +273,22 @@ export default function App() {
     };
     window.addEventListener('olam_vendor_connected', handleLocalVendorConn);
 
+    // Escuchar cuando el vendedor reactiva o reabre la app (visibilitychange y focus)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && currentUser) {
+        if (currentUser.role === 'vendor' || (currentUser.name && currentUser.name !== 'Administrador')) {
+          recordVendorLoginSession(currentUser, { trigger: 'resume' });
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
     return () => {
       cleanup();
       window.removeEventListener('olam_vendor_connected', handleLocalVendorConn);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
       try {
         supabase.removeChannel(channel);
       } catch (e) {}
@@ -475,12 +488,7 @@ export default function App() {
 
   // If not logged in, show Login
   if (!currentUser) {
-    return (
-      <>
-        <LoginModal onLoginSuccess={handleLoginSuccess} />
-        <VisualFeedbackSelector />
-      </>
-    );
+    return <LoginModal onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
@@ -819,8 +827,8 @@ export default function App() {
         }}
       />
 
-      {/* Herramienta Visual para Seleccionar y Marcar Cambios Específicos (Desactivada temporalmente por el usuario) */}
-      {/* <VisualFeedbackSelector /> */}
+      {/* Herramienta Visual para Seleccionar y Marcar Cambios (100% oculta por defecto; solo se activa si se presiona Ctrl+Shift+S) */}
+      <VisualFeedbackSelector />
 
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 py-4 mb-16 md:mb-0 text-center text-xs text-slate-400">
