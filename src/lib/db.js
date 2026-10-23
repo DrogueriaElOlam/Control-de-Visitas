@@ -82,7 +82,7 @@ const STORAGE_KEYS = {
 // Initial default Droguería El Olam vendors
 export const DEFAULT_VENDORS = [
   { id: 1, name: 'Antonio Celada', route: 'Quetzaltenango #11', active: true, hire_date: '2025-12-05', daily_goal: 15 },
-  { id: 2, name: 'Ana Lucia Marroquin', route: 'Salama #14', active: true, hire_date: '2025-12-05', daily_goal: 15 },
+  { id: 2, name: 'Ana Lucia Marroquin', route: 'Quetzaltenango #11', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 3, name: 'Jessica Noriega', route: 'Suchi I #21', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 4, name: 'Wally Natareno', route: 'Sacatepéquez #31', active: true, hire_date: '2025-12-05', daily_goal: 15 },
   { id: 5, name: 'Erick Curley', route: 'Jutiapa I #41', active: true, hire_date: '2025-12-05', daily_goal: 15 },
@@ -150,9 +150,9 @@ export function sortRoutes(routes) {
 
 export const ALL_ROUTES = [
   'Quetzaltenango #11',
-  'Totonicapan #12',
+  'Salama #12',
   'Coban #13',
-  'Salama #14',
+  'Totonicapan #14',
   'Municipios Oriente #15',
   'Suchi I #21',
   'Retalhuleu #22',
@@ -209,9 +209,9 @@ export const ALL_ROUTES = [
 export const VENDOR_ASSIGNED_ROUTES = {
   'Ana Lucia Marroquin': [
     'Quetzaltenango #11',
-    'Totonicapan #12',
+    'Salama #12',
     'Coban #13',
-    'Salama #14',
+    'Totonicapan #14',
     'Municipios Oriente #15',
     'Oficina'
   ],
@@ -309,9 +309,9 @@ export const VENDOR_ASSIGNED_ROUTES = {
   ],
   'PRUEBAS': [
     'Quetzaltenango #11',
-    'Totonicapan #12',
+    'Salama #12',
     'Coban #13',
-    'Salama #14',
+    'Totonicapan #14',
     'Municipios Oriente #15',
     'Oficina'
   ],
@@ -382,7 +382,7 @@ export async function getVendorsList() {
           created_at: v.created_at || v.hire_date || '2025-12-05',
           hire_date: c.hire_date || localMatch?.hire_date || (v.created_at ? v.created_at.split('T')[0] : '2025-12-05'),
           termination_date: c.termination_date || localMatch?.termination_date || null,
-          route: c.route || localMatch?.route || DEFAULT_VENDORS.find((d) => d.name === canonicalName)?.route || 'Ruta General',
+          route: v.route || (canonicalName === 'Ana Lucia Marroquin' ? 'Quetzaltenango #11' : (c.route || localMatch?.route || DEFAULT_VENDORS.find((d) => d.name === canonicalName)?.route || 'Ruta General')),
           daily_goal: c.daily_goal || localMatch?.daily_goal || 15,
           username: c.username || generateUsername(canonicalName),
           password: effectivePassword,
@@ -1251,6 +1251,10 @@ export function getSavedSession() {
       // Sesión de versión anterior: expulsar de inmediato
       localStorage.removeItem(STORAGE_KEYS.AUTH);
       return null;
+    }
+    // Garantizar que la ruta activa de Ana Lucía Marroquín refleje siempre Quetzaltenango #11
+    if (parsed.name === 'Ana Lucia Marroquin' || (parsed.name && normalizeVendorName(parsed.name) === 'Ana Lucia Marroquin')) {
+      parsed.route = 'Quetzaltenango #11';
     }
     return parsed;
   } catch {

@@ -150,7 +150,7 @@ export default function SolicitudViaticosForm({ currentUser }) {
     'Quiche Montaña Baja #33',
     'Retalhuleu #22',
     'Sacatepequez #31',
-    'Salama #14',
+    'Salama #12',
     'San Marcos I #92',
     'San Marcos II #93',
     'San Marcos Montaña Alta #51',
@@ -160,7 +160,7 @@ export default function SolicitudViaticosForm({ currentUser }) {
     'Suchi I #21',
     'Suchi II #23',
     'Suchi III #25',
-    'Totonicapan #12',
+    'Totonicapan #14',
     'Transversal I #B3',
     'Transversal II #B4',
     'Villa Nueva #A3',
@@ -170,10 +170,15 @@ export default function SolicitudViaticosForm({ currentUser }) {
   const [routesByVendor, setRoutesByVendor] = useState(() => {
     const saved = localStorage.getItem('routes_by_vendor');
     if (saved) {
-      return JSON.parse(saved);
+      try {
+        const parsed = JSON.parse(saved);
+        // Garantizar que Ana Lucía Marroquín tenga siempre sus rutas oficiales actualizadas
+        parsed['Ana Lucia Marroquin'] = ['Quetzaltenango #11', 'Salama #12', 'Coban #13', 'Totonicapan #14', 'Municipios Oriente #15', 'Oficina'];
+        return parsed;
+      } catch (_) {}
     }
     return {
-      'Ana Lucia Marroquin': ['Salama #14', 'Quetzaltenango #11', 'Municipios Oriente #15', 'Coban #13', 'Totonicapan #12', 'Oficina'],
+      'Ana Lucia Marroquin': ['Quetzaltenango #11', 'Salama #12', 'Coban #13', 'Totonicapan #14', 'Municipios Oriente #15', 'Oficina'],
       'Jessica Noriega': ['Suchi I #21', 'Retalhuleu #22', 'Suchi II #23', 'Coatepeque #24', 'Suchi III #25', 'Oficina'],
       'Wally Natareno': ['Sacatepéquez #31', 'Quiche Centro #32', 'Quiche Montaña Baja #33', 'Izabal I #34', 'Izabal II #35', 'Oficina'],
       'Erick Curley': ['Jutiapa I #41', 'Jutiapa II #42', 'Chimaltenango I #43', 'Chimaltenango II #44', 'Santa Rosa #45', 'Oficina'],

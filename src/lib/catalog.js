@@ -965,7 +965,7 @@ export async function downloadClientsTemplateExcel() {
       'Nombre de la Farmacia': 'Farmacia Santa María',
       'Teléfono': '79512345',
       'Teléfono 2 / Celular': '55551234',
-      'Ruta': 'Salama #14',
+      'Ruta': 'Salama #12',
       'Sector Visitado': 'Zona 1 Central'
     },
     {

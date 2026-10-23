@@ -601,7 +601,23 @@
         * Nombres de archivo dinámicos y fechados: `Directorio_Maestro_Clientes_El_Olam_YYYY-MM-DD.xlsx` o `Directorio_Clientes_Filtrados_YYYY-MM-DD.xlsx`.
       - **Integración en la Interfaz (`src/components/AdminClientDirectoryModal.jsx`):**
         * **Botón en Cabecera Superior:** Añadido el botón interactivo **`📊 Exportar Directorio Excel ({total})`** junto a *'Sincronizar Nube'* y *'Descargar Plantilla Excel'*.
-        * **Botón en Pestaña de Lista de Clientes:** Añadido el botón **`📥 Exportar a Excel ({filtrados})`** junto a las píldoras de búsqueda y depuración para descargar inmediatamente la vista activa o resultados filtrados.
+  79. **Actualización Universal de Rutas de Ana Lucía Marroquín en Todo el Proyecto:**
+      - **Rutas Oficiales Asignadas (Secuencia Exacta Actualizada):**
+        1. `Quetzaltenango #11` (Ruta Principal de Inicio)
+        2. `Salama #12`
+        3. `Coban #13`
+        4. `Totonicapan #14`
+        5. `Municipios Oriente #15`
+        6. `Oficina` (Telemarketing)
+      - **Alcance Integral en Todo el Ecosistema:**
+        * **Base de Datos en Supabase (`vendors`):** Actualizada la ruta oficial de Ana Lucía Marroquín (ID: 2) a `Quetzaltenango #11`.
+        * **Bóveda de Clientes en Supabase (`daily_supervision_history`):** Actualizados los 52 clientes de Salamá a `Salama #12` y los 44 clientes de Totonicapán a `Totonicapan #14`.
+        * **Catálogo Maestro de Rutas (`ALL_ROUTES` y `db.js`):** Ajustados los códigos oficiales a `Salama #12` y `Totonicapan #14`.
+        * **Matriz de Rutas por Vendedor (`VENDOR_ASSIGNED_ROUTES` y `getRoutesForVendor`):** Configurado el orden exacto `#11, #12, #13, #14, #15, Oficina` para que en todos los selectores aparezcan en la secuencia oficial solicitada.
+        * **Registro de Visitas (`VisitRegistration.jsx`):** Fallbacks de ruta y ruta predeterminada inicializados en `Quetzaltenango #11`. El filtrado de clientes en campo (`vendorPharmacyDirectory`) incorpora soporte inteligente por nombre de región blindando las 5 rutas (214 clientes activos).
+        * **Supervisión y Metas (`supervisionData.js`):** Actualizada la ruta oficial de Ana Lucía Marroquín en `OFFICIAL_VENDORS`.
+        * **Formularios de Viáticos y Recibos (`SolicitudViaticosForm.jsx` y `LiquidacionRecibosForm.jsx`):** Sincronizados con `Salama #12` y `Totonicapan #14`.
+        * **Plantilla y Directorio (`catalog.js` y `AdminClientDirectoryModal.jsx`):** Plantilla modelo y placeholders actualizados a `Salama #12`.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

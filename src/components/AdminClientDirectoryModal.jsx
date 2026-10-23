@@ -1099,7 +1099,7 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                               list="edit-routes-options"
                               value={editRoute}
                               onChange={(e) => setEditRoute(e.target.value)}
-                              placeholder="Ej: Salama #14"
+                              placeholder="Ej: Salama #12"
                               className="w-full pl-8 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                             />
                             <datalist id="edit-routes-options">
@@ -1234,7 +1234,7 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                     list="manual-routes-options"
                     value={manualRoute}
                     onChange={(e) => setManualRoute(e.target.value)}
-                    placeholder="Ej: Salama #14"
+                    placeholder="Ej: Salama #12"
                     className="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
                   <datalist id="manual-routes-options">

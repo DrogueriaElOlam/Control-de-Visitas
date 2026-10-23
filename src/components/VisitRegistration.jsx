@@ -201,7 +201,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       if (isPinned && savedPinned) return savedPinned;
     } catch (_) {}
     const list = getRoutesForVendor(currentUser?.name);
-    return list[0] || 'Coban #13';
+    return list[0] || 'Quetzaltenango #11';
   });
 
   const togglePinRoute = () => {
@@ -361,7 +361,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
         const savedPinned = localStorage.getItem('olam_pinned_route') || route;
         setRoute(savedPinned);
       } else {
-        const defaultRoute = (assignedVendorRoutes && assignedVendorRoutes.length > 0) ? assignedVendorRoutes[0] : (currentUser?.route || 'Coban #13');
+        const defaultRoute = (assignedVendorRoutes && assignedVendorRoutes.length > 0) ? assignedVendorRoutes[0] : (currentUser?.route || 'Quetzaltenango #11');
         setRoute(defaultRoute);
       }
       setSector('');
@@ -629,7 +629,12 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
     const filtered = pharmacyDirectory.filter(p => {
       if (!p.route) return false;
       const clientRoute = (p.route || '').toLowerCase().trim();
-      return normalizedAssigned.some(ar => clientRoute.includes(ar) || ar.includes(clientRoute));
+      return normalizedAssigned.some(ar => {
+        if (clientRoute.includes(ar) || ar.includes(clientRoute)) return true;
+        const arBase = ar.replace(/#[a-z0-9]+/gi, '').trim();
+        const clientBase = clientRoute.replace(/#[a-z0-9]+/gi, '').trim();
+        return arBase.length > 3 && (clientBase.includes(arBase) || arBase.includes(clientBase));
+      });
     });
 
     // Si existen clientes para sus rutas asignadas, se restringe estrictamente a ellas.
@@ -1173,7 +1178,7 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
       secondaryPhone: p2,
       visitType,
       clientType,
-      route: route || currentUser?.route || 'Coban #13',
+      route: route || currentUser?.route || 'Quetzaltenango #11',
       sector: sector.trim(),
       sectorVisitado: sector.trim(),
       dayPeriod,

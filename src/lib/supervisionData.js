@@ -7,7 +7,7 @@ export const OFFICIAL_VENDORS = [
   { id: 1, name: 'Danny Pérez', canonicalName: 'Danny Perez', defaultCompromiso: 2040500.00, route: 'Coatepeque #24' },
   { id: 2, name: 'Jessica Noriega', canonicalName: 'Jessica Noriega', defaultCompromiso: 2012001.00, route: 'Suchi I #21' },
   { id: 3, name: 'Wally Natareno', canonicalName: 'Wally Natareno', defaultCompromiso: 1988000.00, route: 'Peten I #73' },
-  { id: 4, name: 'Ana Lucía Marroquín', canonicalName: 'Ana Lucia Marroquin', defaultCompromiso: 1968000.00, route: 'Escuintla I #A1' },
+  { id: 4, name: 'Ana Lucía Marroquín', canonicalName: 'Ana Lucia Marroquin', defaultCompromiso: 1968000.00, route: 'Quetzaltenango #11' },
   { id: 5, name: 'Josué Aguilar', canonicalName: 'Josue Aguilar', defaultCompromiso: 1940000.00, route: 'Capital S1 #64' },
   { id: 6, name: 'Estuardo Córdova', canonicalName: 'Estuardo Cordova', defaultCompromiso: 1605500.00, route: 'Coban #13' },
   { id: 7, name: 'Karina Pineda', canonicalName: 'Karina Pineda', defaultCompromiso: 1560500.00, route: 'Quetzaltenango #11' },
