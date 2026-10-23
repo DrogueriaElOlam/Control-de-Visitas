@@ -594,7 +594,14 @@
   77. **Auto-Selección de Modalidad Telemarketing al Elegir Ruta Oficina (Libre Elección en Otras Giras):**
       - **Regla de Negocio Implementada:** En `src/components/VisitRegistration.jsx` (formulario de registro de visitas para vendedores), cuando el vendedor selecciona la ruta `'Oficina'`, el sistema cambia de manera automática e inmediata la modalidad de la visita a `'telemarketing'` (y si registra venta, el tipo de venta a `'telemarketing'`), desplegando la insignia visual informativa `✓ Automático por Oficina`.
       - **Libre Elección en Rutas de Campo:** Al seleccionar cualquier otra gira o ruta departamental (Cobán #13, Salamá #14, Petén #1, Chiquimula, etc.), el sistema mantiene la selección totalmente libre para que el vendedor elija entre `'Presencial'` o `'Telemarketing'` a su discreción.
-      - **Consistencia en Formularios Rápidos:** Se aplicó la misma regla reactiva en el formulario rápido de `src/components/VendorReportModal.jsx`.
+  78. **Exportación Integral del Directorio Maestro de Clientes a Excel (Formato Oficial Compatible con Carga Masiva):**
+      - **Funcionalidad Implementada en `src/lib/catalog.js` (`exportAllClientsToExcel`):**
+        * Permite exportar la totalidad de clientes registrados en el catálogo maestro o cualquier subconjunto filtrado a un archivo de Excel nativo generado en tiempo real con la librería `XLSX`.
+        * Columnas calibradas exactamente según la plantilla modelo: *'Código de Cliente', 'Nombre de la Farmacia', 'Teléfono', 'Teléfono 2 / Celular', 'Ruta' y 'Sector Visitado'*.
+        * Nombres de archivo dinámicos y fechados: `Directorio_Maestro_Clientes_El_Olam_YYYY-MM-DD.xlsx` o `Directorio_Clientes_Filtrados_YYYY-MM-DD.xlsx`.
+      - **Integración en la Interfaz (`src/components/AdminClientDirectoryModal.jsx`):**
+        * **Botón en Cabecera Superior:** Añadido el botón interactivo **`📊 Exportar Directorio Excel ({total})`** junto a *'Sincronizar Nube'* y *'Descargar Plantilla Excel'*.
+        * **Botón en Pestaña de Lista de Clientes:** Añadido el botón **`📥 Exportar a Excel ({filtrados})`** junto a las píldoras de búsqueda y depuración para descargar inmediatamente la vista activa o resultados filtrados.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

@@ -35,6 +35,7 @@ import {
   cleanAndDeduplicateDirectory,
   calculateClientCompleteness,
   downloadClientsTemplateExcel,
+  exportAllClientsToExcel,
   parseGuatemalaPhoneNumbers
 } from '../lib/catalog';
 import { ALL_ROUTES } from '../lib/db';
@@ -550,6 +551,27 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
               <Download size={13} />
               <span className="hidden sm:inline">Descargar Plantilla Excel</span>
             </button>
+
+            {/* Export full directory button */}
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  setStatusMsg({ type: 'info', text: 'Generando archivo Excel con el directorio maestro completo...' });
+                  const exportedFile = await exportAllClientsToExcel(clients);
+                  setStatusMsg({ type: 'success', text: `Directorio exportado exitosamente (${clients.length} clientes): ${exportedFile}` });
+                } catch (err) {
+                  console.error('Error al exportar directorio a Excel:', err);
+                  setStatusMsg({ type: 'error', text: 'Ocurrió un error al exportar los clientes a Excel.' });
+                }
+              }}
+              disabled={loading || clients.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-300 dark:border-teal-800 hover:bg-teal-100 transition-all cursor-pointer disabled:opacity-50"
+              title="Descargar todos los clientes del catálogo maestro en formato Excel compatible con la carga masiva"
+            >
+              <FileSpreadsheet size={13} />
+              <span className="hidden sm:inline">Exportar Directorio Excel ({clients.length})</span>
+            </button>
           </div>
         </div>
 
@@ -824,13 +846,38 @@ export default function AdminClientDirectoryModal({ isOpen, onClose, visits = []
                     <button
                       type="button"
                       onClick={handleAutoCleanDuplicates}
-                      className="ml-auto px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow transition-all cursor-pointer flex items-center gap-1"
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow transition-all cursor-pointer flex items-center gap-1"
                       title="Quedarse solo con los registros completos y unificados"
                     >
                       <Sparkles size={13} />
                       <span>Limpiar Duplicados</span>
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const count = filteredClients.length;
+                        const isFiltered = listFilter !== 'all' || Boolean(searchQuery.trim());
+                        const prefix = isFiltered ? 'Directorio_Clientes_Filtrados' : 'Directorio_Maestro_Clientes';
+                        const todayStr = new Date().toISOString().slice(0, 10);
+                        const fileName = `${prefix}_${todayStr}.xlsx`;
+                        setStatusMsg({ type: 'info', text: `Exportando ${count} registros a Excel...` });
+                        await exportAllClientsToExcel(filteredClients, fileName);
+                        setStatusMsg({ type: 'success', text: `Exportados ${count} clientes a Excel (${fileName}).` });
+                      } catch (err) {
+                        console.error('Error al exportar clientes filtrados:', err);
+                        setStatusMsg({ type: 'error', text: 'Error al exportar los registros a Excel.' });
+                      }
+                    }}
+                    disabled={filteredClients.length === 0}
+                    className="ml-auto px-3 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 active:scale-95 text-white shadow transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                    title="Exportar a Excel los registros que coinciden con los filtros actuales"
+                  >
+                    <Download size={13} />
+                    <span>Exportar a Excel ({filteredClients.length})</span>
+                  </button>
                 </div>
               </div>
 

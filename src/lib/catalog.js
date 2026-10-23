@@ -1018,3 +1018,36 @@ export async function downloadClientsTemplateExcel() {
   XLSX.writeFile(wb, 'Plantilla_Clientes_Farmacias_El_Olam.xlsx');
 }
 
+// Exportar todos los clientes del catálogo actual en formato compatible con la carga masiva de Excel
+export async function exportAllClientsToExcel(clientsList = [], customFileName = null) {
+  const XLSX = await import('xlsx');
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  // Mapear exactamente las mismas columnas que espera la plantilla y la carga masiva
+  const data = (clientsList || []).map(c => ({
+    'Código de Cliente': c.code || '',
+    'Nombre de la Farmacia': c.name || '',
+    'Teléfono': c.phone || '',
+    'Teléfono 2 / Celular': c.secondaryPhone || '',
+    'Ruta': c.route || '',
+    'Sector Visitado': c.sector || ''
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(data);
+
+  ws['!cols'] = [
+    { wch: 18 }, // Código de Cliente
+    { wch: 40 }, // Nombre de la Farmacia
+    { wch: 18 }, // Teléfono
+    { wch: 22 }, // Teléfono 2 / Celular
+    { wch: 25 }, // Ruta
+    { wch: 25 }  // Sector Visitado
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Directorio_Clientes');
+  const fileName = customFileName || `Directorio_Maestro_Clientes_El_Olam_${todayStr}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+  return fileName;
+}
+
