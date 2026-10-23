@@ -555,7 +555,18 @@
         * Actualizados los archivos maestros locales `src/lib/initialOtpKeys.json` e `initialLogoutOtpKeys.json`.
         * Regenerados los libros Excel descargables `claves 2.0.xlsx` y `claves cierre sesion 2.0.xlsx` tanto en la raíz como en la carpeta `public/`.
       - **Inventario Actual:** Exactamente 38 claves de inicio disponibles (#13 al #50) y 38 claves de salida disponibles (#13 al #50).
-      - **Regla Operativa:** Cualquier clave de inicio o cierre que sea asignada o consumida queda quemada de forma indestructible tanto para loguearse como para salir.
+  72. **Persistencia Mensual Fija de Meta General y Diaria en Reporte de Vendedores & Remoción Definitiva del Selector Visual:**
+      - **Causa Raíz de Reversión a 50,000 en Meta General:**
+        * En `VendorReportModal.jsx`, el campo `teamGoalInput` estaba inicializado fijamente con `useState(50000)` en el código del componente sin ninguna vinculación a almacenamiento local ni a Supabase.
+        * Su evento `onChange` solo mutaba una variable volátil de React. Cada vez que el usuario ingresaba un monto y refrescaba la página (F5), la memoria se borraba y el valor revertía obligatoriamente a `50000`.
+      - **Solución y Persistencia Fija Modificable Mensualmente:**
+        * Se implementó el cálculo reactivo del mes activo (`activeMonth` derivado del período consultado, mes seleccionado o fecha actual en formato `YYYY-MM`).
+        * Se indexaron las metas por mes tanto en `localStorage` (`olam_team_general_goal_${activeMonth}` y `olam_commitment_${vendor}_${period}_${activeMonth}`) como en Supabase (`supervision_settings` y `daily_supervision_history`).
+        * Se crearon los controladores `handleUpdateTeamGoal(val)` y `handleUpdateCommitment(val)` que guardan de inmediato al escribir o desenfocar el campo.
+        * Se añadieron insignias visuales claras en la interfaz: `✓ Guardada fija por mes`, mostrando el mes de vigencia y permitiendo que cada mes tenga su propia meta personalizada sin borrarse al actualizar.
+      - **Remoción Total del Selector / Marcador Visual (`VisualFeedbackSelector`):**
+        * Se detectó que el botón flotante del selector visual aún se renderizaba condicionalmente en la pantalla de inicio de sesión (`App.jsx`).
+        * Se eliminó por completo su importación y renderizado en `App.jsx`, erradicando definitivamente el botón flotante de la vista del usuario.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

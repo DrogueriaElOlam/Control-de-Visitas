@@ -26,7 +26,6 @@ import AdminLogoutOtpModal from './components/AdminLogoutOtpModal';
 import SupervisorRemindersModal from './components/SupervisorRemindersModal';
 import ActiveReminderAlertModal from './components/ActiveReminderAlertModal';
 import AdminSupabaseStatusModal from './components/AdminSupabaseStatusModal';
-import VisualFeedbackSelector from './components/VisualFeedbackSelector';
 
 import { 
   getStoredReminders, 
@@ -478,7 +477,6 @@ export default function App() {
     return (
       <>
         <LoginModal onLoginSuccess={handleLoginSuccess} />
-        <VisualFeedbackSelector />
       </>
     );
   }
@@ -818,7 +816,6 @@ export default function App() {
       />
 
       {/* Herramienta Visual para Seleccionar y Marcar Cambios Específicos (Desactivada temporalmente por el usuario) */}
-      {/* <VisualFeedbackSelector /> */}
 
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 py-4 mb-16 md:mb-0 text-center text-xs text-slate-400">

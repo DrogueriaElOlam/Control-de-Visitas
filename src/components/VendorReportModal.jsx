@@ -53,6 +53,7 @@ import {
 } from '../lib/cashCollections';
 import { getLocalDateString } from '../lib/dateUtils';
 import { resolveClientPhoneForVisit } from '../lib/catalog';
+import { supabase } from '../lib/supabase';
 
 const CHART_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16', '#64748b'];
 
@@ -117,58 +118,94 @@ export default function VendorReportModal({
   // Metadata overrides (prefilled but customizable)
   const currentVendorData = vendors.find(v => v.name === selectedVendorName) || currentUser;
   const [routeInput, setRouteInput] = useState(currentVendorData?.route || 'Chiquimula II #63');
-  const [teamGoalInput, setTeamGoalInput] = useState(50000);
+
+  // Mes activo para indexar y persistir metas mensuales
+  const activeMonth = useMemo(() => {
+    if (periodType === 'month' && selectedMonth) return selectedMonth;
+    if (periodType === 'day' && selectedDate) return selectedDate.slice(0, 7);
+    if (periodType === 'custom' && customStartDate) return customStartDate.slice(0, 7);
+    return getLocalDateString().slice(0, 7);
+  }, [periodType, selectedMonth, selectedDate, customStartDate]);
+
+  // Claves de persistencia por mes y vendedor
+  const getTeamGoalKey = (month) => `olam_team_general_goal_${month || 'global'}`;
+  const getCommitmentKey = (vendor, period, month) => `olam_commitment_${vendor || 'default'}_${period || 'daily'}_${month || 'global'}`;
+
+  // 1. Meta General / Equipo fijada por mes (recupera de localStorage o de la nube, sin restablecer a 50000)
+  const [teamGoalInput, setTeamGoalInput] = useState(() => {
+    const todayMonth = getLocalDateString().slice(0, 7);
+    const key = `olam_team_general_goal_${todayMonth}`;
+    const saved = localStorage.getItem(key) || localStorage.getItem('olam_team_general_goal_global');
+    return saved !== null && Number(saved) >= 0 ? Number(saved) : 50000;
+  });
+
+  // Handler para fijar Meta General y sincronizarla en la nube para el mes
+  const handleUpdateTeamGoal = (val) => {
+    const num = Number(val) || 0;
+    setTeamGoalInput(num);
+    const key = getTeamGoalKey(activeMonth);
+    localStorage.setItem(key, String(num));
+    localStorage.setItem('olam_team_general_goal_global', String(num));
+    try {
+      supabase.from('supervision_settings').update({ monthly_goal: num }).eq('id', 1).then(() => {}).catch(() => {});
+    } catch (_) {}
+  };
   
   // Tab selector for interactive chart preview in modal: 'commitment' | 'sales_sector' | 'collections_sector'
   const [chartActiveTab, setChartActiveTab] = useState('commitment');
 
-  // Helper key to store and recover vendor commitment across sessions
-  const getCommitmentKey = (vendor, period) => `olam_commitment_${vendor || 'default'}_${period || 'daily'}`;
-
+  // 2. Meta Diaria / Compromiso del Vendedor fijada por mes
   const [commitmentGoalInput, setCommitmentGoalInput] = useState(() => {
-    const key = `olam_commitment_${selectedVendorName || currentUser?.name || 'default'}_daily`;
-    const saved = localStorage.getItem(key);
+    const todayMonth = getLocalDateString().slice(0, 7);
+    const key = `olam_commitment_${selectedVendorName || currentUser?.name || 'default'}_daily_${todayMonth}`;
+    const saved = localStorage.getItem(key) || localStorage.getItem(`olam_commitment_${selectedVendorName || currentUser?.name || 'default'}_daily`);
     return saved && Number(saved) > 0 ? Number(saved) : 17000;
   });
 
-  // Handler to update and persist commitment goal directly
+  // Handler para fijar Compromiso / Meta Diaria por mes y vendedor
   const handleUpdateCommitment = (val) => {
     const num = Number(val) || 0;
     setCommitmentGoalInput(num);
-    const key = getCommitmentKey(selectedVendorName, periodType);
-    localStorage.setItem(key, String(num));
+    const keyMonth = getCommitmentKey(selectedVendorName, periodType, activeMonth);
+    const keyGeneral = `olam_commitment_${selectedVendorName || 'default'}_${periodType || 'daily'}`;
+    localStorage.setItem(keyMonth, String(num));
+    localStorage.setItem(keyGeneral, String(num));
+    try {
+      supabase.from('daily_supervision_history').insert([{
+        date: `${activeMonth}-01`,
+        vendor_name: selectedVendorName || 'General',
+        supervision_data: {
+          tipo: 'vendor_monthly_goal_commitment',
+          vendor_name: selectedVendorName,
+          month: activeMonth,
+          periodType,
+          goal: num,
+          updated_at: new Date().toISOString()
+        }
+      }]).then(() => {}).catch(() => {});
+    } catch (_) {}
   };
 
-  // Quick Inline Visit Entry Form State
-  const [showQuickForm, setShowQuickForm] = useState(false);
-  const [qCode, setQCode] = useState('');
-  const [qName, setQName] = useState('');
-  const [qSector, setQSector] = useState(routeInput);
-  const [qVisitType, setQVisitType] = useState('presencial');
-  const [qClientType, setQClientType] = useState('propio');
-  const [qPeriod, setQPeriod] = useState('AM');
-  const [qHasSale, setQHasSale] = useState(false);
-  const [qSaleType, setQSaleType] = useState('presencial');
-  const [qSaleAmount, setQSaleAmount] = useState('');
-  const [qHasCollection, setQHasCollection] = useState(false);
-  const [qCollType, setQCollType] = useState('Transferencia');
-  const [qCollAmount, setQCollAmount] = useState('');
-  const [qObs, setQObs] = useState('');
-  const [qGPS, setQGPS] = useState(null);
-  const [isLocating, setIsLocating] = useState(false);
-  const [savingVisit, setSavingVisit] = useState(false);
-  const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
-
-  // Update route and commitment when vendor changes or available dates change
+  // Sincronizar metas fijas cuando cambie el mes, el vendedor o el período
   useEffect(() => {
-    if (currentVendorData?.route) {
-      setRouteInput(currentVendorData.route);
-      setQSector(currentVendorData.route);
+    // Sincronizar Meta General / Equipo para el mes activo
+    const teamKey = getTeamGoalKey(activeMonth);
+    const savedTeam = localStorage.getItem(teamKey);
+    if (savedTeam !== null && savedTeam !== undefined && savedTeam !== '') {
+      setTeamGoalInput(Number(savedTeam));
+    } else {
+      const globalTeam = localStorage.getItem('olam_team_general_goal_global');
+      if (globalTeam !== null && globalTeam !== undefined) {
+        setTeamGoalInput(Number(globalTeam));
+      }
     }
-    const key = getCommitmentKey(selectedVendorName, periodType);
-    const saved = localStorage.getItem(key);
-    if (saved && Number(saved) > 0) {
-      setCommitmentGoalInput(Number(saved));
+
+    // Sincronizar Compromiso / Meta Diaria para el vendedor y mes activo
+    const commKeyMonth = getCommitmentKey(selectedVendorName, periodType, activeMonth);
+    const commKeyGeneral = `olam_commitment_${selectedVendorName || 'default'}_${periodType || 'daily'}`;
+    const savedComm = localStorage.getItem(commKeyMonth) || localStorage.getItem(commKeyGeneral);
+    if (savedComm !== null && savedComm !== undefined && savedComm !== '' && Number(savedComm) > 0) {
+      setCommitmentGoalInput(Number(savedComm));
     } else {
       if (periodType === 'daily') {
         setCommitmentGoalInput(17000);
@@ -178,7 +215,7 @@ export default function VendorReportModal({
         setCommitmentGoalInput(340000);
       }
     }
-  }, [selectedVendorName, periodType]);
+  }, [selectedVendorName, periodType, activeMonth]);
 
 
   // Capture GPS for quick form
@@ -2002,9 +2039,9 @@ export default function VendorReportModal({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
-                    Compromiso de Venta (Meta a Evaluar en Quetzales)
+                    Compromiso / Meta Diaria ({activeMonth})
                   </label>
-                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">Guardado auto.</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">✓ Guardada fija por mes</span>
                 </div>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">Q</span>
@@ -2035,15 +2072,18 @@ export default function VendorReportModal({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1">
-                  Meta del Equipo (Quetzales)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">
+                    Meta General / Equipo ({activeMonth})
+                  </label>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">✓ Guardada fija por mes</span>
+                </div>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">Q</span>
                   <input
                     type="number"
                     value={teamGoalInput}
-                    onChange={(e) => setTeamGoalInput(Number(e.target.value) || 0)}
+                    onChange={(e) => handleUpdateTeamGoal(e.target.value)}
                     className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200"
                   />
                 </div>
