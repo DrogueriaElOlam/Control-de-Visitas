@@ -617,7 +617,16 @@
         * **Registro de Visitas (`VisitRegistration.jsx`):** Fallbacks de ruta y ruta predeterminada inicializados en `Quetzaltenango #11`. El filtrado de clientes en campo (`vendorPharmacyDirectory`) incorpora soporte inteligente por nombre de región blindando las 5 rutas (214 clientes activos).
         * **Supervisión y Metas (`supervisionData.js`):** Actualizada la ruta oficial de Ana Lucía Marroquín en `OFFICIAL_VENDORS`.
         * **Formularios de Viáticos y Recibos (`SolicitudViaticosForm.jsx` y `LiquidacionRecibosForm.jsx`):** Sincronizados con `Salama #12` y `Totonicapan #14`.
-        * **Plantilla y Directorio (`catalog.js` y `AdminClientDirectoryModal.jsx`):** Plantilla modelo y placeholders actualizados a `Salama #12`.
+  80. **Autollenado y Memorización Inteligente de Viáticos por Vendedor (`SolicitudViaticosForm.jsx`):**
+      - **Autollenado Inmediato al Seleccionar Vendedor:**
+        * Al elegir cualquier ejecutivo en el selector de vendedor (o al iniciar sesión un vendedor con su cuenta propia), el sistema rellena al instante todos sus campos habituales: *Ruta A predeterminada, Lugares a Visitar, Combustible, Alimentación, Hospedaje, Fotocopias, Otros gastos y Observaciones*.
+      - **Memorización y Guardado Bidireccional (Local y en la Nube):**
+        * **Guardado Automático al Guardar Solicitud:** Cada vez que se presiona el botón principal *'Guardar'*, el sistema no solo archiva la solicitud en el historial, sino que además extrae y actualiza automáticamente la plantilla maestra de ese vendedor (`saveVendorTemplate`).
+        * **Botón Explícito de Memorización Rápida:** En la cabecera de la sección *'VALORES APROXIMADOS'*, se incorporó el botón interactivo **`💾 Guardar como Predeterminado ([Nombre Vendedor])`**, permitiendo que cualquier ajuste manual en los montos, ruta o lugares a visitar quede registrado de inmediato para futuras ocasiones sin tener que guardar un formulario completo.
+        * **Persistencia Doble Blindada:** Los datos predeterminados se guardan localmente en `localStorage` (`olam_vendor_viaticos_templates_v1`) y se sincronizan en Supabase dentro de `daily_supervision_history` (`supervision_data: { tipo: 'vendor_viaticos_templates' }`), asegurando que estén disponibles en cualquier dispositivo, computadora o navegador.
+        * **Rescate Histórico de Solicitudes Previas:** Al inicializar, si un vendedor aún no tiene plantilla explícita guardada, el sistema analiza inteligentemente las solicitudes históricas anteriores (`solicitud_viaticos_history`) para inferir y auto-cargar automáticamente sus últimos valores utilizados.
+      - **Feedback Visual y Experiencia de Usuario:**
+        * Despliegue de un banner informativo verde esmeralda animado (*'✓ Datos habituales de [Vendedor] cargados automáticamente'*) que confirma la carga de datos y notifica que se pueden modificar libremente.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

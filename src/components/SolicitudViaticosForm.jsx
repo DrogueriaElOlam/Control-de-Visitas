@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useFormPersistence } from '../hooks/useFormPersistence';
-import { Save, History } from 'lucide-react';
+import { Save, History, BookmarkCheck, CheckCircle2, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FormButtons from './FormButtons';
 import FormHeader from './FormHeader';
@@ -81,35 +81,122 @@ export default function SolicitudViaticosForm({ currentUser }) {
   const [currentRecordId, setCurrentRecordId] = useState(null);
   const [routeTemplates, setRouteTemplates] = useState({});
 
-  // Cargar plantillas de rutas al iniciar
-  useState(() => {
-    const fetchTemplates = async () => {
+  const VENDOR_TEMPLATES_STORAGE_KEY = 'olam_vendor_viaticos_templates_v1';
+  const VENDOR_TEMPLATES_CLOUD_DATE = '2099-12-24';
+
+  const [vendorTemplates, setVendorTemplates] = useState(() => {
+    try {
+      const saved = localStorage.getItem(VENDOR_TEMPLATES_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch (_) {
+      return {};
+    }
+  });
+  const [vendorAutofillMessage, setVendorAutofillMessage] = useState('');
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
+  // Cargar plantillas de rutas y plantillas por vendedor (con sincronización en la nube y rescate histórico)
+  useEffect(() => {
+    let isMounted = true;
+    const fetchTemplatesData = async () => {
       try {
-        const { data, error } = await supabase
-          .from('route_templates')
-          .select('*');
-        if (data) {
+        // A. Cargar plantillas de rutas
+        const { data: routeData } = await supabase.from('route_templates').select('*');
+        if (routeData && isMounted) {
           const tMap = {};
-          data.forEach(t => {
-            tMap[t.route_name] = t;
-          });
+          routeData.forEach(t => { tMap[t.route_name] = t; });
           setRouteTemplates(tMap);
         }
-      } catch (err) {}
+
+        // B. Cargar plantillas por vendedor de Supabase (daily_supervision_history)
+        const { data: cloudConfig } = await supabase
+          .from('daily_supervision_history')
+          .select('*')
+          .eq('date', VENDOR_TEMPLATES_CLOUD_DATE)
+          .limit(1);
+
+        let cloudMap = {};
+        if (cloudConfig && cloudConfig[0]) {
+          const content = cloudConfig[0].supervision_data || cloudConfig[0].datos;
+          if (content && content.templates) {
+            cloudMap = content.templates;
+          }
+        }
+
+        // C. Rescate histórico inteligente de solicitudes previas para inferir datos de vendedores
+        let historyInferred = {};
+        try {
+          const { data: histData } = await supabase
+            .from('solicitud_viaticos_history')
+            .select('datos')
+            .order('fecha_creacion', { ascending: false })
+            .limit(40);
+
+          if (histData && Array.isArray(histData)) {
+            histData.forEach(item => {
+              const d = item.datos;
+              if (d && d.vendedor && !historyInferred[d.vendedor] && !cloudMap[d.vendedor]) {
+                historyInferred[d.vendedor] = {
+                  rutaA: d.rutaA || '',
+                  lugaresVisitar: d.lugaresVisitar || '',
+                  combustible: d.combustible || '',
+                  alimentacion: d.alimentacion || '',
+                  hospedaje: d.hospedaje || '',
+                  fotocopias: d.fotocopias || '',
+                  otros: d.otros || '',
+                  observaciones: d.observaciones || ''
+                };
+              }
+            });
+          }
+        } catch (_) {}
+
+        if (isMounted) {
+          setVendorTemplates(prev => {
+            const merged = { ...historyInferred, ...prev, ...cloudMap };
+            try {
+              localStorage.setItem(VENDOR_TEMPLATES_STORAGE_KEY, JSON.stringify(merged));
+            } catch (_) {}
+            return merged;
+          });
+        }
+      } catch (err) {
+        console.warn('Aviso al cargar plantillas de viáticos:', err);
+      }
     };
-    fetchTemplates();
-  });
+
+    fetchTemplatesData();
+    return () => { isMounted = false; };
+  }, []);
 
   // Pre-llenar automáticamente los datos del vendedor si no es Antonio Celada ni Admin
   useEffect(() => {
     if (!isSuper && currentUser?.name && !formData.vendedor) {
+      const template = vendorTemplates[currentUser.name];
+      const permitted = getPermittedRoutesForUser(currentUser);
+      const defaultRuta = (currentUser.route && permitted.includes(currentUser.route))
+        ? currentUser.route
+        : (permitted && permitted[0]) || '';
+
       setFormData(prev => ({
         ...prev,
         vendedor: currentUser.name,
-        rutaA: prev.rutaA || currentUser.route || ''
+        rutaA: template?.rutaA || defaultRuta,
+        lugaresVisitar: template?.lugaresVisitar || prev.lugaresVisitar || '',
+        combustible: template?.combustible || prev.combustible || '',
+        alimentacion: template?.alimentacion || prev.alimentacion || '',
+        hospedaje: template?.hospedaje || prev.hospedaje || '',
+        fotocopias: template?.fotocopias || prev.fotocopias || '',
+        otros: template?.otros || prev.otros || '',
+        observaciones: template?.observaciones || prev.observaciones || ''
       }));
+
+      if (template) {
+        setVendorAutofillMessage(`✓ Tus datos habituales de viáticos fueron cargados automáticamente`);
+        setTimeout(() => setVendorAutofillMessage(''), 4500);
+      }
     }
-  }, [currentUser, isSuper]);
+  }, [currentUser, isSuper, vendorTemplates]);
 
   const rutas = [
     'Amatitlan #B5',
@@ -260,22 +347,122 @@ export default function SolicitudViaticosForm({ currentUser }) {
     });
   };
 
+  // Guardar y persistir los datos predeterminados de un vendedor para futuras ocasiones
+  const saveVendorTemplate = async (vendorName, currentData) => {
+    if (!vendorName || !String(vendorName).trim()) return;
+    const cleanVendor = String(vendorName).trim();
+    setSavingTemplate(true);
+
+    const templateData = {
+      rutaA: currentData.rutaA || '',
+      lugaresVisitar: currentData.lugaresVisitar || '',
+      combustible: currentData.combustible?.toString() || '',
+      alimentacion: currentData.alimentacion?.toString() || '',
+      hospedaje: currentData.hospedaje?.toString() || '',
+      fotocopias: currentData.fotocopias?.toString() || '',
+      otros: currentData.otros?.toString() || '',
+      observaciones: currentData.observaciones || ''
+    };
+
+    const updated = {
+      ...vendorTemplates,
+      [cleanVendor]: templateData
+    };
+
+    setVendorTemplates(updated);
+    try {
+      localStorage.setItem(VENDOR_TEMPLATES_STORAGE_KEY, JSON.stringify(updated));
+    } catch (_) {}
+
+    // Persistir en Supabase (daily_supervision_history)
+    try {
+      const { data: existing } = await supabase
+        .from('daily_supervision_history')
+        .select('id')
+        .eq('date', VENDOR_TEMPLATES_CLOUD_DATE)
+        .limit(1);
+
+      const payload = {
+        date: VENDOR_TEMPLATES_CLOUD_DATE,
+        vendor_name: 'MASTER_CONFIG',
+        supervision_data: {
+          tipo: 'vendor_viaticos_templates',
+          updated_at: new Date().toISOString(),
+          templates: updated
+        }
+      };
+
+      if (existing && existing.length > 0) {
+        await supabase
+          .from('daily_supervision_history')
+          .update(payload)
+          .eq('id', existing[0].id);
+      } else {
+        await supabase
+          .from('daily_supervision_history')
+          .insert([payload]);
+      }
+    } catch (err) {
+      console.warn('Error guardando plantilla de vendedor en Supabase:', err);
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
   const handleVendedorChange = (e) => {
     const newVendedor = e.target.value;
-    let newRutaA = formData.rutaA;
-
-    // Si el nuevo vendedor tiene rutas restringidas y la ruta actual no está permitida, limpiarla
-    if (newVendedor && routesByVendor[newVendedor]) {
-      if (!routesByVendor[newVendedor].includes(newRutaA)) {
-        newRutaA = '';
-      }
+    if (!newVendedor) {
+      setFormData(prev => ({
+        ...prev,
+        vendedor: '',
+        rutaA: '',
+        lugaresVisitar: '',
+        combustible: '',
+        alimentacion: '',
+        hospedaje: '',
+        fotocopias: '',
+        otros: '',
+        observaciones: ''
+      }));
+      setMostrarListaVendedores(false);
+      return;
     }
 
-    setFormData({
-      ...formData,
-      vendedor: newVendedor,
-      rutaA: newRutaA
-    });
+    const template = vendorTemplates[newVendedor];
+    const permittedRoutes = routesByVendor[newVendedor] || [];
+    let targetRutaA = formData.rutaA;
+
+    if (template && template.rutaA && (!permittedRoutes.length || permittedRoutes.includes(template.rutaA))) {
+      targetRutaA = template.rutaA;
+    } else if (permittedRoutes.length > 0 && !permittedRoutes.includes(targetRutaA)) {
+      targetRutaA = permittedRoutes[0] || '';
+    }
+
+    if (template) {
+      // Autollenar inmediatamente los campos con los datos registrados para este vendedor
+      setFormData(prev => ({
+        ...prev,
+        vendedor: newVendedor,
+        rutaA: targetRutaA,
+        lugaresVisitar: template.lugaresVisitar || '',
+        combustible: template.combustible !== undefined ? template.combustible : '',
+        alimentacion: template.alimentacion !== undefined ? template.alimentacion : '',
+        hospedaje: template.hospedaje !== undefined ? template.hospedaje : '',
+        fotocopias: template.fotocopias !== undefined ? template.fotocopias : '',
+        otros: template.otros !== undefined ? template.otros : '',
+        observaciones: template.observaciones || prev.observaciones || ''
+      }));
+
+      setVendorAutofillMessage(`✓ Datos habituales de ${newVendedor} cargados automáticamente (puedes modificarlos si lo deseas)`);
+      setTimeout(() => setVendorAutofillMessage(''), 4500);
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        vendedor: newVendedor,
+        rutaA: targetRutaA
+      }));
+    }
+
     setMostrarListaVendedores(false);
   };
 
@@ -332,6 +519,15 @@ export default function SolicitudViaticosForm({ currentUser }) {
         }
       } catch (err) {
         console.error('Error actualizando plantilla:', err);
+      }
+    }
+
+    // Save Vendor Template automatically for future autofill
+    if (formData.vendedor) {
+      try {
+        await saveVendorTemplate(formData.vendedor, formData);
+      } catch (err) {
+        console.warn('Error guardando plantilla predeterminada de vendedor:', err);
       }
     }
 
@@ -645,6 +841,22 @@ export default function SolicitudViaticosForm({ currentUser }) {
             ✓ Datos de ruta cargados automáticamente
           </div>
         )}
+
+        {vendorAutofillMessage && (
+          <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-400 text-emerald-800 dark:text-emerald-200 px-4 py-2.5 rounded-xl mb-4 text-xs sm:text-sm font-bold flex items-center justify-between shadow-sm animate-in fade-in duration-200">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0" />
+              <span>{vendorAutofillMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVendorAutofillMessage('')}
+              className="text-emerald-700 hover:text-emerald-900 text-xs ml-2 cursor-pointer font-black"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         
         <div ref={formRef} className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl border border-blue-900/20 shadow-sm mt-4">
           <FormHeader logoSize="small" />
@@ -753,9 +965,30 @@ export default function SolicitudViaticosForm({ currentUser }) {
           </div>
 
           <div className="mb-6">
-            <h3 className="bg-blue-50/80 border-l-4 border-blue-900 px-3 py-2 font-black text-blue-950 mb-3 text-sm sm:text-base tracking-wide rounded-r">
-              VALORES APROXIMADOS
-            </h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 bg-blue-50/80 border-l-4 border-blue-900 px-3 py-2 rounded-r">
+              <h3 className="font-black text-blue-950 text-sm sm:text-base tracking-wide flex items-center gap-2">
+                <span>VALORES APROXIMADOS</span>
+                <span className="text-[11px] font-normal text-blue-800 hidden md:inline">
+                  (Ruta, Lugares y Montos habituales)
+                </span>
+              </h3>
+              {formData.vendedor && (
+                <button
+                  type="button"
+                  disabled={savingTemplate}
+                  onClick={async () => {
+                    await saveVendorTemplate(formData.vendedor, formData);
+                    setVendorAutofillMessage(`✓ Datos de ${formData.vendedor} memorizados como predeterminados para futuras ocasiones`);
+                    setTimeout(() => setVendorAutofillMessage(''), 4500);
+                  }}
+                  className="px-3 py-1 bg-white hover:bg-blue-100/70 border border-blue-300 rounded-lg text-xs font-bold text-blue-900 shadow-sm flex items-center gap-1.5 transition-all cursor-pointer self-start sm:self-auto disabled:opacity-50"
+                  title="Guardar estos valores (ruta, lugares, montos) como predeterminados para este vendedor"
+                >
+                  <BookmarkCheck size={14} className="text-blue-700" />
+                  <span>{savingTemplate ? 'Guardando...' : `Guardar como Predeterminado (${formData.vendedor})`}</span>
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2.5">
                 <div className="grid grid-cols-2 gap-2 items-center">
