@@ -1683,14 +1683,6 @@ export default function VendorReportModal({
                 <span>Descargar Reporte</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setShowQuickForm(!showQuickForm)}
-                className="flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all whitespace-nowrap"
-              >
-                <Plus size={14} />
-                <span>{showQuickForm ? 'Ocultar Formulario' : '+ Ingresar Visita'}</span>
-              </button>
             </div>
           </div>
 

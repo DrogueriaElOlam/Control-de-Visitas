@@ -648,6 +648,8 @@
         * Al cambiar la ruta en el selector ('Ruta A'), el formulario reemplaza inmediatamente los lugares a visitar y los rubros correspondientes a esa gira específica. Si una gira no contempla hospedaje (ej. Municipios Oriente #15 o Retalhuleu #22), el campo se vacía automáticamente evitando cobros indebidos.
       - **Sincronización y Persistencia en Supabase (`route_templates`):**
         * Las 52 plantillas quedaron sincronizadas y persistidas en la tabla `route_templates` de Supabase con `upsert` directo, asegurando disponibilidad total tanto en local como en producción.
+  82. **Retiro del Botón '+ Ingresar Visita' en el Módulo de Reportes (`VendorReportModal.jsx`):**
+      - **Ajuste de Interfaz Solicitado:** Se retiró el botón interactivo **`+ Ingresar Visita`** de la barra de acciones rápidas del reporte de rendimiento de vendedores, conservando limpia y despejada la barra superior únicamente con las acciones esenciales de auditoría y descarga (*Descargar Excel* y *Descargar Reporte*).
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
