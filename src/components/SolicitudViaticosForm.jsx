@@ -5,9 +5,10 @@ import { supabase } from '../lib/supabase';
 import FormButtons from './FormButtons';
 import FormHeader from './FormHeader';
 import SolicitudViaticosHistory from './SolicitudViaticosHistory';
-import { isSuperUser, getPermittedRoutesForUser, ALL_ROUTES } from '../lib/formsPermissions';
+import { isSuperUser, getPermittedRoutesForUser, ALL_ROUTES, getRoutesForVendor } from '../lib/formsPermissions';
 import { LOGO_DATA_URI } from '../lib/logo';
 import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
+import { OFFICIAL_ROUTE_VIATICOS_TEMPLATES, findRouteTemplate, syncAllRouteTemplatesToSupabase } from '../lib/viaticosTemplates';
 
 export default function SolicitudViaticosForm({ currentUser }) {
   const isSuper = isSuperUser(currentUser);
@@ -79,7 +80,13 @@ export default function SolicitudViaticosForm({ currentUser }) {
   const [showVendedoresModal, setShowVendedoresModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [currentRecordId, setCurrentRecordId] = useState(null);
-  const [routeTemplates, setRouteTemplates] = useState({});
+  const [routeTemplates, setRouteTemplates] = useState(() => {
+    const tMap = {};
+    OFFICIAL_ROUTE_VIATICOS_TEMPLATES.forEach(t => {
+      tMap[t.route_name] = t;
+    });
+    return tMap;
+  });
 
   const VENDOR_TEMPLATES_STORAGE_KEY = 'olam_vendor_viaticos_templates_v1';
   const VENDOR_TEMPLATES_CLOUD_DATE = '2099-12-24';
@@ -102,10 +109,12 @@ export default function SolicitudViaticosForm({ currentUser }) {
       try {
         // A. Cargar plantillas de rutas
         const { data: routeData } = await supabase.from('route_templates').select('*');
-        if (routeData && isMounted) {
-          const tMap = {};
-          routeData.forEach(t => { tMap[t.route_name] = t; });
-          setRouteTemplates(tMap);
+        if (routeData && isMounted && routeData.length > 0) {
+          setRouteTemplates(prev => {
+            const tMap = { ...prev };
+            routeData.forEach(t => { tMap[t.route_name] = t; });
+            return tMap;
+          });
         }
 
         // B. Cargar plantillas por vendedor de Supabase (daily_supervision_history)
@@ -172,100 +181,93 @@ export default function SolicitudViaticosForm({ currentUser }) {
   // Pre-llenar automáticamente los datos del vendedor si no es Antonio Celada ni Admin
   useEffect(() => {
     if (!isSuper && currentUser?.name && !formData.vendedor) {
-      const template = vendorTemplates[currentUser.name];
       const permitted = getPermittedRoutesForUser(currentUser);
       const defaultRuta = (currentUser.route && permitted.includes(currentUser.route))
         ? currentUser.route
         : (permitted && permitted[0]) || '';
+      const rTemplate = findRouteTemplate(defaultRuta) || routeTemplates[defaultRuta];
+      const template = vendorTemplates[currentUser.name] || rTemplate;
 
       setFormData(prev => ({
         ...prev,
         vendedor: currentUser.name,
-        rutaA: template?.rutaA || defaultRuta,
-        lugaresVisitar: template?.lugaresVisitar || prev.lugaresVisitar || '',
-        combustible: template?.combustible || prev.combustible || '',
-        alimentacion: template?.alimentacion || prev.alimentacion || '',
-        hospedaje: template?.hospedaje || prev.hospedaje || '',
-        fotocopias: template?.fotocopias || prev.fotocopias || '',
-        otros: template?.otros || prev.otros || '',
+        rutaA: defaultRuta,
+        lugaresVisitar: rTemplate?.lugares_visitar || template?.lugaresVisitar || prev.lugaresVisitar || '',
+        combustible: (rTemplate?.combustible && rTemplate.combustible > 0) ? rTemplate.combustible.toString() : (template?.combustible || prev.combustible || ''),
+        alimentacion: (rTemplate?.alimentacion && rTemplate.alimentacion > 0) ? rTemplate.alimentacion.toString() : (template?.alimentacion || prev.alimentacion || ''),
+        hospedaje: (rTemplate?.hospedaje && rTemplate.hospedaje > 0) ? rTemplate.hospedaje.toString() : (template?.hospedaje || prev.hospedaje || ''),
+        fotocopias: (rTemplate?.fotocopias && rTemplate.fotocopias > 0) ? rTemplate.fotocopias.toString() : (template?.fotocopias || prev.fotocopias || ''),
+        otros: (rTemplate?.otros && rTemplate.otros > 0) ? rTemplate.otros.toString() : (template?.otros || prev.otros || ''),
         observaciones: template?.observaciones || prev.observaciones || ''
       }));
 
-      if (template) {
-        setVendorAutofillMessage(`✓ Tus datos habituales de viáticos fueron cargados automáticamente`);
+      if (rTemplate || template) {
+        setVendorAutofillMessage(`✓ Gira ${defaultRuta} y viáticos asignados cargados automáticamente`);
         setTimeout(() => setVendorAutofillMessage(''), 4500);
       }
     }
-  }, [currentUser, isSuper, vendorTemplates]);
+  }, [currentUser, isSuper, vendorTemplates, routeTemplates]);
 
   const rutas = [
-    'Amatitlan #B5',
-    'Capital S1 #64',
-    'Capital S2 #65',
-    'Capital S3 #94',
-    'Chimaltenango I #43',
-    'Chimaltenango II #44',
-    'Chiquimula I #61',
-    'Chiquimula II #63',
-    'Coatepeque #24',
+    'Quetzaltenango #11',
+    'Totonicapan #12',
     'Coban #13',
-    'Escuintla I #A1',
-    'Escuintla II #A2',
-    'Huehuetanango Centro #A4',
-    'Huehuetenango Montaña Alta I #83',
-    'Huehuetenango Montaña Alta II #84',
-    'Huehuetenango Montaña Baja I #71',
-    'Huehuetenango Montaña Baja II #72',
-    'Ixcan #95',
+    'Salama #14',
+    'Municipios Oriente #15',
+    'Suchi I #21',
+    'Retalhuleu #22',
+    'Suchi II #23',
+    'Coatepeque #24',
+    'Suchi III #25',
+    'Sacatepéquez #31',
+    'Quiche Centro #32',
+    'Quiche Montaña Baja #33',
     'Izabal I #34',
     'Izabal II #35',
-    'Jalapa #62',
     'Jutiapa I #41',
     'Jutiapa II #42',
-    'Municipios Norte #A5',
-    'Municipios Oriente #15',
-    'Nebaj #54',
-    'Petapa #91',
-    'Peten I #73',
-    'Peten II #74',
-    'Peten III #B1',
-    'Peten IV #B2',
-    'Polochic #81',
-    'Quetzaltenango #11',
-    'Quiche Centro #32',
-    'Quiche Montaña Alta #55',
-    'Quiche Montaña Baja #33',
-    'Retalhuleu #22',
-    'Sacatepequez #31',
-    'Salama #12',
-    'San Marcos I #92',
-    'San Marcos II #93',
-    'San Marcos Montaña Alta #51',
+    'Chimaltenango I #43',
+    'Chimaltenango II #44',
     'Santa Rosa #45',
+    'San Marcos Montaña Alta #51',
     'Solola I #52',
     'Solola II #53',
-    'Suchi I #21',
-    'Suchi II #23',
-    'Suchi III #25',
-    'Totonicapan #14',
+    'Nebaj #54',
+    'Quiche Montaña Alta #55',
+    'Chiquimula I #61',
+    'Jalapa #62',
+    'Chiquimula II #63',
+    'Capital S1 #64',
+    'Capital S2 #65',
+    'Huehuetenango Montaña Baja I #71',
+    'Huehuetenango Montaña Baja II #72',
+    'Peten I #73',
+    'Peten II #74',
+    'Polochic #81',
+    'Zacapa #82',
+    'Huehuetenango Montaña Alta I #83',
+    'Huehuetenango Montaña Alta II #84',
+    'Petapa #91',
+    'San Marcos I #92',
+    'San Marcos II #93',
+    'Capital S3 #94',
+    'Ixcán #95',
+    'Escuintla I #A1',
+    'Escuintla II #A2',
+    'Villa Nueva #A3',
+    'Huehuetenango Centro #A4',
+    'Municipios Norte #A5',
+    'Peten III #B1',
+    'Peten IV #B2',
     'Transversal I #B3',
     'Transversal II #B4',
-    'Villa Nueva #A3',
-    'Zacapa #82'
+    'Amatitlán #B5',
+    'Oficina'
   ];
 
   const [routesByVendor, setRoutesByVendor] = useState(() => {
-    const saved = localStorage.getItem('routes_by_vendor');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Garantizar que Ana Lucía Marroquín tenga siempre sus rutas oficiales actualizadas
-        parsed['Ana Lucia Marroquin'] = ['Quetzaltenango #11', 'Salama #12', 'Coban #13', 'Totonicapan #14', 'Municipios Oriente #15', 'Oficina'];
-        return parsed;
-      } catch (_) {}
-    }
-    return {
-      'Ana Lucia Marroquin': ['Quetzaltenango #11', 'Salama #12', 'Coban #13', 'Totonicapan #14', 'Municipios Oriente #15', 'Oficina'],
+    const defaultRoutesMap = {
+      'Ana Lucia Marroquin': ['Quetzaltenango #11', 'Totonicapan #12', 'Coban #13', 'Salama #14', 'Municipios Oriente #15', 'Oficina'],
       'Jessica Noriega': ['Suchi I #21', 'Retalhuleu #22', 'Suchi II #23', 'Coatepeque #24', 'Suchi III #25', 'Oficina'],
       'Wally Natareno': ['Sacatepéquez #31', 'Quiche Centro #32', 'Quiche Montaña Baja #33', 'Izabal I #34', 'Izabal II #35', 'Oficina'],
       'Erick Curley': ['Jutiapa I #41', 'Jutiapa II #42', 'Chimaltenango I #43', 'Chimaltenango II #44', 'Santa Rosa #45', 'Oficina'],
@@ -279,6 +281,20 @@ export default function SolicitudViaticosForm({ currentUser }) {
       'Josue Aguilar': ['Escuintla I #A1', 'Escuintla II #A2', 'Villa Nueva #A3', 'Huehuetenango Centro #A4', 'Municipios Norte #A5', 'Oficina'],
       'Elias Quiej': ['Peten III #B1', 'Peten IV #B2', 'Transversal I #B3', 'Transversal II #B4', 'Amatitlán #B5', 'Oficina']
     };
+
+    const saved = localStorage.getItem('routes_by_vendor');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          ...defaultRoutesMap,
+          ...parsed,
+          'Ana Lucia Marroquin': defaultRoutesMap['Ana Lucia Marroquin'],
+          'Danny Perez': defaultRoutesMap['Danny Perez']
+        };
+      } catch (_) {}
+    }
+    return defaultRoutesMap;
   });
   const [nuevaRuta, setNuevaRuta] = useState('');
   const [showRutasModal, setShowRutasModal] = useState(false);
@@ -322,23 +338,25 @@ export default function SolicitudViaticosForm({ currentUser }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // Si cambia la ruta, intentar autocompletar desde la plantilla
-    if (name === 'rutaA' && routeTemplates[value]) {
-      const template = routeTemplates[value];
-      setFormData({
-        ...formData,
-        [name]: value,
-        lugaresVisitar: template.lugares_visitar || '',
-        combustible: template.combustible?.toString() || '',
-        alimentacion: template.alimentacion?.toString() || '',
-        hospedaje: template.hospedaje?.toString() || '',
-        fotocopias: template.fotocopias?.toString() || '',
-        otros: template.otros?.toString() || ''
-      });
-      
-      setShowTemplateMessage(true);
-      setTimeout(() => setShowTemplateMessage(false), 3000);
-      return;
+    // Si cambia la ruta, autocompletar inmediatamente desde el catálogo oficial de viáticos
+    if (name === 'rutaA') {
+      const template = routeTemplates[value] || findRouteTemplate(value);
+      if (template) {
+        setFormData(prev => ({
+          ...prev,
+          rutaA: value,
+          lugaresVisitar: template.lugares_visitar || template.lugaresVisitar || '',
+          combustible: (template.combustible && template.combustible > 0) ? template.combustible.toString() : '',
+          alimentacion: (template.alimentacion && template.alimentacion > 0) ? template.alimentacion.toString() : '',
+          hospedaje: (template.hospedaje && template.hospedaje > 0) ? template.hospedaje.toString() : '',
+          fotocopias: (template.fotocopias && template.fotocopias > 0) ? template.fotocopias.toString() : '',
+          otros: (template.otros && template.otros > 0) ? template.otros.toString() : ''
+        }));
+        
+        setShowTemplateMessage(true);
+        setTimeout(() => setShowTemplateMessage(false), 3000);
+        return;
+      }
     }
 
     setFormData({
@@ -428,32 +446,25 @@ export default function SolicitudViaticosForm({ currentUser }) {
       return;
     }
 
-    const template = vendorTemplates[newVendedor];
-    const permittedRoutes = routesByVendor[newVendedor] || [];
-    let targetRutaA = formData.rutaA;
-
-    if (template && template.rutaA && (!permittedRoutes.length || permittedRoutes.includes(template.rutaA))) {
-      targetRutaA = template.rutaA;
-    } else if (permittedRoutes.length > 0 && !permittedRoutes.includes(targetRutaA)) {
-      targetRutaA = permittedRoutes[0] || '';
-    }
+    const permittedRoutes = routesByVendor[newVendedor] || getRoutesForVendor(newVendedor) || [];
+    const targetRutaA = permittedRoutes[0] || '';
+    const template = findRouteTemplate(targetRutaA) || routeTemplates[targetRutaA] || vendorTemplates[newVendedor];
 
     if (template) {
-      // Autollenar inmediatamente los campos con los datos registrados para este vendedor
       setFormData(prev => ({
         ...prev,
         vendedor: newVendedor,
         rutaA: targetRutaA,
-        lugaresVisitar: template.lugaresVisitar || '',
-        combustible: template.combustible !== undefined ? template.combustible : '',
-        alimentacion: template.alimentacion !== undefined ? template.alimentacion : '',
-        hospedaje: template.hospedaje !== undefined ? template.hospedaje : '',
-        fotocopias: template.fotocopias !== undefined ? template.fotocopias : '',
-        otros: template.otros !== undefined ? template.otros : '',
+        lugaresVisitar: template.lugares_visitar || template.lugaresVisitar || '',
+        combustible: (template.combustible && template.combustible > 0) ? template.combustible.toString() : '',
+        alimentacion: (template.alimentacion && template.alimentacion > 0) ? template.alimentacion.toString() : '',
+        hospedaje: (template.hospedaje && template.hospedaje > 0) ? template.hospedaje.toString() : '',
+        fotocopias: (template.fotocopias && template.fotocopias > 0) ? template.fotocopias.toString() : '',
+        otros: (template.otros && template.otros > 0) ? template.otros.toString() : '',
         observaciones: template.observaciones || prev.observaciones || ''
       }));
 
-      setVendorAutofillMessage(`✓ Datos habituales de ${newVendedor} cargados automáticamente (puedes modificarlos si lo deseas)`);
+      setVendorAutofillMessage(`✓ ${newVendedor} seleccionado: Gira ${targetRutaA} y viáticos cargados automáticamente`);
       setTimeout(() => setVendorAutofillMessage(''), 4500);
     } else {
       setFormData(prev => ({

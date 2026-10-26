@@ -627,6 +627,27 @@
         * **Rescate Histórico de Solicitudes Previas:** Al inicializar, si un vendedor aún no tiene plantilla explícita guardada, el sistema analiza inteligentemente las solicitudes históricas anteriores (`solicitud_viaticos_history`) para inferir y auto-cargar automáticamente sus últimos valores utilizados.
       - **Feedback Visual y Experiencia de Usuario:**
         * Despliegue de un banner informativo verde esmeralda animado (*'✓ Datos habituales de [Vendedor] cargados automáticamente'*) que confirma la carga de datos y notifica que se pueden modificar libremente.
+  81. **Catálogo Maestro Oficial de Viáticos con Orden Numérico por Giras y Vendedores (`SolicitudViaticosForm.jsx` & `viaticosTemplates.js`):**
+      - **Asignación Exacta por Ejecutivo y Giras Oficiales:**
+        * Se cargaron y calibraron al 100% las 52 giras de los 11 vendedores oficiales con sus lugares a visitar exactos, montos de combustible, alimentación y hospedaje.
+        * **Ana Lucía Marroquín (#11 a #15):** Quetzaltenango #11, Totonicapan #12, Coban #13, Salama #14, Municipios Oriente #15 y Oficina.
+        * **Jessica Noriega (#21 a #25):** Suchi I #21, Retalhuleu #22, Suchi II #23, Coatepeque #24, Suchi III #25 y Oficina.
+        * **Wally Natareno (#31 a #35):** Sacatepéquez #31, Quiche Centro #32, Quiche Montaña Baja #33, Izabal I #34, Izabal II #35 y Oficina.
+        * **Erick Curley (#41 a #45):** Jutiapa I #41, Jutiapa II #42, Chimaltenango I #43, Chimaltenango II #44, Santa Rosa #45 y Oficina.
+        * **Estuardo Córdova (#51 a #55):** San Marcos Montaña Alta #51, Solola I #52, Solola II #53, Nebaj #54, Quiche Montaña Alta #55 y Oficina.
+        * **Karina Pineda (#61 a #65):** Chiquimula I #61, Jalapa #62, Chiquimula II #63, Capital S1 #64, Capital S2 #65 y Oficina.
+        * **Danny Perez (#71 a #74):** Huehuetenango Montaña Baja I #71, Huehuetenango Montaña Baja II #72, Peten I #73, Peten II #74 y Oficina.
+        * **Klissman Hernandez (#81 a #84):** Polochic #81, Zacapa #82, Huehuetenango Montaña Alta I #83, Huehuetenango Montaña Alta II #84 y Oficina.
+        * **Elio Caceros (#91 a #95):** Petapa #91, San Marcos I #92, San Marcos II #93, Capital S3 #94, Ixcán #95 y Oficina.
+        * **Josué Aguilar (#A1 a #A5):** Escuintla I #A1, Escuintla II #A2, Villa Nueva #A3, Huehuetenango Centro #A4, Municipios Norte #A5 y Oficina.
+        * **Elías Quiej (#B1 a #B5):** Peten III #B1, Peten IV #B2, Transversal I #B3, Transversal II #B4, Amatitlán #B5 y Oficina.
+      - **Orden Numérico Estricto en Toda la Plataforma:**
+        * Todas las giras aparecen ordenadas rigurosamente por su numeral correlativo (`#11` a `#B5`) tanto en el menú desplegable de 'Ruta A' de `SolicitudViaticosForm.jsx`, como en `db.js`, `formsPermissions.js` y `LiquidacionRecibosForm.jsx`.
+      - **Autollenado Reactivo Instantáneo por Gira:**
+        * Al seleccionar o cambiar el vendedor, el sistema preselecciona su primera gira oficial y carga automáticamente los lugares a visitar, combustible, alimentación y hospedaje correspondientes.
+        * Al cambiar la ruta en el selector ('Ruta A'), el formulario reemplaza inmediatamente los lugares a visitar y los rubros correspondientes a esa gira específica. Si una gira no contempla hospedaje (ej. Municipios Oriente #15 o Retalhuleu #22), el campo se vacía automáticamente evitando cobros indebidos.
+      - **Sincronización y Persistencia en Supabase (`route_templates`):**
+        * Las 52 plantillas quedaron sincronizadas y persistidas en la tabla `route_templates` de Supabase con `upsert` directo, asegurando disponibilidad total tanto en local como en producción.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

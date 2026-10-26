@@ -150,9 +150,9 @@ export function sortRoutes(routes) {
 
 export const ALL_ROUTES = [
   'Quetzaltenango #11',
-  'Salama #12',
+  'Totonicapan #12',
   'Coban #13',
-  'Totonicapan #14',
+  'Salama #14',
   'Municipios Oriente #15',
   'Suchi I #21',
   'Retalhuleu #22',
@@ -209,9 +209,9 @@ export const ALL_ROUTES = [
 export const VENDOR_ASSIGNED_ROUTES = {
   'Ana Lucia Marroquin': [
     'Quetzaltenango #11',
-    'Salama #12',
+    'Totonicapan #12',
     'Coban #13',
-    'Totonicapan #14',
+    'Salama #14',
     'Municipios Oriente #15',
     'Oficina'
   ],
@@ -309,9 +309,9 @@ export const VENDOR_ASSIGNED_ROUTES = {
   ],
   'PRUEBAS': [
     'Quetzaltenango #11',
-    'Salama #12',
+    'Totonicapan #12',
     'Coban #13',
-    'Totonicapan #14',
+    'Salama #14',
     'Municipios Oriente #15',
     'Oficina'
   ],
