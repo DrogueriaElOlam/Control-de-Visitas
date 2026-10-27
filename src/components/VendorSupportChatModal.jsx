@@ -9,13 +9,19 @@ import {
   ShieldCheck, 
   User, 
   Building2,
-  RefreshCw
+  RefreshCw,
+  Trash2,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { 
   getVendorConversation, 
   sendChatMessage, 
   fetchRemoteChatMessages, 
-  subscribeToInternalChat 
+  subscribeToInternalChat,
+  deleteChatMessage,
+  deleteChatMessages,
+  clearVendorConversation
 } from '../lib/internalChat';
 
 export default function VendorSupportChatModal({ 
@@ -31,13 +37,22 @@ export default function VendorSupportChatModal({
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [loadingRemote, setLoadingRemote] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState([]);
+  const [isDeleting, setIsDeleting] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Pre-llenar formulario si viene de un conflicto de código
   const [ticketData, setTicketData] = useState(initialTicketData);
 
+  const refreshMessages = () => {
+    setMessages(getVendorConversation(vendorName));
+  };
+
   useEffect(() => {
     setMessages(getVendorConversation(vendorName));
+    setSelectionMode(false);
+    setSelectedMessageIds([]);
     scrollToBottom();
 
     // Sincronizar en segundo plano
@@ -65,6 +80,82 @@ export default function VendorSupportChatModal({
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
+  };
+
+  // Manejadores para selección múltiple y borrado
+  const handleToggleSelect = (id) => {
+    setSelectedMessageIds(prev => 
+      prev.includes(id) ? prev.filter(mId => mId !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedMessageIds(messages.map(m => m.id));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedMessageIds([]);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedMessageIds.length === 0) return;
+    const count = selectedMessageIds.length;
+    const confirmMsg = `¿Deseas eliminar permanentemente los ${count} ${count === 1 ? 'mensaje marcado' : 'mensajes marcados'}?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteChatMessages(selectedMessageIds);
+      setSelectedMessageIds([]);
+      setSelectionMode(false);
+      refreshMessages();
+    } catch (err) {
+      console.error('Error al eliminar mensajes:', err);
+      alert('Ocurrió un error al eliminar los mensajes.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteSingle = async (messageId, e) => {
+    if (e) e.stopPropagation();
+    if (!messageId) return;
+    if (!window.confirm('¿Deseas eliminar este mensaje permanentemente?')) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteChatMessage(messageId);
+      setSelectedMessageIds(prev => prev.filter(id => id !== messageId));
+      refreshMessages();
+    } catch (err) {
+      console.error('Error al eliminar mensaje:', err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleClearChat = async () => {
+    if (!vendorName) return;
+    const totalCount = messages.length;
+    if (totalCount === 0) {
+      alert('Tu bandeja de chat ya está vacía.');
+      return;
+    }
+    const confirmMsg = `⚠️ ¿Confirmas que deseas VACIAR DIRECTAMENTE todo tu chat?\n\nSe eliminarán los ${totalCount} mensajes e historial de solicitudes en este equipo y en la nube.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsDeleting(true);
+    try {
+      await clearVendorConversation(vendorName);
+      setSelectedMessageIds([]);
+      setSelectionMode(false);
+      refreshMessages();
+    } catch (err) {
+      console.error('Error al vaciar chat:', err);
+      alert('Ocurrió un error al vaciar la conversación.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleSendMessage = async (e) => {
@@ -132,15 +223,101 @@ export default function VendorSupportChatModal({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all cursor-pointer"
-            title="Cerrar ventana"
-          >
-            <X size={18} />
-          </button>
+          
+          <div className="flex items-center gap-2">
+            {messages.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectionMode(!selectionMode);
+                    setSelectedMessageIds([]);
+                  }}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    selectionMode
+                      ? 'bg-blue-600 text-white border-blue-400 shadow-sm'
+                      : 'bg-white/10 text-white border-white/20 hover:bg-white/20'
+                  }`}
+                  title={selectionMode ? 'Cancelar modo de selección' : 'Marcar mensajes para borrado múltiple'}
+                >
+                  <CheckSquare size={13} />
+                  <span className="hidden sm:inline">{selectionMode ? 'Cancelar' : 'Marcar'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleClearChat}
+                  disabled={isDeleting}
+                  className="px-2.5 py-1 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer border border-rose-400/40 bg-rose-500/20 text-rose-200 hover:bg-rose-500/40 disabled:opacity-50"
+                  title="Vaciar directamente todo tu chat"
+                >
+                  <Trash2 size={13} />
+                  <span className="hidden sm:inline">Vaciar</span>
+                </button>
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all cursor-pointer"
+              title="Cerrar ventana"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
+
+        {/* Barra de Herramientas de Selección Múltiple */}
+        {selectionMode && (
+          <div className="px-4 py-2 bg-blue-50 dark:bg-blue-950/80 border-b border-blue-200 dark:border-blue-800/60 flex flex-wrap items-center justify-between gap-2 animate-in fade-in">
+            <div className="flex items-center gap-2 text-xs font-bold text-blue-950 dark:text-blue-200">
+              <span>{selectedMessageIds.length} de {messages.length} marcados</span>
+              <span className="text-blue-300 dark:text-blue-700">•</span>
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+              >
+                Seleccionar todos
+              </button>
+              {selectedMessageIds.length > 0 && (
+                <>
+                  <span className="text-blue-300 dark:text-blue-700">•</span>
+                  <button
+                    type="button"
+                    onClick={handleDeselectAll}
+                    className="text-slate-500 dark:text-slate-400 hover:underline cursor-pointer"
+                  >
+                    Desmarcar
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDeleteSelected}
+                disabled={selectedMessageIds.length === 0 || isDeleting}
+                className="px-3 py-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-extrabold text-xs rounded-lg flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+              >
+                <Trash2 size={12} />
+                <span>Eliminar ({selectedMessageIds.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectionMode(false);
+                  setSelectedMessageIds([]);
+                }}
+                className="px-2 py-1 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Ticket Banner si viene de código duplicado */}
         {ticketData && (
@@ -187,11 +364,12 @@ export default function VendorSupportChatModal({
             messages.map((m) => {
               const isMe = m.sender === 'vendor';
               const isTicket = m.type === 'ticket';
+              const isSelected = selectedMessageIds.includes(m.id);
 
               return (
                 <div 
                   key={m.id}
-                  className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1`}
+                  className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} space-y-1 group`}
                 >
                   <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-semibold px-1">
                     {isMe ? (
@@ -208,15 +386,48 @@ export default function VendorSupportChatModal({
                         <span>{m.time || m.date}</span>
                       </>
                     )}
+                    {/* Botón individual de borrado cuando no está en modo selección */}
+                    {!selectionMode && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSingle(m.id, e)}
+                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-0.5 rounded cursor-pointer ml-1"
+                        title="Eliminar este mensaje"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    )}
                   </div>
 
-                  <div
-                    className={`max-w-[85%] rounded-2xl p-3 shadow-sm text-xs leading-relaxed ${
-                      isMe 
-                        ? 'bg-blue-600 text-white rounded-br-xs' 
-                        : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-bl-xs'
-                    }`}
-                  >
+                  <div className="flex items-center gap-2 max-w-[90%]">
+                    {/* Casilla de selección cuando está en modo selección múltiple */}
+                    {selectionMode && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSelect(m.id)}
+                        className={`p-1 rounded-lg transition-all cursor-pointer ${
+                          isSelected
+                            ? 'text-blue-600 bg-blue-50 dark:bg-blue-950/50'
+                            : 'text-slate-400 hover:text-slate-600'
+                        } ${isMe ? 'order-last' : 'order-first'}`}
+                        title={isSelected ? 'Desmarcar' : 'Marcar para borrar'}
+                      >
+                        {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                      </button>
+                    )}
+
+                    <div
+                      onClick={selectionMode ? () => handleToggleSelect(m.id) : undefined}
+                      className={`flex-1 rounded-2xl p-3 shadow-sm text-xs leading-relaxed transition-all ${
+                        selectionMode ? 'cursor-pointer hover:ring-2 hover:ring-blue-400/50' : ''
+                      } ${
+                        isSelected ? 'ring-2 ring-blue-500 shadow-md' : ''
+                      } ${
+                        isMe 
+                          ? 'bg-blue-600 text-white rounded-br-xs' 
+                          : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded-bl-xs'
+                      }`}
+                    >
                     {isTicket && (
                       <div className={`mb-2 pb-2 border-b ${isMe ? 'border-white/20' : 'border-slate-200 dark:border-slate-700'}`}>
                         <div className="flex items-center justify-between gap-2 mb-1">
@@ -245,6 +456,7 @@ export default function VendorSupportChatModal({
                     )}
 
                     <div className="whitespace-pre-wrap">{m.message}</div>
+                    </div>
                   </div>
                 </div>
               );

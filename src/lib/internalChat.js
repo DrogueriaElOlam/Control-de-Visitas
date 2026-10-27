@@ -241,7 +241,78 @@ export function getAdminSupportStats() {
 }
 
 /**
- * Suscribe a eventos en tiempo real para recibir mensajes instantáneos
+ * Elimina un mensaje específico por su ID
+ */
+export async function deleteChatMessage(messageId) {
+  if (!messageId) return { success: false };
+  const current = getStoredChatMessages();
+  const updated = current.filter(m => m.id !== messageId);
+  saveStoredChatMessages(updated);
+
+  try {
+    if (chatRealtimeChannel) {
+      chatRealtimeChannel.send({
+        type: 'broadcast',
+        event: 'delete_chat_message',
+        payload: { messageId }
+      });
+    }
+  } catch (_) {}
+
+  syncChatMessagesToSupabase(updated).catch(() => {});
+  return { success: true };
+}
+
+/**
+ * Elimina una lista de mensajes por sus IDs (Borrado múltiple / por selección)
+ */
+export async function deleteChatMessages(messageIds = []) {
+  if (!Array.isArray(messageIds) || messageIds.length === 0) return { success: false };
+  const idsSet = new Set(messageIds);
+  const current = getStoredChatMessages();
+  const updated = current.filter(m => !idsSet.has(m.id));
+  saveStoredChatMessages(updated);
+
+  try {
+    if (chatRealtimeChannel) {
+      chatRealtimeChannel.send({
+        type: 'broadcast',
+        event: 'delete_chat_messages_bulk',
+        payload: { messageIds }
+      });
+    }
+  } catch (_) {}
+
+  syncChatMessagesToSupabase(updated).catch(() => {});
+  return { success: true, count: messageIds.length };
+}
+
+/**
+ * Vacía completamente todos los mensajes de una conversación con un vendedor
+ */
+export async function clearVendorConversation(vendorName) {
+  if (!vendorName) return { success: false };
+  const clean = vendorName.trim().toLowerCase();
+  const current = getStoredChatMessages();
+  const updated = current.filter(m => (m.vendorName || '').trim().toLowerCase() !== clean);
+  saveStoredChatMessages(updated);
+
+  try {
+    if (chatRealtimeChannel) {
+      chatRealtimeChannel.send({
+        type: 'broadcast',
+        event: 'clear_vendor_conversation',
+        payload: { vendorName }
+      });
+    }
+  } catch (_) {}
+
+  syncChatMessagesToSupabase(updated).catch(() => {});
+  return { success: true };
+}
+
+/**
+ * Suscribe a eventos en tiempo real para recibir mensajes instantáneos y borrados
  */
 export function subscribeToInternalChat(onNewMessage) {
   if (!chatRealtimeChannel) {
@@ -268,6 +339,32 @@ export function subscribeToInternalChat(onNewMessage) {
           saveStoredChatMessages(current);
         }
         if (onNewMessage) onNewMessage(payload);
+      }
+    })
+    .on('broadcast', { event: 'delete_chat_message' }, ({ payload }) => {
+      if (payload?.messageId) {
+        const current = getStoredChatMessages();
+        const updated = current.filter(m => m.id !== payload.messageId);
+        saveStoredChatMessages(updated);
+        if (onNewMessage) onNewMessage(null);
+      }
+    })
+    .on('broadcast', { event: 'delete_chat_messages_bulk' }, ({ payload }) => {
+      if (Array.isArray(payload?.messageIds)) {
+        const idsSet = new Set(payload.messageIds);
+        const current = getStoredChatMessages();
+        const updated = current.filter(m => !idsSet.has(m.id));
+        saveStoredChatMessages(updated);
+        if (onNewMessage) onNewMessage(null);
+      }
+    })
+    .on('broadcast', { event: 'clear_vendor_conversation' }, ({ payload }) => {
+      if (payload?.vendorName) {
+        const clean = payload.vendorName.trim().toLowerCase();
+        const current = getStoredChatMessages();
+        const updated = current.filter(m => (m.vendorName || '').trim().toLowerCase() !== clean);
+        saveStoredChatMessages(updated);
+        if (onNewMessage) onNewMessage(null);
       }
     })
     .subscribe();

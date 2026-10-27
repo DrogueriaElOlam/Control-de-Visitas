@@ -651,6 +651,19 @@
   82. **Retiro del Botón '+ Ingresar Visita' en el Módulo de Reportes (`VendorReportModal.jsx`):**
       - **Ajuste de Interfaz Solicitado:** Se retiró el botón interactivo **`+ Ingresar Visita`** de la barra de acciones rápidas del reporte de rendimiento de vendedores, conservando limpia y despejada la barra superior únicamente con las acciones esenciales de auditoría y descarga (*Descargar Excel* y *Descargar Reporte*).
 
+  83. **Gestión y Borrado de Chats en 'Chat & Solicitudes' (Borrado Individual, Selección Múltiple y Vaciado Directo):**
+      - **Funcionalidad Implementada en `src/lib/internalChat.js`:**
+        * `deleteChatMessage(messageId)`: Elimina un mensaje individual por su identificador.
+        * `deleteChatMessages(messageIds)`: Permite eliminar de forma atómica y masiva un lote de mensajes seleccionados.
+        * `clearVendorConversation(vendorName)`: Vacía completamente la conversación completa con un vendedor específico.
+        * Transmisión en tiempo real vía Supabase Realtime (`delete_chat_message`, `delete_chat_messages_bulk`, `clear_vendor_conversation`) y sincronización persistente en la nube (`daily_supervision_history`) y local (`localStorage`).
+      - **Controles en la Interfaz de Administrador (`AdminSupportTicketsModal.jsx`):**
+        * **Botón 'Marcar' / 'Cancelar Selección':** Activa el modo de selección múltiple con casillas de verificación interactivas en cada mensaje, conteo en vivo de mensajes seleccionados, botones de *'Seleccionar todos'* y *'Desmarcar'*, y botón destacado **`🗑️ Eliminar Marcados (N)`** con diálogo de confirmación.
+        * **Botón 'Vaciar Chat':** Ubicado en la cabecera de la conversación activa con el vendedor; permite purgar y vaciar directamente la totalidad de la conversación de dicho vendedor con doble confirmación de seguridad.
+        * **Borrado Individual:** Al pasar el cursor o interactuar sobre cualquier mensaje (cuando no está en modo de selección múltiple), se muestra un icono discreto de papelera que permite eliminar ese mensaje específico de inmediato.
+      - **Replicación en la Vista de Vendedor (`VendorSupportChatModal.jsx`):**
+        * Se integraron los mismos controles de marcado, borrado individual y vaciado en el modal de soporte del vendedor, brindando una experiencia simétrica y pulida a todo el equipo.
+
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
 - Queda **estrictamente prohibido** mezclarlo con otros proyectos, colocar barras compartidas, botones de salto o código cruzado. Cada proyecto que se inicie o trabaje debe manejarse de forma 100% aislada e independiente.
