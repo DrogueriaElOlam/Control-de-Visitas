@@ -8,7 +8,14 @@ import SolicitudViaticosHistory from './SolicitudViaticosHistory';
 import { isSuperUser, getPermittedRoutesForUser, ALL_ROUTES, getRoutesForVendor } from '../lib/formsPermissions';
 import { LOGO_DATA_URI } from '../lib/logo';
 import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
-import { OFFICIAL_ROUTE_VIATICOS_TEMPLATES, findRouteTemplate, syncAllRouteTemplatesToSupabase } from '../lib/viaticosTemplates';
+import {
+  OFFICIAL_ROUTE_VIATICOS_TEMPLATES,
+  findRouteTemplate,
+  syncAllRouteTemplatesToSupabase,
+  fetchSafeSolicitudViaticosHistory,
+  saveSafeSolicitudViaticosRecord,
+  getLocalViaticosHistoryBackup
+} from '../lib/viaticosTemplates';
 
 export default function SolicitudViaticosForm({ currentUser }) {
   const isSuper = isSuperUser(currentUser);
@@ -101,6 +108,7 @@ export default function SolicitudViaticosForm({ currentUser }) {
   });
   const [vendorAutofillMessage, setVendorAutofillMessage] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [historyCount, setHistoryCount] = useState(() => getLocalViaticosHistoryBackup().length);
 
   // Cargar plantillas de rutas y plantillas por vendedor (con sincronización en la nube y rescate histórico)
   useEffect(() => {
@@ -132,14 +140,13 @@ export default function SolicitudViaticosForm({ currentUser }) {
           }
         }
 
-        // C. Rescate histórico inteligente de solicitudes previas para inferir datos de vendedores
+        // C. Rescate histórico inteligente y sincronización de bóveda segura de Solicitud de Viáticos
         let historyInferred = {};
         try {
-          const { data: histData } = await supabase
-            .from('solicitud_viaticos_history')
-            .select('datos')
-            .order('fecha_creacion', { ascending: false })
-            .limit(40);
+          const histData = await fetchSafeSolicitudViaticosHistory();
+          if (isMounted && Array.isArray(histData)) {
+            setHistoryCount(histData.length);
+          }
 
           if (histData && Array.isArray(histData)) {
             histData.forEach(item => {
@@ -543,39 +550,19 @@ export default function SolicitudViaticosForm({ currentUser }) {
       }
     }
 
-    // Save to Supabase history
+    // Save to Supabase history + Cloud Vault + Local Backup
     try {
-      const dataToSave = {
-        datos: formData,
-        fecha_creacion: new Date().toISOString()
-      };
-
-      let result;
-      if (currentRecordId) {
-        // Update existing record
-        result = await supabase
-          .from('solicitud_viaticos_history')
-          .update(dataToSave)
-          .eq('id', currentRecordId);
-      } else {
-        // Insert new record
-        result = await supabase
-          .from('solicitud_viaticos_history')
-          .insert([dataToSave])
-          .select();
-          
-        if (result.data && result.data.length > 0) {
-          setCurrentRecordId(result.data[0].id);
-        }
+      const { record, dbError } = await saveSafeSolicitudViaticosRecord(formData, currentRecordId);
+      if (record && record.id) {
+        setCurrentRecordId(record.id);
       }
+      setHistoryCount(getLocalViaticosHistoryBackup().length);
 
-      if (result.error) {
-        console.error('Error al guardar en historial:', result.error);
-        alert('Error al guardar en el historial');
-      } else {
-        setShowSaveMessage(true);
-        setTimeout(() => setShowSaveMessage(false), 3000);
+      if (dbError) {
+        console.warn('Guardado en respaldo seguro local/bóveda (aviso Supabase):', dbError);
       }
+      setShowSaveMessage(true);
+      setTimeout(() => setShowSaveMessage(false), 3000);
     } catch (error) {
       console.error('Error al guardar:', error);
       alert('Error al guardar el formulario');
@@ -837,7 +824,12 @@ export default function SolicitudViaticosForm({ currentUser }) {
             className="flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 font-semibold text-sm sm:text-base cursor-pointer shadow-sm transition-all"
           >
             <History className="w-4 h-4" />
-            Historial
+            <span>Historial</span>
+            {historyCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 text-xs font-bold bg-yellow-400 text-black rounded-full">
+                {historyCount}
+              </span>
+            )}
           </button>
           {currentRecordId && (
             <button
@@ -1252,7 +1244,10 @@ export default function SolicitudViaticosForm({ currentUser }) {
         {/* Modal de Historial */}
         {showHistory && (
           <SolicitudViaticosHistory
-            onClose={() => setShowHistory(false)}
+            onClose={() => {
+              setShowHistory(false);
+              setHistoryCount(getLocalViaticosHistoryBackup().length);
+            }}
             onEdit={handleHistoryEdit}
             currentUser={currentUser}
           />

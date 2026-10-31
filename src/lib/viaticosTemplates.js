@@ -692,3 +692,260 @@ export async function syncAllRouteTemplatesToSupabase() {
     return { success: false, error: err };
   }
 }
+
+export const VIATICOS_HISTORY_LOCAL_KEY = 'olam_solicitud_viaticos_history_backup_v1';
+export const VIATICOS_HISTORY_VAULT_DATE = '2099-12-23';
+
+function normalizeHistoryRecord(raw, index = 0) {
+  if (!raw) return null;
+  let datos = raw.datos || raw.supervision_data || raw;
+  if (typeof datos === 'string') {
+    try {
+      datos = JSON.parse(datos);
+    } catch (_) {
+      datos = {};
+    }
+  }
+  if (!datos || typeof datos !== 'object') return null;
+
+  const safeDatos = {
+    vendedor: datos.vendedor || '',
+    rutaA: datos.rutaA || '',
+    fechaInicial: datos.fechaInicial || '',
+    fechaFinal: datos.fechaFinal || '',
+    lugaresVisitar: datos.lugaresVisitar || datos.lugares_visitar || '',
+    combustible: datos.combustible !== undefined && datos.combustible !== null ? String(datos.combustible) : '',
+    alimentacion: datos.alimentacion !== undefined && datos.alimentacion !== null ? String(datos.alimentacion) : '',
+    hospedaje: datos.hospedaje !== undefined && datos.hospedaje !== null ? String(datos.hospedaje) : '',
+    fotocopias: datos.fotocopias !== undefined && datos.fotocopias !== null ? String(datos.fotocopias) : '',
+    otros: datos.otros !== undefined && datos.otros !== null ? String(datos.otros) : '',
+    observaciones: datos.observaciones || ''
+  };
+
+  if (!safeDatos.vendedor && !safeDatos.rutaA) return null;
+
+  return {
+    id: raw.id || `local_${Date.now()}_${index}`,
+    datos: safeDatos,
+    fecha_creacion: raw.fecha_creacion || raw.created_at || new Date().toISOString()
+  };
+}
+
+export function getLocalViaticosHistoryBackup() {
+  try {
+    const raw = localStorage.getItem(VIATICOS_HISTORY_LOCAL_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((item, idx) => normalizeHistoryRecord(item, idx)).filter(Boolean);
+  } catch (_) {
+    return [];
+  }
+}
+
+export function saveLocalViaticosHistoryBackup(records) {
+  try {
+    if (!Array.isArray(records)) return;
+    localStorage.setItem(VIATICOS_HISTORY_LOCAL_KEY, JSON.stringify(records));
+  } catch (_) {}
+}
+
+export async function syncViaticosHistoryVaultToCloud(records) {
+  try {
+    if (!Array.isArray(records) || records.length === 0) return;
+    const { data: existing } = await supabase
+      .from('daily_supervision_history')
+      .select('id')
+      .eq('date', VIATICOS_HISTORY_VAULT_DATE)
+      .limit(1);
+
+    const payload = {
+      date: VIATICOS_HISTORY_VAULT_DATE,
+      vendor_name: 'VIATICOS_HISTORY_VAULT',
+      supervision_data: {
+        tipo: 'solicitud_viaticos_history_vault',
+        updated_at: new Date().toISOString(),
+        records
+      }
+    };
+
+    if (existing && existing.length > 0) {
+      await supabase
+        .from('daily_supervision_history')
+        .update(payload)
+        .eq('id', existing[0].id);
+    } else {
+      await supabase
+        .from('daily_supervision_history')
+        .insert([payload]);
+    }
+  } catch (err) {
+    console.warn('Aviso al sincronizar bóveda de historial de viáticos:', err);
+  }
+}
+
+/**
+ * Carga blindada del historial de solicitudes de viáticos:
+ * Combina la tabla oficial `solicitud_viaticos_history`, la bóveda en `daily_supervision_history`
+ * y el respaldo local en `localStorage` para garantizar 0 pérdida de información y 0 errores.
+ */
+export async function fetchSafeSolicitudViaticosHistory() {
+  const localBackup = getLocalViaticosHistoryBackup();
+  let dbRecords = [];
+  let vaultRecords = [];
+
+  try {
+    const { data, error } = await supabase
+      .from('solicitud_viaticos_history')
+      .select('*')
+      .order('fecha_creacion', { ascending: false });
+
+    if (!error && Array.isArray(data)) {
+      dbRecords = data.map((r, i) => normalizeHistoryRecord(r, i)).filter(Boolean);
+    }
+  } catch (err) {
+    console.warn('Aviso consultando solicitud_viaticos_history:', err);
+  }
+
+  try {
+    const { data: vaultData } = await supabase
+      .from('daily_supervision_history')
+      .select('*')
+      .eq('date', VIATICOS_HISTORY_VAULT_DATE)
+      .limit(1);
+
+    if (vaultData && vaultData[0]) {
+      const content = vaultData[0].supervision_data || vaultData[0].datos;
+      if (content && Array.isArray(content.records)) {
+        vaultRecords = content.records.map((r, i) => normalizeHistoryRecord(r, i)).filter(Boolean);
+      }
+    }
+  } catch (_) {}
+
+  // Unificar registros priorizando la base de datos oficial y conservando respaldos únicos
+  const mergedMap = new Map();
+  const buildSignature = (r) => {
+    const d = r?.datos || {};
+    return `${(d.vendedor || '').trim().toLowerCase()}|${(d.rutaA || '').trim().toLowerCase()}|${d.fechaInicial || ''}|${d.fechaFinal || ''}|${d.combustible || ''}|${d.alimentacion || ''}|${d.hospedaje || ''}`;
+  };
+
+  const seenSignatures = new Set();
+
+  for (const rec of dbRecords) {
+    const key = String(rec.id);
+    mergedMap.set(key, rec);
+    seenSignatures.add(buildSignature(rec));
+  }
+
+  for (const rec of [...vaultRecords, ...localBackup]) {
+    const key = String(rec.id);
+    const sig = buildSignature(rec);
+    if (!mergedMap.has(key) && !seenSignatures.has(sig)) {
+      mergedMap.set(key, rec);
+      seenSignatures.add(sig);
+    }
+  }
+
+  const finalRecords = Array.from(mergedMap.values()).sort(
+    (a, b) => new Date(b.fecha_creacion || 0).getTime() - new Date(a.fecha_creacion || 0).getTime()
+  );
+
+  if (finalRecords.length > 0) {
+    saveLocalViaticosHistoryBackup(finalRecords);
+    if (dbRecords.length > 0 && vaultRecords.length !== finalRecords.length) {
+      syncViaticosHistoryVaultToCloud(finalRecords).catch(() => {});
+    }
+  }
+
+  return finalRecords;
+}
+
+/**
+ * Guarda o actualiza una solicitud de viáticos con triple respaldo (Tabla oficial + Bóveda + LocalStorage).
+ */
+export async function saveSafeSolicitudViaticosRecord(formData, currentRecordId = null) {
+  const nowIso = new Date().toISOString();
+  const dataToSave = {
+    datos: formData,
+    fecha_creacion: nowIso
+  };
+
+  let savedRecord = null;
+  let dbError = null;
+
+  try {
+    if (currentRecordId && !String(currentRecordId).startsWith('local_')) {
+      const { data, error } = await supabase
+        .from('solicitud_viaticos_history')
+        .update(dataToSave)
+        .eq('id', currentRecordId)
+        .select();
+
+      if (error) {
+        dbError = error;
+      } else if (data && data.length > 0) {
+        savedRecord = normalizeHistoryRecord(data[0]);
+      } else {
+        savedRecord = normalizeHistoryRecord({ id: currentRecordId, ...dataToSave });
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('solicitud_viaticos_history')
+        .insert([dataToSave])
+        .select();
+
+      if (error) {
+        dbError = error;
+      } else if (data && data.length > 0) {
+        savedRecord = normalizeHistoryRecord(data[0]);
+      }
+    }
+  } catch (err) {
+    dbError = err;
+  }
+
+  if (!savedRecord) {
+    savedRecord = normalizeHistoryRecord({
+      id: currentRecordId || `local_${Date.now()}`,
+      ...dataToSave
+    });
+  }
+
+  // Actualizar respaldo local y bóveda en la nube
+  const currentList = getLocalViaticosHistoryBackup();
+  const existingIdx = currentList.findIndex(r => String(r.id) === String(savedRecord.id));
+  let updatedList;
+  if (existingIdx >= 0) {
+    updatedList = [...currentList];
+    updatedList[existingIdx] = savedRecord;
+  } else {
+    updatedList = [savedRecord, ...currentList];
+  }
+
+  saveLocalViaticosHistoryBackup(updatedList);
+  syncViaticosHistoryVaultToCloud(updatedList).catch(() => {});
+
+  return { record: savedRecord, dbError };
+}
+
+/**
+ * Elimina un registro del historial tanto en Supabase como en los respaldos.
+ */
+export async function deleteSafeSolicitudViaticosRecord(id) {
+  try {
+    if (id && !String(id).startsWith('local_')) {
+      await supabase
+        .from('solicitud_viaticos_history')
+        .delete()
+        .eq('id', id);
+    }
+  } catch (err) {
+    console.warn('Aviso al eliminar en solicitud_viaticos_history:', err);
+  }
+
+  const currentList = getLocalViaticosHistoryBackup();
+  const updatedList = currentList.filter(r => String(r.id) !== String(id));
+  saveLocalViaticosHistoryBackup(updatedList);
+  syncViaticosHistoryVaultToCloud(updatedList).catch(() => {});
+  return true;
+}

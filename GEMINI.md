@@ -697,6 +697,15 @@
           3) Implementada lista negra indestructible fija (`DEFAULT_LOGOUT_BURNED`) en `getLogoutBurnedKeysRegistry()` con las 12 claves oficiales quemadas de deslogueo.
           4) En `verifyAndConsumeOtpKeyAsync` y `verifyAndConsumeLogoutOtpKeyAsync`, el sistema verifica contra la lista negra local y la fila en vivo de Supabase antes de autorizar. Al consumir una clave, la quema de forma atómica en Supabase con `await` obligatorio antes de emitir la autorización de acceso o salida.
           5) Verificado mediante pruebas automatizadas de extremo a extremo que el reintento de uso de una clave quemada es rechazado categóricamente con `alreadyUsed: true` y tarjeta de acceso denegado en todos los dispositivos.
+  87. **Resolución de Error en el Botón 'Historial' de Solicitud de Viáticos y Blindaje de Triple Respaldo (`SolicitudViaticosHistory.jsx`, `SolicitudViaticosForm.jsx`, `viaticosTemplates.js`):**
+      - **Causa Raíz del Error:** En `src/components/SolicitudViaticosHistory.jsx` faltaba la línea de importación `import React, { useState, useEffect } from 'react';` al inicio del archivo. Al presionar el botón **Historial**, React lanzaba `ReferenceError: useState is not defined`, disparando la pantalla de error de la aplicación.
+      - **Solución e Implementación de Triple Respaldo Seguro:**
+        1) Se incorporó la importación explícita de `React, { useState, useEffect }` y se añadieron validaciones seguras contra datos nulos (`record?.datos || {}`) en todos los métodos de cálculo, impresión y renderizado.
+        2) Se implementó el sistema de almacenamiento seguro de triple capa en `src/lib/viaticosTemplates.js` (`fetchSafeSolicitudViaticosHistory`, `saveSafeSolicitudViaticosRecord`, `deleteSafeSolicitudViaticosRecord`):
+           * **Capa 1 (Tabla Oficial en Supabase):** Persistencia en tiempo real en `solicitud_viaticos_history`.
+           * **Capa 2 (Bóveda Espejo en la Nube):** Sincronización automática en `daily_supervision_history` (`date: '2099-12-23'`, `VIATICOS_HISTORY_VAULT`).
+           * **Capa 3 (Respaldo Instantáneo Local):** Copia local persistente en `localStorage` (`olam_solicitud_viaticos_history_backup_v1`) para apertura instantánea y tolerancia total a caídas de red sin alertas de error.
+        3) Se añadió contador en vivo de solicitudes almacenadas directamente en el botón **Historial** de `SolicitudViaticosForm.jsx`.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

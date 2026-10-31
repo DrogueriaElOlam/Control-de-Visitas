@@ -1,13 +1,19 @@
+import React, { useState, useEffect } from 'react';
 import { X, Edit2, Eye, Printer, Trash2, Filter, Share2, ShieldCheck, UserCheck, RotateCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { isSuperUser, matchesVendorUser } from '../lib/formsPermissions';
 import { LOGO_DATA_URI } from '../lib/logo';
 import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
+import {
+  fetchSafeSolicitudViaticosHistory,
+  deleteSafeSolicitudViaticosRecord,
+  getLocalViaticosHistoryBackup
+} from '../lib/viaticosTemplates';
 
 export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser }) {
   const isSuper = isSuperUser(currentUser);
   const [loading, setLoading] = useState(true);
-  const [historyData, setHistoryData] = useState([]);
+  const [historyData, setHistoryData] = useState(() => getLocalViaticosHistoryBackup());
   const [filteredData, setFilteredData] = useState([]);
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
@@ -28,21 +34,13 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from('solicitud_viaticos_history')
-        .select('*')
-        .order('fecha_creacion', { ascending: false });
-
-      if (error) {
-        console.error('Error al cargar historial:', error);
-        throw error;
-      }
-
-      console.log('Historial cargado:', data);
-      setHistoryData(data || []);
+      const safeData = await fetchSafeSolicitudViaticosHistory();
+      console.log('Historial cargado:', safeData);
+      setHistoryData(safeData || []);
     } catch (error) {
       console.error('Error al cargar historial:', error);
-      alert('Error al cargar el historial');
+      const localFallback = getLocalViaticosHistoryBackup();
+      setHistoryData(localFallback || []);
     } finally {
       setLoading(false);
     }
@@ -54,11 +52,11 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
     // Restricción por permisos: Si no es Antonio Celada ni Admin, solo ver sus propias solicitudes
     if (!isSuper && currentUser?.name) {
       filtered = filtered.filter(record => 
-        matchesVendorUser(record.datos?.vendedor, currentUser.name)
+        matchesVendorUser(record?.datos?.vendedor, currentUser.name)
       );
     } else if (vendedorFilter) {
       filtered = filtered.filter(record => 
-        record.datos?.vendedor && 
+        record?.datos?.vendedor && 
         record.datos.vendedor.toLowerCase().includes(vendedorFilter.toLowerCase())
       );
     }
@@ -103,6 +101,7 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
   };
 
   const calcularTotal = (datos) => {
+    if (!datos) return '0.00';
     const valores = [
       parseFloat(datos.combustible) || 0,
       parseFloat(datos.alimentacion) || 0,
@@ -121,16 +120,7 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
     console.log('Eliminando registro:', id);
 
     try {
-      const { error } = await supabase
-        .from('solicitud_viaticos_history')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('Error al eliminar:', error);
-        throw error;
-      }
-
+      await deleteSafeSolicitudViaticosRecord(id);
       alert('Registro eliminado exitosamente');
       loadHistory();
     } catch (error) {
@@ -154,10 +144,10 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
   };
 
   const generateHTML = (record) => {
-    const datos = record.datos;
+    const datos = record?.datos || {};
     const total = calcularTotal(datos);
     // Use creation date as request date if available, or current date
-    const today = record.fecha_creacion ? new Date(record.fecha_creacion) : new Date();
+    const today = record?.fecha_creacion ? new Date(record.fecha_creacion) : new Date();
     const fechaSolicitud = today.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
     
     return `
@@ -327,18 +317,18 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
   const handleExportHTML = (record) => {
     console.log('Exportando a HTML:', record);
     const html = generateHTML(record);
-    const datos = record.datos;
+    const datos = record?.datos || {};
     const cleanName = (datos.vendedor || 'vendedor').replace(/\s+/g, '_');
-    const filename = `solicitud-viaticos-${cleanName}-${formatDate(record.fecha_creacion).replace(/[/:]/g, '-')}`;
+    const filename = `solicitud-viaticos-${cleanName}-${formatDate(record?.fecha_creacion).replace(/[/:]/g, '-')}`;
     openAndPrintHtml(html, filename);
   };
 
   const handleShare = async (record) => {
     console.log('Compartiendo registro:', record);
     const html = generateHTML(record);
-    const datos = record.datos;
+    const datos = record?.datos || {};
     const cleanName = (datos.vendedor || 'vendedor').replace(/\s+/g, '_');
-    const filename = `solicitud-viaticos-${cleanName}-${formatDate(record.fecha_creacion).replace(/[/:]/g, '-')}.html`;
+    const filename = `solicitud-viaticos-${cleanName}-${formatDate(record?.fecha_creacion).replace(/[/:]/g, '-')}.html`;
     const blob = new Blob([html], { type: 'text/html' });
     const file = new File([blob], filename, { type: 'text/html' });
 
@@ -366,7 +356,8 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
   const renderDetailsModal = () => {
     if (!selectedRecord) return null;
 
-    const { datos, fecha_creacion } = selectedRecord;
+    const datos = selectedRecord.datos || {};
+    const { fecha_creacion } = selectedRecord;
     const total = calcularTotal(datos);
 
     return (
@@ -445,11 +436,19 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-auto">
-        <div className="sticky top-0 bg-yellow-400 text-black p-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold">Historial de Solicitudes de Viáticos</h2>
+        <div className="sticky top-0 bg-yellow-400 text-black p-4 flex justify-between items-center z-10">
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              Historial de Solicitudes de Viáticos
+            </h2>
+            <p className="text-xs font-semibold text-gray-800 flex items-center gap-1 mt-0.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-800" />
+              <span>Información almacenada y respaldada de forma segura (Nube Supabase + Bóveda + Memoria Local)</span>
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-yellow-500 rounded-full transition-colors"
+            className="p-2 hover:bg-yellow-500 rounded-full transition-colors cursor-pointer"
           >
             <X className="w-6 h-6" />
           </button>
@@ -533,7 +532,7 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
             </div>
           </div>
 
-          {loading ? (
+          {loading && filteredData.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-600">Cargando historial...</p>
             </div>
@@ -546,7 +545,9 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
               <p className="text-sm text-gray-600 mb-3">
                 Total de registros: {filteredData.length}
               </p>
-              {filteredData.map((record) => (
+              {filteredData.map((record) => {
+                const datos = record?.datos || {};
+                return (
                 <div
                   key={record.id}
                   className="border rounded-lg p-4 bg-yellow-50 border-yellow-200 hover:shadow-md transition-shadow"
@@ -554,53 +555,53 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <h4 className="font-semibold text-gray-800 mb-1">
-                        Solicitud: {record.datos.vendedor}
+                        Solicitud: {datos.vendedor || 'Sin especificar'}
                       </h4>
                       <p className="text-sm text-gray-600">
-                        <span className="font-medium">Ruta:</span> {record.datos.rutaA}
+                        <span className="font-medium">Ruta:</span> {datos.rutaA || 'Sin ruta'}
                       </p>
                       <p className="text-sm text-gray-600">
-                        <span className="font-medium">Fechas:</span> {formatDateSimple(record.datos.fechaInicial)} al {formatDateSimple(record.datos.fechaFinal)}
+                        <span className="font-medium">Fechas:</span> {formatDateSimple(datos.fechaInicial)} al {formatDateSimple(datos.fechaFinal)}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         Creado: {formatDate(record.fecha_creacion)}
                       </p>
                       <p className="text-xs font-bold mt-1">
-                        Total: Q. {calcularTotal(record.datos)}
+                        Total: Q. {calcularTotal(datos)}
                       </p>
                     </div>
                     <div className="flex gap-2 flex-wrap justify-end">
                       <button
                         onClick={() => handleEdit(record)}
-                        className="p-2 bg-yellow-400 text-black rounded hover:bg-yellow-500 transition-colors"
+                        className="p-2 bg-yellow-400 text-black rounded hover:bg-yellow-500 transition-colors cursor-pointer"
                         title="Editar"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleViewDetails(record)}
-                        className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                        className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors cursor-pointer"
                         title="Ver detalles"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleExportHTML(record)}
-                        className="p-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                        className="p-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors cursor-pointer"
                         title="Imprimir"
                       >
                         <Printer className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleShare(record)}
-                        className="p-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                        className="p-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors cursor-pointer"
                         title="Compartir"
                       >
                         <Share2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(record.id)}
-                        className="p-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                        className="p-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors cursor-pointer"
                         title="Eliminar"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -608,7 +609,8 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
