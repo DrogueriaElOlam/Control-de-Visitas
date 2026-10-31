@@ -76,19 +76,11 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
   const [showNameSuggestions, setShowNameSuggestions] = useState(false);
   const [autofillNotice, setAutofillNotice] = useState('');
 
-  // Período, tipo y fecha de visita (automático: mañana si es antes de 12pm, tarde a partir de 12pm)
+  // Período, tipo y fecha de visita (control manual por el usuario)
   const [dayPeriod, setDayPeriod] = useState(() => getDefaultDayPeriod());
   const [visitType, setVisitType] = useState('presencial');
   const [visitDate, setVisitDate] = useState(() => getLocalDateString());
 
-  // Sincronizar automáticamente la jornada/horario según la hora de Guatemala (cambio automático a tarde a las 12pm)
-  useEffect(() => {
-    setDayPeriod(getDefaultDayPeriod());
-    const interval = setInterval(() => {
-      setDayPeriod(getDefaultDayPeriod());
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Ventas
   const [hasSale, setHasSale] = useState(false);
@@ -347,11 +339,10 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
         efectivo: '',
         transferencia: '',
         cheque: '',
-        boleta: ''
       });
       setObservations('');
       setVisitDate(getLocalDateString());
-      setDayPeriod(getDefaultDayPeriod());
+      // Mantener la jornada/horario seleccionada manualmente por el usuario
       setVisitType('presencial');
       setShowCodeSuggestions(false);
       setShowNameSuggestions(false);
@@ -1605,33 +1596,42 @@ export default function VisitRegistration({ currentUser, onVisitAdded, allVisits
                 )}
               </div>
 
-              {/* Day Period */}
+              {/* Day Period (Selección Manual) */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Jornada / Horario *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Jornada / Horario *
+                  </label>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded">
+                    Manual
+                  </span>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setDayPeriod('mañana')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                    title="Jornada de la mañana (selección manual)"
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       dayPeriod === 'mañana'
-                        ? 'bg-amber-500 text-white shadow-md'
-                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                        ? 'bg-amber-500 text-white shadow-md ring-2 ring-amber-300 dark:ring-amber-400/50'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                     }`}
                   >
-                    ☀️ Mañana
+                    <span>☀️</span>
+                    <span>Mañana</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setDayPeriod('tarde')}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                    title="Jornada de la tarde (selección manual)"
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       dayPeriod === 'tarde'
-                        ? 'bg-indigo-600 text-white shadow-md'
-                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                        ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300 dark:ring-indigo-400/50'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                     }`}
                   >
-                    🌙 Tarde
+                    <span>🌙</span>
+                    <span>Tarde</span>
                   </button>
                 </div>
               </div>

@@ -682,8 +682,21 @@
         1) `handleVendedorChange` ahora ejecuta inmediatamente `setCurrentRecordId(null)` ante cualquier cambio de vendedor, garantizando que cada ejecutivo seleccionado inicie como un registro nuevo e independiente.
         2) Botón de acción reactivo: Si se está editando un registro del historial muestra el botón *'Actualizar'* y el botón *'Cancelar Edición'* (`handleClear`). Si es una solicitud nueva muestra *'Guardar'*.
         3) Banner informativo destacado cuando un registro existente está en modo edición con botón directo para cambiar a *'Nueva Solicitud'*.
-      - **Mejoras en el Historial (`SolicitudViaticosHistory.jsx`):**
-        * Añadidos botones de **`🔄 Actualizar`** (recarga inmediata desde Supabase) y **`Limpiar Filtros`**, asegurando consulta transparente y completa de las 11 solicitudes históricas en cualquier momento.
+  86. **Jornada / Horario 100% Manual en Registro de Visitas & Blindaje Definitivo de Quema de Claves OTP (Login y Deslogueo):**
+      - **Jornada / Horario Manual:**
+        * Eliminado el temporizador de fondo (`setInterval` cada 30 segundos) en `VisitRegistration.jsx` que forzaba el cambio automático a 'tarde' según la hora del reloj.
+        * Preservada la selección manual del usuario (`setDayPeriod`) al limpiar o enviar visitas sucesivas en `resetFormComplete()`, evitando que se reinicie al valor automático del sistema.
+        * Añadida insignia visual de control manual (`Manual`) y botones interactivos de alta sensibilidad (`☀️ Mañana` y `🌙 Tarde`) con anillos de foco y confirmación táctil.
+      - **Blindaje y Quema Irrevocable de Claves OTP (Login y Salida/Deslogueo):**
+        * **Causa Raíz de Reutilización de Claves:**
+          1) En la tabla `daily_supervision_history`, la falta de control por ID al actualizar provocaba que cada inicio de sesión insertara filas duplicadas masivas (llegando a más de 1,000 filas para las fechas `2099-12-30` y `2099-12-31`). Al consultar la nube con límite de 1 fila por fecha, Supabase devolvía filas obsoletas donde las claves figuraban como no quemadas (`used: false`), resucitándolas.
+          2) Para las claves de deslogueo (`OLAM-OUT-XXXX-XXXX`), no existía la lista negra fija `DEFAULT_LOGOUT_BURNED` ni se persistía `burnedRegistry` en el objeto guardado en la nube.
+        * **Solución y Depuración Implementada:**
+          1) Se consolidaron todas las claves quemadas históricas (14 de login y 12 de logout) y se purgaron las 1,000 filas duplicadas de Supabase, dejando exactamente dos filas maestras oficiales (`id: 2` para Login OTP y `id: 4` para Logout OTP).
+          2) `saveOtpVaultToCloud` y `saveLogoutOtpVaultToCloud` ahora actualizan directamente por el ID específico de la fila maestra, impidiendo permanentemente la creación de duplicados.
+          3) Implementada lista negra indestructible fija (`DEFAULT_LOGOUT_BURNED`) en `getLogoutBurnedKeysRegistry()` con las 12 claves oficiales quemadas de deslogueo.
+          4) En `verifyAndConsumeOtpKeyAsync` y `verifyAndConsumeLogoutOtpKeyAsync`, el sistema verifica contra la lista negra local y la fila en vivo de Supabase antes de autorizar. Al consumir una clave, la quema de forma atómica en Supabase con `await` obligatorio antes de emitir la autorización de acceso o salida.
+          5) Verificado mediante pruebas automatizadas de extremo a extremo que el reintento de uso de una clave quemada es rechazado categóricamente con `alreadyUsed: true` y tarjeta de acceso denegado en todos los dispositivos.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

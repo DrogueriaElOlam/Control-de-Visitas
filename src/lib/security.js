@@ -6,8 +6,8 @@
 
 import initialOtpKeys from './initialOtpKeys.json';
 import initialLogoutOtpKeys from './initialLogoutOtpKeys.json';
-import { getLocalDateString } from './dateUtils';
-import { supabase } from './supabase';
+import { getLocalDateString } from './dateUtils.js';
+import { supabase } from './supabase.js';
 
 const OTP_STORAGE_KEY = 'olam_otp_keys_vault_v2';
 const LOGOUT_OTP_STORAGE_KEY = 'olam_logout_otp_keys_vault_v2';
@@ -152,7 +152,9 @@ export function getBurnedKeysRegistry() {
     'OLAM-6VN3-7GFZ': { used: true, usedBy: 'Klissman Hernandez', usedAt: '2026-10-21 10:15:00', usedRole: 'vendor' },
     'OLAM-4BAQ-FK83': { used: true, usedBy: 'Elio Caceros', usedAt: '2026-10-21 10:30:00', usedRole: 'vendor' },
     'OLAM-65JB-ZFA6': { used: true, usedBy: 'Josue Aguilar', usedAt: '2026-10-21 10:45:00', usedRole: 'vendor' },
-    'OLAM-64Q9-9R3T': { used: true, usedBy: 'Elias Quiej', usedAt: '2026-10-21 11:00:00', usedRole: 'vendor' }
+    'OLAM-64Q9-9R3T': { used: true, usedBy: 'Elias Quiej', usedAt: '2026-10-21 11:00:00', usedRole: 'vendor' },
+    'OLAM-SDB8-E3SP': { used: true, usedBy: 'Antonio Celada', usedAt: '2026-10-23 09:44:45', usedRole: 'vendor' },
+    'OLAM-W57M-A7TV': { used: true, usedBy: 'Josue Aguilar', usedAt: '2026-10-29 21:02:23', usedRole: 'vendor' }
   };
 
   Object.entries(DEFAULT_BURNED).forEach(([key, val]) => {
@@ -365,14 +367,18 @@ export async function saveOtpVaultToCloud(vault) {
       }
     };
 
-    // Actualizar todas las filas que tengan esta fecha para evitar inconsistencias
-    const { data: updatedRows } = await supabase
+    const { data: existingRows } = await supabase
       .from('daily_supervision_history')
-      .update(payload)
+      .select('id')
       .eq('date', OTP_LOGIN_VAULT_DATE)
-      .select('id');
+      .limit(1);
 
-    if (!updatedRows || updatedRows.length === 0) {
+    if (existingRows && existingRows.length > 0) {
+      await supabase
+        .from('daily_supervision_history')
+        .update(payload)
+        .eq('id', existingRows[0].id);
+    } else {
       await supabase
         .from('daily_supervision_history')
         .insert([payload]);
@@ -678,14 +684,38 @@ export function saveLogoutOtpKeysVault(vault) {
 }
 
 export function getLogoutBurnedKeysRegistry() {
+  let reg = {};
   try {
     const raw = localStorage.getItem(OTP_LOGOUT_BURNED_REGISTRY_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (typeof parsed === 'object' && parsed !== null) return parsed;
+      if (typeof parsed === 'object' && parsed !== null) reg = parsed;
     }
   } catch (_) {}
-  return {};
+
+  // Claves de cierre quemadas oficiales irrevocables
+  const DEFAULT_LOGOUT_BURNED = {
+    'OLAM-OUT-ANTA-2GWC': { used: true, usedBy: 'Antonio Celada', usedAt: '2026-10-22 17:00:00', usedRole: 'supervisor_logout' },
+    'OLAM-OUT-6U4B-SNXD': { used: true, usedBy: 'Ana Lucia Marroquin', usedAt: '2026-10-22 17:05:00', usedRole: 'supervisor_logout' },
+    'OLAM-OUT-BFGF-P8M5': { used: true, usedBy: 'Jessica Noriega', usedAt: '2026-10-22 17:10:00', usedRole: 'supervisor_logout' },
+    'OLAM-OUT-RDJV-GLCF': { used: true, usedBy: 'Wally Natareno', usedAt: '2026-10-22 17:15:00', usedRole: 'supervisor_logout' },
+    'OLAM-OUT-G6Q3-5F8B': { used: true, usedBy: 'Erick Curley', usedAt: '2026-10-22 17:20:00', usedRole: 'supervisor_logout' },
+    'OLAM-OUT-SKLZ-AQ3D': { used: true, usedBy: 'Estuardo Cordova', usedAt: '2026-10-22 17:25:00', usedRole: 'supervisor_logout' },
+    'OLAM-OUT-T9HN-LPSC': { used: true, usedBy: 'Karina Pineda', usedAt: '2026-10-22 17:30:00', usedRole: 'supervisor_logout' },
+    'OLAM-OUT-AYTW-7B6T': { used: true, usedBy: 'Danny Perez', usedAt: '2026-10-22 17:35:00', usedRole: 'supervisor_logout' },
+    'OLAM-OUT-RW4W-75H5': { used: true, usedBy: 'Klissman Hernandez', usedAt: '2026-10-22 17:40:00', usedRole: 'supervisor_logout' },
+    'OLAM-OUT-HFXE-WW5B': { used: true, usedBy: 'Elio Caceros', usedAt: '2026-10-22 17:45:00', usedRole: 'supervisor_logout' },
+    'OLAM-OUT-KFCG-DY53': { used: true, usedBy: 'Josue Aguilar', usedAt: '2026-10-22 17:50:00', usedRole: 'supervisor_logout' },
+    'OLAM-OUT-MN3F-WKER': { used: true, usedBy: 'Elias Quiej', usedAt: '2026-10-22 17:55:00', usedRole: 'supervisor_logout' }
+  };
+
+  Object.entries(DEFAULT_LOGOUT_BURNED).forEach(([key, val]) => {
+    if (!reg[key]) {
+      reg[key] = val;
+    }
+  });
+
+  return reg;
 }
 
 export function recordLogoutKeyInBurnedRegistry(key, meta = {}) {
@@ -756,28 +786,61 @@ export async function fetchLogoutOtpVaultFromCloud() {
 
     if (!error && row && rowPayload?.vault) {
       const cloudVault = rowPayload.vault;
-      let hasNewCloudBurn = false;
-      let hasNewLocalBurn = false;
+      const cloudRegistry = rowPayload?.burnedRegistry || {};
 
+      // 1. Fusionar claves de cierre quemadas de la nube en el registro local
+      if (typeof cloudRegistry === 'object') {
+        Object.keys(cloudRegistry).forEach((k) => {
+          recordLogoutKeyInBurnedRegistry(k, cloudRegistry[k]);
+        });
+      }
+
+      let hasNewLocalBurn = false;
+      const reg = getLogoutBurnedKeysRegistry();
+
+      // 2. Fusionar arrays: si local o nube dice quemada, queda quemada siempre
       let merged = localVault.map((localItem) => {
-        const cloudItem = cloudVault.find(c => c.key === localItem.key || c.id === localItem.id);
-        if (cloudItem && cloudItem.used && !localItem.used) {
-          hasNewCloudBurn = true;
-          recordLogoutKeyInBurnedRegistry(localItem.key, cloudItem);
+        const itemKey = (localItem.key || '').trim().toUpperCase();
+        const cloudItem = cloudVault.find(c => (c.key || '').trim().toUpperCase() === itemKey || c.id === localItem.id);
+        const regInfo = reg[itemKey];
+
+        if (regInfo) {
+          return {
+            ...localItem,
+            used: true,
+            usedAt: regInfo.usedAt || localItem.usedAt || cloudItem?.usedAt,
+            usedBy: regInfo.usedBy || localItem.usedBy || cloudItem?.usedBy,
+            usedRole: regInfo.usedRole || localItem.usedRole || cloudItem?.usedRole || 'supervisor_logout'
+          };
+        }
+
+        if (cloudItem && cloudItem.used) {
+          recordLogoutKeyInBurnedRegistry(itemKey, cloudItem);
           return {
             ...localItem,
             used: true,
             usedAt: cloudItem.usedAt,
             usedBy: cloudItem.usedBy,
-            usedRole: cloudItem.usedRole
+            usedRole: cloudItem.usedRole || 'supervisor_logout'
           };
         }
-        if (localItem.used && (!cloudItem || !cloudItem.used)) {
+
+        if (localItem.used) {
           hasNewLocalBurn = true;
+          recordLogoutKeyInBurnedRegistry(itemKey, localItem);
           return localItem;
         }
+
         return localItem;
       });
+
+      merged = ensureBurnedLogoutKeys(merged);
+      saveLogoutOtpKeysVault(merged);
+
+      if (hasNewLocalBurn) {
+        saveLogoutOtpVaultToCloud(merged).catch(() => {});
+      }
+      return merged;
 
       merged = ensureBurnedLogoutKeys(merged);
 
@@ -799,6 +862,8 @@ export async function fetchLogoutOtpVaultFromCloud() {
 export async function saveLogoutOtpVaultToCloud(vault) {
   const finalizedVault = ensureBurnedLogoutKeys(vault);
   saveLogoutOtpKeysVault(finalizedVault);
+  const currentRegistry = getLogoutBurnedKeysRegistry();
+
   try {
     const payload = {
       date: OTP_LOGOUT_VAULT_DATE,
@@ -806,6 +871,7 @@ export async function saveLogoutOtpVaultToCloud(vault) {
       supervision_data: {
         tipo: 'otp_vault_logout',
         vault: finalizedVault,
+        burnedRegistry: currentRegistry,
         updated_at: new Date().toISOString()
       }
     };
@@ -813,13 +879,14 @@ export async function saveLogoutOtpVaultToCloud(vault) {
     const { data: existingRows } = await supabase
       .from('daily_supervision_history')
       .select('id')
-      .eq('date', OTP_LOGOUT_VAULT_DATE);
+      .eq('date', OTP_LOGOUT_VAULT_DATE)
+      .limit(1);
 
     if (existingRows && existingRows.length > 0) {
       await supabase
         .from('daily_supervision_history')
         .update(payload)
-        .eq('date', OTP_LOGOUT_VAULT_DATE);
+        .eq('id', existingRows[0].id);
     } else {
       await supabase
         .from('daily_supervision_history')
