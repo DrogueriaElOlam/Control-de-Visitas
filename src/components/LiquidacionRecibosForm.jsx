@@ -99,6 +99,7 @@ export default function LiquidacionRecibosForm({ currentUser }) {
   const [showHistory, setShowHistory] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
+  const [printOrientation, setPrintOrientation] = useState('portrait');
 
   const [ejecutivos, setEjecutivos] = useState(EJECUTIVOS);
   const [rutas, setRutas] = useState(RUTAS);
@@ -478,8 +479,8 @@ export default function LiquidacionRecibosForm({ currentUser }) {
     return `${day}/${month}/${year}`;
   };
 
-  const buildHtml = () => {
-    return generateLiquidacionRecibosHtml(formData, receipts);
+  const buildHtml = (orientation = printOrientation) => {
+    return generateLiquidacionRecibosHtml(formData, receipts, orientation);
   };
 
   const getCleanFileName = () => {
@@ -495,13 +496,13 @@ export default function LiquidacionRecibosForm({ currentUser }) {
   };
 
   const handlePrint = () => {
-    const html = buildHtml();
-    openAndPrintHtml(html, getCleanFileName());
+    const html = buildHtml(printOrientation);
+    openAndPrintHtml(html, getCleanFileName(), printOrientation);
   };
 
   const handleExport = () => {
-    const html = buildHtml();
-    downloadHtmlFile(html, `${getCleanFileName()}.html`);
+    const html = buildHtml(printOrientation);
+    downloadHtmlFile(html, `${getCleanFileName()}.html`, printOrientation);
   };
 
   return (
@@ -551,6 +552,44 @@ export default function LiquidacionRecibosForm({ currentUser }) {
               ℹ️ Editando registro del historial. Los cambios se guardarán al presionar "Actualizar".
             </div>
           )}
+
+          {/* Selector de Orientación de Impresión / Exportación */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3 p-3 bg-blue-50/90 rounded-xl border border-blue-200 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-xs sm:text-sm font-bold text-blue-950">
+                Orientación de Impresión:
+              </span>
+              <div className="inline-flex rounded-lg shadow-xs bg-white p-1 border border-blue-200">
+                <button
+                  type="button"
+                  onClick={() => setPrintOrientation('portrait')}
+                  className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                    printOrientation === 'portrait'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-blue-900 hover:bg-slate-50'
+                  }`}
+                >
+                  📄 Vertical
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintOrientation('landscape')}
+                  className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                    printOrientation === 'landscape'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-blue-900 hover:bg-slate-50'
+                  }`}
+                >
+                  📑 Horizontal
+                </button>
+              </div>
+            </div>
+            <span className="text-xs text-blue-800 font-semibold">
+              {printOrientation === 'portrait' 
+                ? '📄 Configurado en Vertical (Carta estándar de 1 página)' 
+                : '📑 Configurado en Horizontal (Modo Panorámico)'}
+            </span>
+          </div>
 
           <FormButtons 
             onClear={handleClear}

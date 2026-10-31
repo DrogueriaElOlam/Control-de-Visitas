@@ -117,12 +117,6 @@ export const generateLiquidacionViaticosHtml = (formData = {}) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Liquidación de Viáticos - ${formData.liquidadoPor || 'Droguería El Olam'}</title>
-  <style id="orientation-style">
-    @page {
-      size: letter landscape;
-      margin: 6mm 8mm 6mm 8mm;
-    }
-  </style>
   <style>
     * {
       box-sizing: border-box;
@@ -507,55 +501,50 @@ export const generateLiquidacionViaticosHtml = (formData = {}) => {
       }
     }
 
-    @media print and (orientation: landscape) {
-      @page {
-        size: letter landscape;
-        margin: 5mm 8mm 5mm 8mm;
-      }
-      .header-container {
-        padding: 1px 0 3px 0 !important;
-        margin-bottom: 4px !important;
-      }
-      .header-logo-cell img {
-        max-height: 40px !important;
-      }
-      .header-title-cell h1 {
-        font-size: 12pt !important;
-      }
-      .header-title-cell h2 {
-        font-size: 10pt !important;
-      }
-      .info-box td {
-        padding: 2.5px 6px !important;
-        font-size: 8.5pt !important;
-      }
-      .viaticos-table td {
-        padding: 2px 3px !important;
-        height: 17px !important;
-        font-size: 7.5pt !important;
-      }
-      .viaticos-table th {
-        padding: 2.5px 2px !important;
-        font-size: 7.5pt !important;
-      }
-      .totals-row td {
-        padding: 2.5px 3px !important;
-        font-size: 8pt !important;
-      }
-      .grand-total-bar {
-        padding: 4px 10px !important;
-        font-size: 9.5pt !important;
-        margin-top: 4px !important;
-      }
-      .signatures-section {
-        margin-top: 14px !important;
-      }
-      .sig-underline {
-        width: 240px !important;
-      }
-      .sig-meta {
-        width: 240px !important;
-      }
+    /* Modo Horizontal (Landscape Recomendado) */
+    body:not(.is-portrait) .header-container {
+      padding: 1px 0 3px 0 !important;
+      margin-bottom: 4px !important;
+    }
+    body:not(.is-portrait) .header-logo-cell img {
+      max-height: 40px !important;
+    }
+    body:not(.is-portrait) .header-title-cell h1 {
+      font-size: 12pt !important;
+    }
+    body:not(.is-portrait) .header-title-cell h2 {
+      font-size: 10pt !important;
+    }
+    body:not(.is-portrait) .info-box td {
+      padding: 2.5px 6px !important;
+      font-size: 8.5pt !important;
+    }
+    body:not(.is-portrait) .viaticos-table td {
+      padding: 2px 3px !important;
+      height: 17px !important;
+      font-size: 7.5pt !important;
+    }
+    body:not(.is-portrait) .viaticos-table th {
+      padding: 2.5px 2px !important;
+      font-size: 7.5pt !important;
+    }
+    body:not(.is-portrait) .totals-row td {
+      padding: 2.5px 3px !important;
+      font-size: 8pt !important;
+    }
+    body:not(.is-portrait) .grand-total-bar {
+      padding: 4px 10px !important;
+      font-size: 9.5pt !important;
+      margin-top: 4px !important;
+    }
+    body:not(.is-portrait) .signatures-section {
+      margin-top: 14px !important;
+    }
+    body:not(.is-portrait) .sig-underline {
+      width: 240px !important;
+    }
+    body:not(.is-portrait) .sig-meta {
+      width: 240px !important;
     }
 
     /* Modo Vertical si el usuario decide imprimir en vertical */
@@ -580,8 +569,14 @@ export const generateLiquidacionViaticosHtml = (formData = {}) => {
       width: 170px;
     }
   </style>
+  <style id="orientation-style">
+    @page {
+      size: letter landscape;
+      margin: 5mm 8mm 5mm 8mm;
+    }
+  </style>
 </head>
-<body>
+<body class="is-landscape">
   <!-- Barra flotante de acciones para pantalla -->
   <div class="action-bar no-print">
     <div style="display: flex; align-items: center; gap: 8px;">
@@ -711,20 +706,21 @@ export const generateLiquidacionViaticosHtml = (formData = {}) => {
   <script>
     function setOrientation(mode) {
       var styleTag = document.getElementById('orientation-style');
+      if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'orientation-style';
+        document.head.appendChild(styleTag);
+      }
       var btnPort = document.getElementById('btn-portrait');
       var btnLand = document.getElementById('btn-landscape');
       if (mode === 'portrait') {
         document.body.classList.add('is-portrait');
-        if (styleTag) {
-          styleTag.innerHTML = '@page { size: letter portrait; margin: 7mm 8mm 7mm 8mm; }';
-        }
+        styleTag.innerHTML = '@page { size: letter portrait; margin: 7mm 8mm 7mm 8mm; }';
         if (btnPort) btnPort.classList.add('active');
         if (btnLand) btnLand.classList.remove('active');
       } else {
         document.body.classList.remove('is-portrait');
-        if (styleTag) {
-          styleTag.innerHTML = '@page { size: letter landscape; margin: 5mm 8mm 5mm 8mm; }';
-        }
+        styleTag.innerHTML = '@page { size: letter landscape; margin: 5mm 8mm 5mm 8mm; }';
         if (btnLand) btnLand.classList.add('active');
         if (btnPort) btnPort.classList.remove('active');
       }

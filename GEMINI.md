@@ -662,7 +662,16 @@
         * **Botón 'Vaciar Chat':** Ubicado en la cabecera de la conversación activa con el vendedor; permite purgar y vaciar directamente la totalidad de la conversación de dicho vendedor con doble confirmación de seguridad.
         * **Borrado Individual:** Al pasar el cursor o interactuar sobre cualquier mensaje (cuando no está en modo de selección múltiple), se muestra un icono discreto de papelera que permite eliminar ese mensaje específico de inmediato.
       - **Replicación en la Vista de Vendedor (`VendorSupportChatModal.jsx`):**
-        * Se integraron los mismos controles de marcado, borrado individual y vaciado en el modal de soporte del vendedor, brindando una experiencia simétrica y pulida a todo el equipo.
+  84. **Calibración y Resolución Definitiva de Impresión Vertical / Horizontal en Liquidación de Recibos y Formularios:**
+      - **Causa Raíz Identificada:**
+        1) En los estilos CSS globales (`printHtmlHelper.js`, `liquidacionRecibosHtml.js` y `liquidacionViaticosHtml.js`), la regla `@media print and (orientation: landscape)` contenía incrustada la directiva `@page { size: letter landscape; }`. Si el navegador (Chrome/Edge) había utilizado orientación apaisada en alguna impresión previa o si la pantalla estaba en modo ancho, Chromium evaluaba la condición como verdadera y sobreescribía de forma permanente cualquier estilo de orientación vertical.
+        2) El script de cambio de orientación usaba `!important` dentro de `@page { size: ... !important; }`. Según la especificación oficial de CSS Paged Media del W3C y el motor Chromium, las declaraciones `!important` son inválidas dentro de `@page`, provocando que Chrome descartara la regla y dejara activa la regla horizontal previa.
+        3) En `liquidacionRecibosHtml.js`, el bloque `<style id="orientation-style">` estaba al principio del `<head>` y no al final, perdiendo prioridad en la cascada frente a otros estilos inyectados.
+      - **Solución Técnica Implementada:**
+        1) **Selector de Orientación Directo en el Formulario (`LiquidacionRecibosForm.jsx`):** Incorporado un selector visual claro e interactivo con botones `📄 Vertical` y `📑 Horizontal` directamente en el formulario antes de imprimir o exportar, permitiendo al usuario predefinir su orientación deseada con retroalimentación en tiempo real.
+        2) **Eliminación de `@page` en `@media print`:** Removida la directiva `@page` de adentro de las media queries para evitar que el navegador quede atrapado en horizontal. La orientación del papel ahora es gobernada 100% de forma limpia por `<style id="orientation-style">` ubicado al final del `<head>`.
+        3) **Sintaxis Estricta Válida en `setOrientation`:** Actualizadas las funciones de orientación para utilizar sintaxis estándar sin `!important` (`@page { size: letter portrait; margin: 7mm 8mm 7mm 8mm; }` y `@page { size: letter landscape; margin: 5mm 8mm 5mm 8mm; }`), sincronizando simultáneamente las clases `is-portrait` y `is-landscape` en el `<body>` y actualizando el estado de los botones superiores en la vista previa.
+        4) **Soporte Consistente en Historial y Viáticos:** Reflejada la solución en `LiquidacionRecibosHistory.jsx`, `liquidacionViaticosHtml.js` y `printHtmlHelper.js`, garantizando que cualquier reporte que el usuario decida imprimir o exportar en Vertical salga estrictamente en orientación vertical en 1 sola hoja Carta sin desbordes.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

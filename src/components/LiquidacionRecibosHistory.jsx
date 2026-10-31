@@ -140,7 +140,7 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser
     console.log('Exportando a HTML:', record);
     const datos = record.datos || {};
     const receipts = datos.receipts || [];
-    const html = generateLiquidacionRecibosHtml(datos, receipts);
+    const html = generateLiquidacionRecibosHtml(datos, receipts, 'portrait');
 
     const cleanName = (datos.ejecutivo || 'recibos')
       .normalize('NFD')
@@ -149,7 +149,7 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser
       .replace(/\s+/g, '_')
       .replace(/[^a-zA-Z0-9_-]/g, '');
     const filename = `Liquidacion_${cleanName}_${formatDate(record.fecha_creacion).replace(/[/:]/g, '-')}`;
-    openAndPrintHtml(html, filename);
+    openAndPrintHtml(html, filename, 'portrait');
   };
 
   const handleShare = async (record) => {
@@ -187,11 +187,11 @@ export default function LiquidacionRecibosHistory({ onClose, onEdit, currentUser
   const generateHTML = (record) => {
     const datos = record.datos || {};
     const receipts = datos.receipts || [];
-    return generateLiquidacionRecibosHtml(datos, receipts);
+    return generateLiquidacionRecibosHtml(datos, receipts, 'portrait');
   };
 
   const downloadHTML = (html, filename) => {
-    downloadHtmlFile(html, filename);
+    downloadHtmlFile(html, filename, 'portrait');
   };
 
   const formatDateSimple = (dateString) => {

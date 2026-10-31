@@ -127,12 +127,8 @@ export const PRINT_ACTION_BAR_STYLES = `
       }
     }
     /* Autoajuste universal en modo Horizontal (Landscape) */
-    @media print and (orientation: landscape) {
-      @page {
-        size: letter landscape;
-        margin: 5mm 8mm 5mm 8mm;
-      }
-      body {
+    @media print {
+      body.is-landscape {
         max-width: 100% !important;
         width: 100% !important;
       }
@@ -178,13 +174,15 @@ export const PRINT_AUTO_SCRIPT = `
         document.head.appendChild(dynStyle);
       }
       if (mode === 'landscape') {
+        document.body.classList.remove('is-portrait');
         document.body.classList.add('is-landscape');
-        dynStyle.innerHTML = '@page { size: letter landscape !important; margin: 5mm 8mm 5mm 8mm !important; }';
+        dynStyle.innerHTML = '@page { size: letter landscape; margin: 5mm 8mm 5mm 8mm; }';
         if (btnLand) btnLand.classList.add('active');
         if (btnPort) btnPort.classList.remove('active');
       } else {
         document.body.classList.remove('is-landscape');
-        dynStyle.innerHTML = '@page { size: letter portrait !important; margin: 7mm 8mm 7mm 8mm !important; }';
+        document.body.classList.add('is-portrait');
+        dynStyle.innerHTML = '@page { size: letter portrait; margin: 7mm 8mm 7mm 8mm; }';
         if (btnPort) btnPort.classList.add('active');
         if (btnLand) btnLand.classList.remove('active');
       }
@@ -226,6 +224,23 @@ export function injectPrintFeatures(rawHtml, defaultOrientation = 'portrait') {
     }
   }
 
+  // 1.1 Inyectar estilo de página según defaultOrientation si no existe uno personalizado
+  if (!html.includes('id="orientation-style"') && !html.includes('id="olam-dyn-page-style"')) {
+    const isLand = defaultOrientation === 'landscape';
+    const pageStyle = `
+  <style id="olam-dyn-page-style">
+    @page {
+      size: letter ${isLand ? 'landscape' : 'portrait'};
+      margin: ${isLand ? '5mm 8mm 5mm 8mm' : '7mm 8mm 7mm 8mm'};
+    }
+  </style>`;
+    if (html.includes('</head>')) {
+      html = html.replace('</head>', `${pageStyle}\n</head>`);
+    } else {
+      html = `${pageStyle}\n${html}`;
+    }
+  }
+
   // 2. Inyectar barra superior después de <body> sólo si no hay ya una barra de acciones
   if (!html.includes('olam-top-actions-bar') && !html.includes('action-bar')) {
     const isLand = defaultOrientation === 'landscape';
@@ -238,11 +253,11 @@ export function injectPrintFeatures(rawHtml, defaultOrientation = 'portrait') {
     </div>
     <div class="olam-bar-actions">
       <div class="olam-orient-group">
-        <button type="button" id="olam-orient-land" class="olam-orient-btn ${isLand ? 'active' : ''}" onclick="setOlamOrientation('landscape')">
-          📑 Horizontal ${isLand ? '(Recomendado)' : ''}
-        </button>
         <button type="button" id="olam-orient-port" class="olam-orient-btn ${!isLand ? 'active' : ''}" onclick="setOlamOrientation('portrait')">
           📄 Vertical
+        </button>
+        <button type="button" id="olam-orient-land" class="olam-orient-btn ${isLand ? 'active' : ''}" onclick="setOlamOrientation('landscape')">
+          📑 Horizontal
         </button>
       </div>
       <button type="button" class="olam-btn-print" onclick="window.print()">

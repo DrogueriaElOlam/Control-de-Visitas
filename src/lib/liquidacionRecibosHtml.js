@@ -78,7 +78,8 @@ const OFFICIAL_MIN_ROWS = 16;
  * - Sin bloque de firmas abajo
  * - Espacios autoajustables y proporcionados para una hoja tamaño Carta
  */
-export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => {
+export const generateLiquidacionRecibosHtml = (formData = {}, receipts = [], initialOrientation = 'portrait') => {
+  const isLandscape = initialOrientation === 'landscape';
   // Filtrar recibos reales que tengan al menos algún dato
   const validReceipts = (receipts || []).filter((r) => {
     if (!r) return false;
@@ -142,12 +143,6 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Liquidación de Recibos - ${formData.ejecutivo || 'Droguería El Olam'}</title>
-  <style id="orientation-style">
-    @page {
-      size: letter portrait;
-      margin: 7mm 8mm 7mm 8mm;
-    }
-  </style>
   <style>
     * {
       box-sizing: border-box;
@@ -528,110 +523,112 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
     }
 
     /* MODO HORIZONTAL (LANDSCAPE) AUTOAJUSTABLE PERFECTO */
-    @media print and (orientation: landscape) {
-      @page {
-        size: letter landscape;
-        margin: 5mm 8mm 5mm 8mm;
-      }
-      .document-page {
-        max-width: 100% !important;
-        width: 100% !important;
-        padding: 0 !important;
-      }
-      .header-container {
-        padding: 2px 0 4px 0 !important;
-        margin-bottom: 4px !important;
-      }
-      .header-logo-cell img {
-        max-height: 40px !important;
-      }
-      .header-title-cell h1 {
-        font-size: 12pt !important;
-      }
-      .header-title-cell h2 {
-        font-size: 9.5pt !important;
-      }
-      .info-box {
-        margin-bottom: 4px !important;
-      }
-      .info-box td {
-        padding: 2.5px 6px !important;
-        font-size: 8.5pt !important;
-      }
-      .receipts-table th {
-        padding: 3px 2px !important;
-        font-size: 8pt !important;
-      }
-      .receipts-table td {
-        padding: 2px 4px !important;
-        height: 18px !important;
-        font-size: 8pt !important;
-      }
-      .totals-row td {
-        padding: 3px 4px !important;
-        font-size: 8.5pt !important;
-      }
-      .signatures-section {
-        margin-top: 14px !important;
-      }
-      .sig-underline {
-        width: 220px !important;
-      }
-      .sig-meta {
-        width: 220px !important;
-        font-size: 8.5pt !important;
-      }
+    body.is-landscape .document-page {
+      max-width: 100% !important;
+      width: 100% !important;
+      padding: 0 !important;
+    }
+    body.is-landscape .header-container {
+      padding: 2px 0 4px 0 !important;
+      margin-bottom: 4px !important;
+    }
+    body.is-landscape .header-logo-cell img {
+      max-height: 40px !important;
+    }
+    body.is-landscape .header-title-cell h1 {
+      font-size: 12pt !important;
+    }
+    body.is-landscape .header-title-cell h2 {
+      font-size: 9.5pt !important;
+    }
+    body.is-landscape .info-box {
+      margin-bottom: 4px !important;
+    }
+    body.is-landscape .info-box td {
+      padding: 2.5px 6px !important;
+      font-size: 8.5pt !important;
+    }
+    body.is-landscape .receipts-table th {
+      padding: 3px 2px !important;
+      font-size: 8pt !important;
+    }
+    body.is-landscape .receipts-table td {
+      padding: 2px 4px !important;
+      height: 18px !important;
+      font-size: 8pt !important;
+    }
+    body.is-landscape .totals-row td {
+      padding: 3px 4px !important;
+      font-size: 8.5pt !important;
+    }
+    body.is-landscape .signatures-section {
+      margin-top: 14px !important;
+    }
+    body.is-landscape .sig-underline {
+      width: 220px !important;
+    }
+    body.is-landscape .sig-meta {
+      width: 220px !important;
+      font-size: 8.5pt !important;
     }
 
     /* Vista en pantalla cuando el usuario activa modo horizontal */
-    body.is-landscape .document-page {
-      max-width: 1050px;
+    @media screen {
+      body.is-landscape .document-page {
+        max-width: 1050px;
+      }
+      body.is-landscape .header-container {
+        padding: 2px 0 6px 0;
+        margin-bottom: 5px;
+      }
+      body.is-landscape .header-logo-cell img {
+        max-height: 42px;
+      }
+      body.is-landscape .header-title-cell h1 {
+        font-size: 12.5pt;
+      }
+      body.is-landscape .header-title-cell h2 {
+        font-size: 10pt;
+      }
+      body.is-landscape .info-box {
+        margin-bottom: 5px;
+      }
+      body.is-landscape .info-box td {
+        padding: 3px 8px;
+        font-size: 9pt;
+      }
+      body.is-landscape .receipts-table th {
+        padding: 4px 3px;
+        font-size: 8.5pt;
+      }
+      body.is-landscape .receipts-table td {
+        padding: 2.5px 5px;
+        height: 20px;
+        font-size: 8.5pt;
+      }
+      body.is-landscape .totals-row td {
+        padding: 4px 4px;
+        font-size: 9pt;
+      }
+      body.is-landscape .signatures-section {
+        margin-top: 18px;
+      }
+      body.is-landscape .sig-underline {
+        width: 220px;
+      }
+      body.is-landscape .sig-meta {
+        width: 220px;
+      }
     }
-    body.is-landscape .header-container {
-      padding: 2px 0 6px 0;
-      margin-bottom: 5px;
-    }
-    body.is-landscape .header-logo-cell img {
-      max-height: 42px;
-    }
-    body.is-landscape .header-title-cell h1 {
-      font-size: 12.5pt;
-    }
-    body.is-landscape .header-title-cell h2 {
-      font-size: 10pt;
-    }
-    body.is-landscape .info-box {
-      margin-bottom: 5px;
-    }
-    body.is-landscape .info-box td {
-      padding: 3px 8px;
-      font-size: 9pt;
-    }
-    body.is-landscape .receipts-table th {
-      padding: 4px 3px;
-      font-size: 8.5pt;
-    }
-    body.is-landscape .receipts-table td {
-      padding: 2.5px 5px;
-      height: 20px;
-      font-size: 8.5pt;
-    }
-    body.is-landscape .totals-row td {
-      padding: 4px 4px;
-      font-size: 9pt;
-    }
-    body.is-landscape .signatures-section {
-      margin-top: 18px;
-    }
-    body.is-landscape .sig-underline {
-      width: 220px;
-    }
-    body.is-landscape .sig-meta {
-      width: 220px;
+  </style>
+  <style id="orientation-style">
+    @page {
+      size: letter ${isLandscape ? 'landscape' : 'portrait'};
+      margin: ${isLandscape ? '5mm 8mm 5mm 8mm' : '7mm 8mm 7mm 8mm'};
     }
   </style>
 </head>
-<body>
+<body class="${isLandscape ? 'is-landscape' : 'is-portrait'}">
   <!-- Barra flotante de acciones para pantalla -->
   <div class="action-bar no-print">
     <div style="display: flex; align-items: center; gap: 8px;">
@@ -641,10 +638,10 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
     </div>
     <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
       <div class="orient-group">
-        <button id="btn-portrait" type="button" class="btn-orient active" onclick="setOrientation('portrait')">
+        <button id="btn-portrait" type="button" class="btn-orient ${!isLandscape ? 'active' : ''}" onclick="setOrientation('portrait')">
           📄 Vertical
         </button>
-        <button id="btn-landscape" type="button" class="btn-orient" onclick="setOrientation('landscape')">
+        <button id="btn-landscape" type="button" class="btn-orient ${isLandscape ? 'active' : ''}" onclick="setOrientation('landscape')">
           📑 Horizontal
         </button>
       </div>
@@ -761,20 +758,23 @@ export const generateLiquidacionRecibosHtml = (formData = {}, receipts = []) => 
   <script>
     function setOrientation(mode) {
       var styleTag = document.getElementById('orientation-style');
+      if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'orientation-style';
+        document.head.appendChild(styleTag);
+      }
       var btnPort = document.getElementById('btn-portrait');
       var btnLand = document.getElementById('btn-landscape');
       if (mode === 'landscape') {
+        document.body.classList.remove('is-portrait');
         document.body.classList.add('is-landscape');
-        if (styleTag) {
-          styleTag.innerHTML = '@page { size: letter landscape; margin: 5mm 8mm 5mm 8mm; }';
-        }
+        styleTag.innerHTML = '@page { size: letter landscape; margin: 5mm 8mm 5mm 8mm; }';
         if (btnLand) btnLand.classList.add('active');
         if (btnPort) btnPort.classList.remove('active');
       } else {
         document.body.classList.remove('is-landscape');
-        if (styleTag) {
-          styleTag.innerHTML = '@page { size: letter portrait; margin: 7mm 8mm 7mm 8mm; }';
-        }
+        document.body.classList.add('is-portrait');
+        styleTag.innerHTML = '@page { size: letter portrait; margin: 7mm 8mm 7mm 8mm; }';
         if (btnPort) btnPort.classList.add('active');
         if (btnLand) btnLand.classList.remove('active');
       }
