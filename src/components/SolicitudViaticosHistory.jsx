@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { X, Edit2, Eye, Printer, Trash2, Filter, Share2, ShieldCheck, UserCheck } from 'lucide-react';
+import { X, Edit2, Eye, Printer, Trash2, Filter, Share2, ShieldCheck, UserCheck, RotateCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { isSuperUser, matchesVendorUser } from '../lib/formsPermissions';
 import { LOGO_DATA_URI } from '../lib/logo';
@@ -458,10 +457,37 @@ export default function SolicitudViaticosHistory({ onClose, onEdit, currentUser 
 
         <div className="p-6">
           <div className="mb-6 bg-gray-50 p-4 rounded-lg">
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <Filter className="w-5 h-5" />
-              Filtros
-            </h3>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Filter className="w-5 h-5 text-gray-700" />
+                Filtros
+              </h3>
+              <div className="flex items-center gap-2">
+                {(fechaInicio || fechaFin || vendedorFilter) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFechaInicio('');
+                      setFechaFin('');
+                      setVendedorFilter('');
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold px-2 py-1 bg-blue-50 border border-blue-200 rounded cursor-pointer"
+                  >
+                    Limpiar Filtros
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={loadHistory}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-black font-semibold px-2.5 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 shadow-xs cursor-pointer"
+                  title="Recargar historial desde Supabase"
+                >
+                  <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  Actualizar
+                </button>
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

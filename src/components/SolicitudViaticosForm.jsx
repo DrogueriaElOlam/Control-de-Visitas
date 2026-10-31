@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useFormPersistence } from '../hooks/useFormPersistence';
-import { Save, History, BookmarkCheck, CheckCircle2, Sparkles } from 'lucide-react';
+import { Save, History, BookmarkCheck, CheckCircle2, Sparkles, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import FormButtons from './FormButtons';
 import FormHeader from './FormHeader';
@@ -429,6 +429,7 @@ export default function SolicitudViaticosForm({ currentUser }) {
 
   const handleVendedorChange = (e) => {
     const newVendedor = e.target.value;
+    setCurrentRecordId(null);
     if (!newVendedor) {
       setFormData(prev => ({
         ...prev,
@@ -826,20 +827,43 @@ export default function SolicitudViaticosForm({ currentUser }) {
         <div className="flex gap-2 mb-4 flex-wrap">
           <button
             onClick={handleSaveForm}
-            className="flex items-center gap-2 bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 font-semibold text-sm sm:text-base"
+            className="flex items-center gap-2 bg-yellow-400 text-black px-4 py-2 rounded hover:bg-yellow-500 font-semibold text-sm sm:text-base cursor-pointer shadow-sm transition-all"
           >
             <Save className="w-4 h-4" />
-            Guardar
+            {currentRecordId ? 'Actualizar' : 'Guardar'}
           </button>
           <button
             onClick={() => setShowHistory(true)}
-            className="flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 font-semibold text-sm sm:text-base"
+            className="flex items-center gap-2 bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 font-semibold text-sm sm:text-base cursor-pointer shadow-sm transition-all"
           >
             <History className="w-4 h-4" />
             Historial
           </button>
+          {currentRecordId && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="flex items-center gap-2 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 font-semibold text-sm sm:text-base cursor-pointer shadow-sm transition-all"
+            >
+              <X className="w-4 h-4" />
+              Cancelar Edición
+            </button>
+          )}
           <FormButtons onClear={handleClear} onExport={handleExport} onPrint={handlePrint} />
         </div>
+
+        {currentRecordId && (
+          <div className="bg-blue-100 border border-blue-400 text-blue-800 px-4 py-3 rounded-lg mb-4 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs">
+            <span>ℹ️ Editando solicitud del historial (ID #{currentRecordId}). Los cambios se aplicarán sobre este registro existente al presionar "Actualizar".</span>
+            <button
+              type="button"
+              onClick={handleClear}
+              className="ml-3 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md shadow-xs cursor-pointer"
+            >
+              Nueva Solicitud
+            </button>
+          </div>
+        )}
 
         {showSaveMessage && (
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">

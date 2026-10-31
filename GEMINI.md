@@ -671,7 +671,19 @@
         1) **Selector de Orientación Directo en el Formulario (`LiquidacionRecibosForm.jsx`):** Incorporado un selector visual claro e interactivo con botones `📄 Vertical` y `📑 Horizontal` directamente en el formulario antes de imprimir o exportar, permitiendo al usuario predefinir su orientación deseada con retroalimentación en tiempo real.
         2) **Eliminación de `@page` en `@media print`:** Removida la directiva `@page` de adentro de las media queries para evitar que el navegador quede atrapado en horizontal. La orientación del papel ahora es gobernada 100% de forma limpia por `<style id="orientation-style">` ubicado al final del `<head>`.
         3) **Sintaxis Estricta Válida en `setOrientation`:** Actualizadas las funciones de orientación para utilizar sintaxis estándar sin `!important` (`@page { size: letter portrait; margin: 7mm 8mm 7mm 8mm; }` y `@page { size: letter landscape; margin: 5mm 8mm 5mm 8mm; }`), sincronizando simultáneamente las clases `is-portrait` y `is-landscape` en el `<body>` y actualizando el estado de los botones superiores en la vista previa.
-        4) **Soporte Consistente en Historial y Viáticos:** Reflejada la solución en `LiquidacionRecibosHistory.jsx`, `liquidacionViaticosHtml.js` y `printHtmlHelper.js`, garantizando que cualquier reporte que el usuario decida imprimir o exportar en Vertical salga estrictamente en orientación vertical en 1 sola hoja Carta sin desbordes.
+  85. **Rescate Completo del Historial de Viáticos y Blindaje contra Sobreescritura Accidental (`SolicitudViaticosForm.jsx` & `solicitud_viaticos_history`):**
+      - **Causa Raíz de la Pérdida de Registros:**
+        1) Al guardar la solicitud de viáticos de un vendedor, el formulario almacenaba el identificador del registro recién creado en la variable de estado `currentRecordId`.
+        2) Al cambiar de vendedor en el selector (`handleVendedorChange`), dicha variable no se reiniciaba a `null`. Por consiguiente, al completar y presionar *'Guardar'* para los siguientes vendedores, el sistema ejecutaba una operación de actualización (`supabase.update`) sobre el mismo registro previo en lugar de insertar uno nuevo, sobreescribiendo sucesivamente los datos de los vendedores anteriores.
+      - **Rescate Integral de las 11 Solicitudes de Viáticos en Supabase:**
+        * Gracias al mecanismo de persistencia automática en `daily_supervision_history` (`MASTER_CONFIG`), todas las solicitudes ingresadas el sábado 24 de octubre permanecían resguardadas con sus montos exactos de combustible, alimentación, hospedaje, lugares a visitar y fechas (semana del 26 al 30 de octubre).
+        * Se ejecutó el rescate e inserción en `solicitud_viaticos_history` de los 7 vendedores faltantes (*Danny Perez, Elio Caceros, Josue Aguilar, Karina Pineda, Antonio Celada, Jessica Noriega y Estuardo Cordova*), restableciendo la totalidad de los 11 vendedores oficiales en el historial activo.
+      - **Blindaje Preventivo en `SolicitudViaticosForm.jsx`:**
+        1) `handleVendedorChange` ahora ejecuta inmediatamente `setCurrentRecordId(null)` ante cualquier cambio de vendedor, garantizando que cada ejecutivo seleccionado inicie como un registro nuevo e independiente.
+        2) Botón de acción reactivo: Si se está editando un registro del historial muestra el botón *'Actualizar'* y el botón *'Cancelar Edición'* (`handleClear`). Si es una solicitud nueva muestra *'Guardar'*.
+        3) Banner informativo destacado cuando un registro existente está en modo edición con botón directo para cambiar a *'Nueva Solicitud'*.
+      - **Mejoras en el Historial (`SolicitudViaticosHistory.jsx`):**
+        * Añadidos botones de **`🔄 Actualizar`** (recarga inmediata desde Supabase) y **`Limpiar Filtros`**, asegurando consulta transparente y completa de las 11 solicitudes históricas en cualquier momento.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
