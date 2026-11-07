@@ -160,7 +160,7 @@ export default function App() {
     fetchCashReportsFromCloud().catch(() => {});
 
     // Garantizar purga automática de bundles JS viejos en teléfonos y navegadores
-    const APP_BUILD_REV = 'olam_rev_20261106_otp_fixed_v4';
+    const APP_BUILD_REV = 'olam_rev_20261107_boletas_fast_v5';
     try {
       const storedRev = localStorage.getItem('olam_app_build_rev');
       if (storedRev !== APP_BUILD_REV) {

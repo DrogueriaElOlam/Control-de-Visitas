@@ -728,6 +728,16 @@
         2) Se implementaron los normalizadores `normalizeOtpKeyInput` y `normalizeLogoutOtpKeyInput` que limpian caracteres invisibles, espacios de pegado desde Excel, guiones especiales e incluso aceptan los 8 caracteres directos.
         3) Se habilitó compatibilidad cruzada en `authenticate()` (`db.js`) y `SupervisorLogoutModal.jsx` para que tanto las claves `OLAM-XXXX-XXXX` como `OLAM-OUT-XXXX-XXXX` sean reconocidas y validadas sin bloquear al usuario.
         4) Se eliminaron los `setTimeout` recursivos dentro de `getOtpKeysVault()` y `getLogoutOtpKeysVault()`.
+  90. **Carga Masiva Ultrarrápida de Boletas, Selección de Cantidad, Impresión Directa e Historial en la Nube (`PlantillaBoletas.jsx`, `PlantillaBoletasHistory.jsx`, `plantillaBoletasHelper.js`):**
+      - **Carga Masiva y Selección de Cantidad de Boletas:**
+        1) Implementado selector rápido de cantidad (`4 Boletas (1 Pág)`, `8 Boletas (2 Págs)`, `12 Boletas (3 Págs)`, `16 Boletas (4 Págs)`, `20 Boletas (5 Págs)` o cantidad personalizada) que genera automáticamente las páginas necesarias.
+        2) Incorporado botón destacado **`⚡ Seleccionar Varias Boletas de Golpe`**, soporte de arrastrar y soltar (Drag & Drop) y pegado múltiple (`Ctrl+V`). Todas las imágenes seleccionadas se comprimen y procesan en paralelo (`processMultipleBoletasFast`) en fracciones de segundo y se distribuyen automáticamente en las casillas disponibles (`distributeBoletasIntoGrid`).
+        3) Controles rápidos de 1 clic sobre cada boleta (girar 90° izquierda/derecha, zoom +/- y eliminar) más botón **`Auto-Ordenar`** para compactar espacios vacíos.
+      - **Impresión Oficial desde el Formulario y Descarga HTML/PDF:**
+        * Integrados los botones **`🖨️ Imprimir / Vista Previa`** y **`Descargar HTML`** conectados a `openAndPrintHtml` y `downloadHtmlFile` (`printHtmlHelper.js`) igual que el resto de formularios oficiales, generando hojas tamaño Carta con cuadrícula 2x2 y cabecera institucional.
+      - **Historial de Plantillas de Boletas por Vendedor (`PlantillaBoletasHistory.jsx`):**
+        * Almacenamiento persistente en Supabase (`daily_supervision_history` con clave `2099-12-24`) y respaldo en `localStorage`.
+        * Permite filtrar por Vendedor y Rango de Fechas, visualizar miniaturas de las boletas, imprimir cualquier plantilla con un solo clic cuando un vendedor solicite impresiones de sus plantillas, descargar HTML o volver a cargarla en el editor.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
