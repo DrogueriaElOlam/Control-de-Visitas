@@ -706,6 +706,28 @@
            * **Capa 2 (Bóveda Espejo en la Nube):** Sincronización automática en `daily_supervision_history` (`date: '2099-12-23'`, `VIATICOS_HISTORY_VAULT`).
            * **Capa 3 (Respaldo Instantáneo Local):** Copia local persistente en `localStorage` (`olam_solicitud_viaticos_history_backup_v1`) para apertura instantánea y tolerancia total a caídas de red sin alertas de error.
         3) Se añadió contador en vivo de solicitudes almacenadas directamente en el botón **Historial** de `SolicitudViaticosForm.jsx`.
+  88. **Traslado e Integración de los Formularios del Apartado de Supervisión a la Primera Pestaña del Administrador (`SupervisionForm.jsx`, `Navbar.jsx`, `App.jsx`, `FormulariosOlamModal.jsx`):**
+      - **Formularios Trasladados e Integrados:**
+        1) **Control de Viáticos y Supervisión** (`supervision_viaticos_history`)
+        2) **Control de Recibos de Caja** (`supervision_recibos_history`)
+        3) **Evaluación de Vendedor** (`VendorEvaluationForm.jsx` & `supervision_evaluaciones_history`)
+        4) **Visitas Proveedores** (`supervision_visitas_history`)
+        5) **Historial de Comisiones** (`supervision_comisiones_history`)
+        6) **Supervisión Diaria por Equipos** (`DailySupervisionForm.jsx`) y **Historial General en la Nube** (`SupervisionHistory.jsx`)
+      - **Ubicación en la Primera Pestaña del Apartado de Administrador:**
+        * Integrado como la **primera pestaña (`🛡️ Supervisión`)** en la barra de navegación principal del Administrador (`Navbar.jsx` y `App.jsx`, tanto en escritorio como en móvil), activándose de primero al ingresar como Administrador.
+        * Integrado asimismo como la **primera pestaña (`Supervisión (Formularios)`)** dentro del modal oficial `Formularios Droguería El Olam` (`FormulariosOlamModal.jsx`) para el perfil de Administrador.
+        * Incorporada barra superior de filtrado rápido en `SupervisionForm.jsx` para visualizar todos los formularios juntos o saltar directamente a cualquiera de ellos con auto-autenticación para el Administrador.
+  89. **Restauración y Desbloqueo de Claves de Un Solo Toque (OTP #13 a #50), Normalización Inteligente y Eliminación de Carrera en Validación (`security.js`, `db.js`, `LoginModal.jsx`, `SupervisorLogoutModal.jsx`):**
+      - **Causa Raíz Identificada:**
+        1) **Desfase entre Archivos Excel y Registro Quemado de Pruebas:** En los libros Excel (`claves 2.0.xlsx` y `claves cierre sesion 2.0.xlsx`), las claves a partir del puesto **#13** (`OLAM-SDB8-E3SP`, `OLAM-W57M-A7TV`, `OLAM-TDJR-RD6C` y `OLAM-OUT-N2HM-VFFX`) figuraban como `Disponible`, pero en `security.js` y en Supabase habían quedado marcadas como quemadas durante pruebas técnicas previas (`Test Automatic Verification` y `Test Vendor Logout`), rechazando el ingreso cuando el usuario tomaba las primeras claves disponibles de su listado.
+        2) **Rechazo por Formato al Copiar de Excel o Cruzar Bóvedas:** `isOtpKeyFormat` exigía coincidencia estricta sin tolerar espacios invisibles de celdas Excel, guiones largos o el uso cruzado entre claves `OLAM-XXXX-XXXX` y `OLAM-OUT-XXXX-XXXX`.
+        3) **Llamada Recursiva en `getOtpKeysVault()`:** Cada lectura sincrónica disparaba un `setTimeout` a `fetchOtpVaultFromCloud()`, provocando condiciones de carrera durante el consumo de la clave.
+      - **Solución Implementada:**
+        1) Se liberaron y restauraron al 100% en Supabase (`2099-12-30` y `2099-12-31`), en `security.js` y en `localStorage` (`ensureCleanOtpVaultRevision`) todas las claves del puesto **#13 al #50** (38 claves de inicio y 38 claves de salida 100% disponibles), manteniendo únicamente las 12 primeras claves históricas (#1 a #12) quemadas.
+        2) Se implementaron los normalizadores `normalizeOtpKeyInput` y `normalizeLogoutOtpKeyInput` que limpian caracteres invisibles, espacios de pegado desde Excel, guiones especiales e incluso aceptan los 8 caracteres directos.
+        3) Se habilitó compatibilidad cruzada en `authenticate()` (`db.js`) y `SupervisorLogoutModal.jsx` para que tanto las claves `OLAM-XXXX-XXXX` como `OLAM-OUT-XXXX-XXXX` sean reconocidas y validadas sin bloquear al usuario.
+        4) Se eliminaron los `setTimeout` recursivos dentro de `getOtpKeysVault()` y `getLogoutOtpKeysVault()`.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

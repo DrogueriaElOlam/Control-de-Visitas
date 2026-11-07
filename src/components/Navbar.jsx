@@ -381,6 +381,19 @@ export default function Navbar({
           {isAdmin ? (
             <>
               <button
+                onClick={() => setActiveTab('supervision')}
+                className={`flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap shadow-sm cursor-pointer ${
+                  activeTab === 'supervision'
+                    ? 'bg-white text-blue-900 shadow-md font-bold'
+                    : 'bg-cyan-500/25 text-cyan-100 hover:bg-cyan-500/40 border border-cyan-400/40'
+                }`}
+                title="Formularios del Apartado de Supervisión (Viáticos, Recibos, Evaluación, Proveedores, Comisiones y Supervisión Diaria)"
+              >
+                <Shield size={15} className={activeTab === 'supervision' ? 'text-blue-700' : 'text-cyan-300'} />
+                <span>Supervisión</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('dashboard')}
                 className={`flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap shadow-sm ${
                   activeTab === 'dashboard'
@@ -656,6 +669,18 @@ export default function Navbar({
       >
         {isAdmin ? (
           <>
+            <button
+              onClick={() => setActiveTab('supervision')}
+              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+                activeTab === 'supervision'
+                  ? 'text-blue-600 dark:text-blue-400 font-bold scale-105'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
+              }`}
+            >
+              <Shield size={20} className={activeTab === 'supervision' ? 'stroke-[2.5]' : ''} />
+              <span className="text-[10px] mt-0.5">Supervisión</span>
+            </button>
+
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${

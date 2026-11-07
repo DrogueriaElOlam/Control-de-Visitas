@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { ShieldAlert, Lock, Eye, EyeOff, AlertCircle, X, CheckCircle2, KeyRound } from 'lucide-react';
-import { verifyAndConsumeLogoutOtpKeyAsync, isLogoutOtpKeyFormat, fetchLogoutOtpVaultFromCloud } from '../lib/security';
+import { 
+  verifyAndConsumeLogoutOtpKeyAsync, 
+  isLogoutOtpKeyFormat, 
+  verifyAndConsumeOtpKeyAsync,
+  isOtpKeyFormat,
+  fetchLogoutOtpVaultFromCloud 
+} from '../lib/security';
 
 const SUPERVISOR_LOGOUT_PASSWORD = '0l@m_2025$';
 
@@ -15,9 +21,11 @@ export default function SupervisorLogoutModal({ isOpen, onClose, onConfirmLogout
     e.preventDefault();
     const clean = password.trim();
 
-    // 1. Clave de un solo toque para cierre de sesión (OLAM-OUT-XXXX-XXXX)
-    if (isLogoutOtpKeyFormat(clean)) {
-      const otpRes = await verifyAndConsumeLogoutOtpKeyAsync(clean, { name: vendorName, role: 'supervisor_logout' });
+    // 1. Clave de un solo toque para cierre de sesión (OLAM-OUT-XXXX-XXXX o OLAM-XXXX-XXXX)
+    if (isLogoutOtpKeyFormat(clean) || isOtpKeyFormat(clean)) {
+      const otpRes = isLogoutOtpKeyFormat(clean)
+        ? await verifyAndConsumeLogoutOtpKeyAsync(clean, { name: vendorName, role: 'supervisor_logout' })
+        : await verifyAndConsumeOtpKeyAsync(clean, { name: vendorName, role: 'supervisor_logout' });
       if (otpRes.valid) {
         setErrorMsg('');
         setPassword('');

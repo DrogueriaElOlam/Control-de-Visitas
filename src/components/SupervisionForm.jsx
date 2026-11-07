@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Download, Trash2, Save, RefreshCw, History, UserPlus, MapPin } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Download, Trash2, Save, RefreshCw, History, UserPlus, MapPin, Shield, LayoutGrid, FileText, Receipt, Award, Handshake, DollarSign, Target } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Logo from './Logo';
 import FormHeader from './FormHeader';
@@ -25,9 +25,11 @@ import { ALL_ROUTES } from '../lib/db';
 import SupervisionHistory from './SupervisionHistory';
 
 import VendorEvaluationForm from './VendorEvaluationForm';
+import DailySupervisionForm from './DailySupervisionForm';
 
-export default function SupervisionForm() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+export default function SupervisionForm({ currentUser = null, autoAuth = true }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(autoAuth || currentUser?.role === 'admin'));
+  const [activeSection, setActiveSection] = useState('todos');
   const [password, setPassword] = useState('');
   const [viaticos, setViaticos] = useState([]);
   const [recibos, setRecibos] = useState([]);
@@ -1289,8 +1291,85 @@ export default function SupervisionForm() {
   }
 
   // Pantalla principal
+  const supervisionSections = [
+    { id: 'todos', label: 'Todos los Formularios (5)', icon: LayoutGrid },
+    { id: 'viaticos', label: '1. Control de Viáticos', icon: FileText },
+    { id: 'recibos', label: '2. Recibos de Caja', icon: Receipt },
+    { id: 'evaluaciones', label: '3. Evaluación de Vendedor', icon: Award },
+    { id: 'visitas', label: '4. Visitas Proveedores', icon: Handshake },
+    { id: 'comisiones', label: '5. Historial de Comisiones', icon: DollarSign },
+    { id: 'diaria', label: '6. Supervisión Diaria', icon: Target }
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 py-4 px-2 sm:px-4 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 py-4 px-2 sm:px-4 lg:px-8 rounded-2xl">
+      {/* Barra Superior de Navegación del Apartado de Supervisión (Administrador) */}
+      <div className="max-w-full mx-auto mb-6 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-2xl shadow-xl border border-blue-700/50 p-4 sm:p-5 text-white">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-cyan-500/20 border border-cyan-400/40 rounded-xl text-cyan-300 shadow-inner">
+              <Shield className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg sm:text-2xl font-black tracking-tight text-white">
+                  Módulo de Supervisión • Droguería El Olam
+                </h1>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase bg-cyan-400 text-slate-950 shadow">
+                  Administrador • Primera Pestaña
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-blue-200 mt-0.5">
+                Formularios oficiales trasladados del Apartado de Supervisión: Viáticos, Recibos de Caja, Evaluación de Vendedor, Visitas Proveedores, Comisiones y Supervisión Diaria
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start md:self-auto">
+            <button
+              type="button"
+              onClick={() => setShowHistorialGeneral(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-xl shadow-md transition-all text-xs sm:text-sm cursor-pointer"
+            >
+              <History className="w-4 h-4" />
+              <span>Historial General en la Nube</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Selector rápido de formularios de supervisión */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+          {supervisionSections.map((sec) => {
+            const Icon = sec.icon;
+            const isActive = activeSection === sec.id;
+            return (
+              <button
+                key={sec.id}
+                type="button"
+                onClick={() => setActiveSection(sec.id)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  isActive
+                    ? 'bg-white text-blue-950 shadow-md scale-[1.02]'
+                    : 'bg-white/10 text-blue-100 hover:bg-white/20'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{sec.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Sexta Vista Opcional: Supervisión Diaria por Equipos */}
+      {activeSection === 'diaria' && (
+        <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden mb-8">
+          <DailySupervisionForm currentUser={currentUser} autoAuth={true} />
+        </div>
+      )}
+
+      {/* ====== PRIMERA PLANTILLA: CONTROL DE VIÁTICOS Y SUPERVISIÓN ====== */}
+      {(activeSection === 'todos' || activeSection === 'viaticos') && (
       <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
         {/* Header con logo y título institucional */}
         <div className="bg-white p-4 sm:p-6 border-b">
@@ -1595,8 +1674,10 @@ export default function SupervisionForm() {
           </div>
         )}
       </div>
+      )}
 
       {/* ====== SEGUNDA PLANTILLA: CONTROL DE RECIBOS DE CAJA ====== */}
+      {(activeSection === 'todos' || activeSection === 'recibos') && (
       <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden mt-8">
         {/* Header del segundo formulario */}
         <div className="bg-white p-4 sm:p-6 border-b">
@@ -1896,8 +1977,10 @@ export default function SupervisionForm() {
         )}
 
       </div>
+      )}
 
       {/* ====== TERCERA PLANTILLA: EVALUACIÓN DE VENDEDOR ====== */}
+      {(activeSection === 'todos' || activeSection === 'evaluaciones') && (
       <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden mt-8">
         {/* Header del tercer formulario */}
         <div className="bg-white p-4 sm:p-6 border-b">
@@ -1976,9 +2059,13 @@ export default function SupervisionForm() {
           {showNewEvaluationForm ? (
             <VendorEvaluationForm 
               onSave={guardarNuevaEvaluacion}
-              onCancel={() => setShowNewEvaluationForm(false)}
+              onCancel={() => {
+                setShowNewEvaluationForm(false);
+                setEditingRecord(null);
+              }}
               vendedoresList={vendedores}
               rutasList={rutas}
+              initialData={editingRecord?.datos?.evaluaciones?.[0] || null}
             />
           ) : (
             <>
@@ -2066,8 +2153,10 @@ export default function SupervisionForm() {
           )}
 
         </div>
+      )}
 
       {/* ====== CUARTA PLANTILLA: VISITAS PROVEEDORES ====== */}
+      {(activeSection === 'todos' || activeSection === 'visitas') && (
       <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden mt-8">
         {/* Header del cuarto formulario */}
         <div className="bg-white p-4 sm:p-6 border-b">
@@ -2350,8 +2439,10 @@ export default function SupervisionForm() {
         )}
 
       </div>
+      )}
 
-      {/* ====== CUARTA PLANTILLA: HISTORIAL DE COMISIONES ====== */}
+      {/* ====== QUINTA PLANTILLA: HISTORIAL DE COMISIONES ====== */}
+      {(activeSection === 'todos' || activeSection === 'comisiones') && (
       <div className="max-w-full mx-auto bg-white rounded-lg shadow-lg overflow-hidden mt-8">
         {/* Header del cuarto formulario */}
         <div className="bg-white p-4 sm:p-6 border-b">
@@ -2883,6 +2974,7 @@ export default function SupervisionForm() {
         )}
 
       </div>
+      )}
 
       {/* ====== MODALES ====== */}
 
@@ -3162,6 +3254,77 @@ export default function SupervisionForm() {
           onClose={() => setShowHistorialEvaluaciones(false)} 
           onEdit={handleEditEvaluation}
         />
+      )}
+
+      {/* Modal de Historial General */}
+      {showHistorialGeneral && (
+        <SupervisionHistory 
+          onClose={() => setShowHistorialGeneral(false)} 
+          onEdit={handleEditEvaluation}
+        />
+      )}
+
+      {/* Modal de Gestión de Rutas */}
+      {showGestionRutas && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b bg-pink-50">
+              <h3 className="text-2xl font-bold text-pink-700 flex items-center gap-2">
+                <MapPin className="w-6 h-6" />
+                Gestión de Rutas
+              </h3>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={nuevaRuta}
+                  onChange={(e) => setNuevaRuta(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && agregarRuta()}
+                  placeholder="Nombre de la nueva ruta"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:border-pink-500 focus:outline-none"
+                />
+                <button
+                  onClick={agregarRuta}
+                  className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-lg transition-all shadow-md font-semibold"
+                >
+                  Agregar
+                </button>
+              </div>
+
+              <div className="border rounded-lg max-h-96 overflow-y-auto">
+                <div className="bg-gray-50 px-4 py-2 border-b font-semibold text-gray-700">
+                  Rutas Registradas ({rutas.length})
+                </div>
+                <div className="divide-y">
+                  {rutas.map((ruta, idx) => (
+                    <div key={idx} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+                      <span className="text-gray-700">{ruta}</span>
+                      <button
+                        onClick={() => eliminarRuta(ruta)}
+                        className="p-2 bg-red-500 hover:bg-red-600 text-white rounded transition-all"
+                        title="Eliminar ruta"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowGestionRutas(false);
+                  setNuevaRuta('');
+                }}
+                className="w-full px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all shadow-md font-semibold"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal de Historial de Visitas Proveedores */}

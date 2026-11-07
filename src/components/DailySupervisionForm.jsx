@@ -60,7 +60,7 @@ const INITIAL_RECORD = {
   observaciones: ''
 };
 
-export default function DailySupervisionForm() {
+export default function DailySupervisionForm({ currentUser = null, autoAuth = true }) {
   const [currentDate, setCurrentDate] = useState(() => getLocalDateString());
   const [records, setRecords] = useState({});
   const [history, setHistory] = useState([]);
@@ -77,16 +77,16 @@ export default function DailySupervisionForm() {
   const [activeSettingsTab, setActiveSettingsTab] = useState('vendedores');
   const [showControlPanel, setShowControlPanel] = useState(false);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(autoAuth || currentUser?.role === 'admin'));
   const [passwordInput, setPasswordInput] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
     const auth = localStorage.getItem('formAuth_0lam');
-    if (auth === 'true') {
+    if (auth === 'true' || autoAuth || currentUser?.role === 'admin') {
       setIsAuthenticated(true);
     }
-  }, []);
+  }, [autoAuth, currentUser]);
 
   const handleLogin = (e) => {
     e.preventDefault();

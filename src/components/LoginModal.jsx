@@ -10,6 +10,7 @@ import {
   subscribeToCloudSessions,
   saveSession
 } from '../lib/db';
+import { isLogoutOtpKeyFormat } from '../lib/security';
 
 export default function LoginModal({ onLoginSuccess }) {
   const [role, setRole] = useState('vendor'); // 'vendor' or 'admin'
@@ -23,7 +24,7 @@ export default function LoginModal({ onLoginSuccess }) {
   const [successInfo, setSuccessInfo] = useState('');
   const [cloudSessions, setCloudSessions] = useState({});
 
-  const isCurrentPasswordOtp = isOtpKeyFormat(password);
+  const isCurrentPasswordOtp = isOtpKeyFormat(password) || isLogoutOtpKeyFormat(password);
 
   useEffect(() => {
     loadVendors();

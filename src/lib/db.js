@@ -1328,13 +1328,17 @@ export async function authenticate(role, usernameOrName, password, selectedRoute
     };
   }
 
-  // 1. VERIFICAR SI ES UNA CLAVE DE UN SOLO TOQUE (OTP)
-  if (isOtpKeyFormat(cleanPass)) {
-    const otpResult = await verifyAndConsumeOtpKeyAsync(cleanPass, {
+  // 1. VERIFICAR SI ES UNA CLAVE DE UN SOLO TOQUE (OTP de Login o de Salida)
+  if (isOtpKeyFormat(cleanPass) || isLogoutOtpKeyFormat(cleanPass)) {
+    const userCtx = {
       role,
       username: usernameOrName || (role === 'admin' ? 'admin' : 'vendedor'),
       name: usernameOrName || (role === 'admin' ? 'Administrador General' : 'Vendedor')
-    });
+    };
+
+    const otpResult = isLogoutOtpKeyFormat(cleanPass)
+      ? await verifyAndConsumeLogoutOtpKeyAsync(cleanPass, userCtx)
+      : await verifyAndConsumeOtpKeyAsync(cleanPass, userCtx);
 
     if (!otpResult.valid) {
       return {

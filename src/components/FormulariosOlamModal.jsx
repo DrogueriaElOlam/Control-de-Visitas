@@ -16,6 +16,7 @@ import {
 import { isSuperUser } from '../lib/formsPermissions';
 
 // Formularios
+import SupervisionForm from './SupervisionForm';
 import { CentralSupervisionView } from './CentralSupervisionModal';
 import AperturaCodigoForm from './AperturaCodigoForm';
 import SolicitudViaticosForm from './SolicitudViaticosForm';
@@ -64,11 +65,11 @@ class FormsErrorBoundary extends React.Component {
 export default function FormulariosOlamModal({ isOpen, onClose, currentUser }) {
   const isSuper = isSuperUser(currentUser);
   const isAdmin = currentUser?.role === 'admin' || isSuper;
-  const [activeForm, setActiveForm] = useState(isAdmin ? 'supervision-central' : 'apertura');
+  const [activeForm, setActiveForm] = useState(isAdmin ? 'supervision' : 'apertura');
 
-  // Asegurar que si un vendedor abre el modal, nunca quede en 'supervision-central'
+  // Asegurar que si un vendedor abre el modal, nunca quede en pestañas exclusivas de admin
   useEffect(() => {
-    if (!isAdmin && activeForm === 'supervision-central') {
+    if (!isAdmin && (activeForm === 'supervision' || activeForm === 'supervision-central')) {
       setActiveForm('apertura');
     }
   }, [isAdmin, activeForm]);
@@ -76,15 +77,26 @@ export default function FormulariosOlamModal({ isOpen, onClose, currentUser }) {
   if (!isOpen) return null;
 
   const formsList = [
-    ...(isAdmin ? [{
-      id: 'supervision-central',
-      name: 'Panel Central de Supervisión',
-      shortName: 'Panel Supervisión',
-      desc: 'Compromisos de venta diaria, metas, gráficas de ventas y cobros en vivo',
-      icon: Shield,
-      color: 'from-purple-700 to-indigo-700',
-      activeColor: 'bg-purple-700 text-white shadow-purple-500/30'
-    }] : []),
+    ...(isAdmin ? [
+      {
+        id: 'supervision',
+        name: 'Supervisión (Formularios)',
+        shortName: 'Supervisión',
+        desc: 'Control de Viáticos, Recibos de Caja, Evaluación de Vendedor, Visitas Proveedores, Comisiones y Supervisión Diaria',
+        icon: ShieldCheck,
+        color: 'from-cyan-600 to-blue-700',
+        activeColor: 'bg-cyan-600 text-white shadow-cyan-500/30'
+      },
+      {
+        id: 'supervision-central',
+        name: 'Panel Central de Supervisión',
+        shortName: 'Panel Supervisión',
+        desc: 'Compromisos de venta diaria, metas, gráficas de ventas y cobros en vivo',
+        icon: Shield,
+        color: 'from-purple-700 to-indigo-700',
+        activeColor: 'bg-purple-700 text-white shadow-purple-500/30'
+      }
+    ] : []),
     {
       id: 'apertura',
       name: 'Apertura de Código',
@@ -259,7 +271,14 @@ export default function FormulariosOlamModal({ isOpen, onClose, currentUser }) {
 
             {/* Contenedor Protegido con Error Boundary */}
             <FormsErrorBoundary key={activeForm}>
-              {/* 0. Panel Central de Supervisión (Solo Administrador) */}
+              {/* 0. Formularios de Supervisión (Primera Pestaña - Solo Administrador) */}
+              {isAdmin && activeForm === 'supervision' && (
+                <div className="animate-in fade-in duration-150">
+                  <SupervisionForm currentUser={currentUser} autoAuth={true} />
+                </div>
+              )}
+
+              {/* 0.1 Panel Central de Supervisión (Solo Administrador) */}
               {isAdmin && activeForm === 'supervision-central' && (
                 <div className="animate-in fade-in duration-150">
                   <CentralSupervisionView isEmbedded={true} onClose={onClose} />

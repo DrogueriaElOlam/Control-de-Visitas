@@ -27,6 +27,7 @@ import SupervisorRemindersModal from './components/SupervisorRemindersModal';
 import ActiveReminderAlertModal from './components/ActiveReminderAlertModal';
 import AdminSupabaseStatusModal from './components/AdminSupabaseStatusModal';
 import VisualFeedbackSelector from './components/VisualFeedbackSelector';
+import SupervisionForm from './components/SupervisionForm';
 
 import { 
   getStoredReminders, 
@@ -64,7 +65,7 @@ import {
 export default function App() {
 
   const [currentUser, setCurrentUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('supervision');
   const [darkMode, setDarkMode] = useState(false);
   const [targetMapVisit, setTargetMapVisit] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -136,7 +137,7 @@ export default function App() {
     const saved = getSavedSession();
     if (saved) {
       setCurrentUser(saved);
-      setActiveTab(saved.role === 'admin' ? 'dashboard' : 'register');
+      setActiveTab(saved.role === 'admin' ? 'supervision' : 'register');
     } else {
       setCurrentUser(null);
     }
@@ -159,7 +160,7 @@ export default function App() {
     fetchCashReportsFromCloud().catch(() => {});
 
     // Garantizar purga automática de bundles JS viejos en teléfonos y navegadores
-    const APP_BUILD_REV = 'olam_rev_20261008_phone_free_v2';
+    const APP_BUILD_REV = 'olam_rev_20261106_otp_fixed_v4';
     try {
       const storedRev = localStorage.getItem('olam_app_build_rev');
       if (storedRev !== APP_BUILD_REV) {
@@ -441,7 +442,7 @@ export default function App() {
   // Login handler
   const handleLoginSuccess = (session) => {
     setCurrentUser(session);
-    setActiveTab(session.role === 'admin' ? 'dashboard' : 'register');
+    setActiveTab(session.role === 'admin' ? 'supervision' : 'register');
     if (session.role === 'vendor' || (session.name && session.name !== 'Administrador')) {
       recordVendorLoginSession(session);
     }
@@ -585,6 +586,13 @@ export default function App() {
         {/* ADMIN VIEWS */}
         {currentUser.role === 'admin' && (
           <>
+            {activeTab === 'supervision' && (
+              <SupervisionForm
+                currentUser={currentUser}
+                autoAuth={true}
+              />
+            )}
+
             {activeTab === 'dashboard' && (
               <AdminDashboard
                 vendors={vendors}

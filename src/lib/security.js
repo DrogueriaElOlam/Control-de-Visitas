@@ -126,6 +126,114 @@ const OTP_LOGOUT_VAULT_DATE = '2099-12-31';
 
 const OTP_BURNED_REGISTRY_KEY = 'olam_burned_otp_login_registry_v2';
 const OTP_LOGOUT_BURNED_REGISTRY_KEY = 'olam_burned_otp_logout_registry_v2';
+const OTP_CLEANUP_REV_KEY = 'olam_otp_cleanup_rev_v4';
+const CURRENT_OTP_CLEANUP_REV = 'olam_otp_clean_13_50_v4';
+
+const TEST_KEYS_TO_RESTORE_ONCE = [
+  'OLAM-SDB8-E3SP',
+  'OLAM-W57M-A7TV',
+  'OLAM-TDJR-RD6C',
+  'OLAM-OUT-N2HM-VFFX'
+];
+
+function ensureCleanOtpVaultRevision() {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    if (localStorage.getItem(OTP_CLEANUP_REV_KEY) === CURRENT_OTP_CLEANUP_REV) return;
+
+    // 1. Limpiar claves de prueba de los registros quemados locales
+    [OTP_BURNED_REGISTRY_KEY, OTP_LOGOUT_BURNED_REGISTRY_KEY].forEach((regKey) => {
+      try {
+        const raw = localStorage.getItem(regKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          TEST_KEYS_TO_RESTORE_ONCE.forEach((k) => {
+            delete parsed[k];
+          });
+          localStorage.setItem(regKey, JSON.stringify(parsed));
+        }
+      } catch (_) {}
+    });
+
+    // 2. Limpiar claves de prueba de las bóvedas locales
+    [OTP_STORAGE_KEY, LOGOUT_OTP_STORAGE_KEY].forEach((vaultKey) => {
+      try {
+        const raw = localStorage.getItem(vaultKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const cleaned = parsed.map((item) => {
+              const k = String(item.key || '').trim().toUpperCase();
+              if (TEST_KEYS_TO_RESTORE_ONCE.includes(k)) {
+                return { ...item, used: false, usedAt: null, usedBy: null };
+              }
+              return item;
+            });
+            localStorage.setItem(vaultKey, JSON.stringify(cleaned));
+          }
+        }
+      } catch (_) {}
+    });
+
+    localStorage.setItem(OTP_CLEANUP_REV_KEY, CURRENT_OTP_CLEANUP_REV);
+  } catch (_) {}
+}
+
+/**
+ * Normaliza cualquier entrada de clave OTP de login (soporta espacios, guiones largos o solo los 8 caracteres)
+ */
+export function normalizeOtpKeyInput(str) {
+  if (!str || typeof str !== 'string') return '';
+  let clean = str
+    .replace(/[\u200B-\u200D\uFEFF"']/g, '')
+    .replace(/[–—_]/g, '-')
+    .trim()
+    .toUpperCase();
+
+  // Si viene con espacios en lugar de guiones: "OLAM SDB8 E3SP"
+  const compact = clean.replace(/[^A-Z0-9]/g, '');
+  if (/^OLAM[A-Z0-9]{8}$/.test(compact)) {
+    return `OLAM-${compact.slice(4, 8)}-${compact.slice(8, 12)}`;
+  }
+
+  // Si escribió solo los 8 caracteres o "XXXX-XXXX" y existe en initialOtpKeys
+  if (/^[A-Z0-9]{8}$/.test(compact)) {
+    const candidate = `OLAM-${compact.slice(0, 4)}-${compact.slice(4, 8)}`;
+    if (initialOtpKeys.some((k) => k.key === candidate)) {
+      return candidate;
+    }
+  }
+
+  return clean;
+}
+
+/**
+ * Normaliza cualquier entrada de clave OTP de cierre de sesión ("OLAM-OUT-XXXX-XXXX")
+ */
+export function normalizeLogoutOtpKeyInput(str) {
+  if (!str || typeof str !== 'string') return '';
+  let clean = str
+    .replace(/[\u200B-\u200D\uFEFF"']/g, '')
+    .replace(/[–—_]/g, '-')
+    .trim()
+    .toUpperCase();
+
+  const compact = clean.replace(/[^A-Z0-9]/g, '');
+  if (/^OLAMOUT[A-Z0-9]{8}$/.test(compact)) {
+    return `OLAM-OUT-${compact.slice(7, 11)}-${compact.slice(11, 15)}`;
+  }
+  if (/^OUT[A-Z0-9]{8}$/.test(compact)) {
+    return `OLAM-OUT-${compact.slice(3, 7)}-${compact.slice(7, 11)}`;
+  }
+  if (/^[A-Z0-9]{8}$/.test(compact)) {
+    const candidate = `OLAM-OUT-${compact.slice(0, 4)}-${compact.slice(4, 8)}`;
+    if (initialLogoutOtpKeys.some((k) => k.key === candidate)) {
+      return candidate;
+    }
+  }
+
+  return clean;
+}
 
 /**
  * Registro permanente de claves de login quemadas (Blacklist a prueba de fallos).
@@ -133,13 +241,14 @@ const OTP_LOGOUT_BURNED_REGISTRY_KEY = 'olam_burned_otp_logout_registry_v2';
  * incluso si la caché local o un JSON inicial la mostraba como disponible.
  */
 export function getBurnedKeysRegistry() {
+  ensureCleanOtpVaultRevision();
   let reg = {};
   try {
     const raw = localStorage.getItem(OTP_BURNED_REGISTRY_KEY);
     if (raw) reg = JSON.parse(raw);
   } catch (_) {}
 
-  // Claves oficiales de los 12 vendedores siempre quemadas e invalidadas
+  // Claves oficiales de los 12 vendedores siempre quemadas e invalidadas (#1 a #12)
   const DEFAULT_BURNED = {
     'OLAM-X5F9-96RM': { used: true, usedBy: 'Danny Perez', usedAt: '2026-10-08 14:30:00', usedRole: 'vendor' },
     'OLAM-4G4A-K5Z4': { used: true, usedBy: 'Antonio Celada', usedAt: '2026-10-21 08:30:00', usedRole: 'vendor' },
@@ -152,9 +261,7 @@ export function getBurnedKeysRegistry() {
     'OLAM-6VN3-7GFZ': { used: true, usedBy: 'Klissman Hernandez', usedAt: '2026-10-21 10:15:00', usedRole: 'vendor' },
     'OLAM-4BAQ-FK83': { used: true, usedBy: 'Elio Caceros', usedAt: '2026-10-21 10:30:00', usedRole: 'vendor' },
     'OLAM-65JB-ZFA6': { used: true, usedBy: 'Josue Aguilar', usedAt: '2026-10-21 10:45:00', usedRole: 'vendor' },
-    'OLAM-64Q9-9R3T': { used: true, usedBy: 'Elias Quiej', usedAt: '2026-10-21 11:00:00', usedRole: 'vendor' },
-    'OLAM-SDB8-E3SP': { used: true, usedBy: 'Antonio Celada', usedAt: '2026-10-23 09:44:45', usedRole: 'vendor' },
-    'OLAM-W57M-A7TV': { used: true, usedBy: 'Josue Aguilar', usedAt: '2026-10-29 21:02:23', usedRole: 'vendor' }
+    'OLAM-64Q9-9R3T': { used: true, usedBy: 'Elias Quiej', usedAt: '2026-10-21 11:00:00', usedRole: 'vendor' }
   };
 
   Object.entries(DEFAULT_BURNED).forEach(([key, val]) => {
@@ -214,6 +321,7 @@ function ensureDannyBurned(vault) {
  * Gestión de la Bóveda de 50 Claves de Un Solo Toque (OTP)
  */
 export function getOtpKeysVault() {
+  ensureCleanOtpVaultRevision();
   try {
     const raw = localStorage.getItem(OTP_STORAGE_KEY);
     if (raw) {
@@ -221,7 +329,6 @@ export function getOtpKeysVault() {
       if (Array.isArray(parsed) && parsed.length > 0) {
         const protectedVault = ensureBurnedKeys(parsed);
         localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(protectedVault));
-        setTimeout(() => { fetchOtpVaultFromCloud().catch(() => {}); }, 50);
         return protectedVault;
       }
     }
@@ -236,7 +343,6 @@ export function getOtpKeysVault() {
   }));
   const protectedInitial = ensureBurnedKeys(initial);
   saveOtpKeysVault(protectedInitial);
-  setTimeout(() => { fetchOtpVaultFromCloud().catch(() => {}); }, 50);
   return protectedInitial;
 }
 
@@ -407,7 +513,7 @@ export async function getOtpKeysVaultAsync() {
  */
 export function isOtpKeyFormat(str) {
   if (!str || typeof str !== 'string') return false;
-  const clean = str.trim().toUpperCase();
+  const clean = normalizeOtpKeyInput(str);
   return /^OLAM-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(clean);
 }
 
@@ -423,7 +529,7 @@ export async function verifyAndConsumeOtpKeyAsync(inputKey, userContext = {}) {
     return { valid: false, message: 'Clave no proporcionada' };
   }
 
-  const cleanKey = inputKey.trim().toUpperCase();
+  const cleanKey = normalizeOtpKeyInput(inputKey);
 
   // 1. Verificación contra registro persistente de quemadas
   const burnedReg = getBurnedKeysRegistry();
@@ -517,7 +623,7 @@ export function verifyAndConsumeOtpKey(inputKey, userContext = {}) {
     return { valid: false, message: 'Clave no proporcionada' };
   }
 
-  const cleanKey = inputKey.trim().toUpperCase();
+  const cleanKey = normalizeOtpKeyInput(inputKey);
   const burnedReg = getBurnedKeysRegistry();
   if (burnedReg[cleanKey]) {
     const burntInfo = burnedReg[cleanKey];
@@ -649,13 +755,15 @@ export async function burnOtpKeyManually(inputKey, assignedUser = 'Vendedor en C
  * Gestión de la Bóveda de 50 Claves de Un Solo Toque para Cierre de Sesión (Logout OTP)
  */
 export function getLogoutOtpKeysVault() {
+  ensureCleanOtpVaultRevision();
   try {
     const raw = localStorage.getItem(LOGOUT_OTP_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        setTimeout(() => { fetchLogoutOtpVaultFromCloud().catch(() => {}); }, 100);
-        return parsed;
+        const protectedVault = ensureBurnedLogoutKeys(parsed);
+        localStorage.setItem(LOGOUT_OTP_STORAGE_KEY, JSON.stringify(protectedVault));
+        return protectedVault;
       }
     }
   } catch (e) {
@@ -667,9 +775,9 @@ export function getLogoutOtpKeysVault() {
     ...item,
     hash: hashPassword(item.key)
   }));
-  saveLogoutOtpKeysVault(initial);
-  setTimeout(() => { fetchLogoutOtpVaultFromCloud().catch(() => {}); }, 100);
-  return initial;
+  const protectedInitial = ensureBurnedLogoutKeys(initial);
+  saveLogoutOtpKeysVault(protectedInitial);
+  return protectedInitial;
 }
 
 export function saveLogoutOtpKeysVault(vault) {
@@ -915,7 +1023,7 @@ export async function getLogoutOtpKeysVaultAsync() {
  */
 export function isLogoutOtpKeyFormat(str) {
   if (!str || typeof str !== 'string') return false;
-  const clean = str.trim().toUpperCase();
+  const clean = normalizeLogoutOtpKeyInput(str);
   return /^OLAM-OUT-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(clean);
 }
 
@@ -927,7 +1035,7 @@ export async function verifyAndConsumeLogoutOtpKeyAsync(inputKey, userContext = 
     return { valid: false, message: 'Clave de cierre no proporcionada' };
   }
 
-  const cleanKey = inputKey.trim().toUpperCase();
+  const cleanKey = normalizeLogoutOtpKeyInput(inputKey);
 
   const burnedRegistry = getLogoutBurnedKeysRegistry();
   if (burnedRegistry[cleanKey]) {
@@ -1012,7 +1120,7 @@ export function verifyAndConsumeLogoutOtpKey(inputKey, userContext = {}) {
     return { valid: false, message: 'Clave de cierre no proporcionada' };
   }
 
-  const cleanKey = inputKey.trim().toUpperCase();
+  const cleanKey = normalizeLogoutOtpKeyInput(inputKey);
 
   const burnedRegistry = getLogoutBurnedKeysRegistry();
   if (burnedRegistry[cleanKey]) {
