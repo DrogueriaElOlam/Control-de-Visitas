@@ -738,6 +738,13 @@
       - **Historial de Plantillas de Boletas por Vendedor (`PlantillaBoletasHistory.jsx`):**
         * Almacenamiento persistente en Supabase (`daily_supervision_history` con clave `2099-12-24`) y respaldo en `localStorage`.
         * Permite filtrar por Vendedor y Rango de Fechas, visualizar miniaturas de las boletas, imprimir cualquier plantilla con un solo clic cuando un vendedor solicite impresiones de sus plantillas, descargar HTML o volver a cargarla en el editor.
+  91. **Corrección Definitiva de Impresión 4 Boletas por Hoja sin Recortes y Renderizado Fiel WYSIWYG 1:1 en Canvas (`plantillaBoletasHelper.js`, `PlantillaBoletas.jsx`, `PlantillaBoletasHistory.jsx`):**
+      - **Causa Raíz Identificada:**
+        1) En el documento de impresión HTML, `.sheet-page` utilizaba `height: 98vh` y `grid-template-rows: 1fr 1fr`. En el motor de impresión del navegador, `98vh` sumado a los márgenes `@page` excedía los `279.4mm` de la hoja Carta y las filas `1fr` se expandían según la altura intrínseca de las imágenes, provocando que las boletas inferiores se cortaran y desbordaran a páginas adicionales.
+        2) Las transformaciones CSS (`rotate`, `scale`, `translate`) tenían orden distinto entre la vista previa en pantalla y la vista de impresión, y al rotar 90° una imagen rectangular en CSS no se recalculaba su caja envolvente dentro de la celda.
+      - **Solución Implementada:**
+        1) **Lienzo Unificado en Vivo (`BoletaLiveCanvas` + `drawBoletaOnCanvas` + `bakeAllBoletasMap`):** Ahora tanto la pantalla del formulario como el historial, la impresión directa, la descarga HTML y la exportación PDF utilizan exactamente el mismo motor de dibujo sobre Canvas (`880x1100 px`, proporción `4:5`). Al rotar (90°, 180°, 270° o cualquier ángulo), ampliar/reducir (`Zoom`), arrastrar con el mouse o ajustar brillo/contraste, la imagen se "hornea" con el encuadre exacto que el usuario ve en pantalla.
+        2) **Dimensiones Fijas en Milímetros para 4 Boletas por Hoja (`196mm x 254mm`):** Se reemplazó `98vh` por medidas milimétricas estrictas (`254mm` de alto total en vertical y `192mm` en horizontal, con `grid-template-rows: repeat(2, minmax(0, 1fr))` de `238mm`), garantizando que las 4 boletas quepan siempre completas en una sola hoja tamaño Carta sin cortarse jamás.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

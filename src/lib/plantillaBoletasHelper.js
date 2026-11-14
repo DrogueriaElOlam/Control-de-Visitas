@@ -1,6 +1,7 @@
-// Droguería El Olam - Motor de Carga Masiva Ultrarrápida, Impresión Oficial e Historial en la Nube para Plantilla de Boletas
+// Droguería El Olam - Motor de Carga Masiva Ultrarrápida, Renderizado Exacto WYSIWYG (Canvas), Impresión Oficial e Historial en la Nube para Plantilla de Boletas
 import { supabase } from './supabase';
 import { LOGO_DATA_URI } from './logo';
+import { injectPrintFeatures, downloadHtmlFile } from './printHtmlHelper';
 
 export const BOLETAS_HISTORY_LOCAL_KEY = 'olam_plantilla_boletas_history_v1';
 export const BOLETAS_CLOUD_DATE_KEY = '2099-12-24';
@@ -20,11 +21,134 @@ export const OFFICIAL_VENDORS_LIST = [
   'Wally Natareno'
 ];
 
+// Caché en memoria de objetos HTMLImageElement para dibujo instantáneo en Canvas
+const imageElementCache = new Map();
+
+export function loadImageElement(src) {
+  if (!src) return Promise.resolve(null);
+  if (imageElementCache.has(src)) {
+    const cached = imageElementCache.get(src);
+    if (cached && cached.complete && cached.naturalWidth > 0) {
+      return Promise.resolve(cached);
+    }
+  }
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      imageElementCache.set(src, img);
+      resolve(img);
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+/**
+ * Dibuja una boleta en un Canvas aplicando exactamente la rotación, escala (ampliación),
+ * posición X/Y, brillo y contraste tal y como se ve en pantalla.
+ * Garantiza que al rotar 90°/270° o ampliar, la imagen se encuadre igual en pantalla, impresión y PDF.
+ */
+export function drawBoletaOnCanvas(ctx, img, settings = {}, canvasWidth = 800, canvasHeight = 1000) {
+  if (!ctx) return;
+
+  ctx.save();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  if (!img) {
+    ctx.restore();
+    return;
+  }
+
+  const scale = Number(settings.scale) || 1;
+  const rotation = Number(settings.rotation) || 0;
+  const brightness = Number(settings.brightness) || 100;
+  const contrast = Number(settings.contrast) || 100;
+  const offsetX = Number(settings.offsetX) || 0;
+  const offsetY = Number(settings.offsetY) || 0;
+
+  const pad = 14;
+  const availW = canvasWidth - pad * 2;
+  const availH = canvasHeight - pad * 2;
+
+  const rad = (rotation * Math.PI) / 180;
+  const absCos = Math.abs(Math.cos(rad));
+  const absSin = Math.abs(Math.sin(rad));
+
+  const imgW = img.naturalWidth || img.width || 1;
+  const imgH = img.naturalHeight || img.height || 1;
+
+  // Calcular dimensiones envolventes tras la rotación para que al girar 90° encaje completa sin cortarse
+  const rotatedW = imgW * absCos + imgH * absSin;
+  const rotatedH = imgW * absSin + imgH * absCos;
+
+  const baseFitScale = Math.min(availW / rotatedW, availH / rotatedH);
+  const drawW = imgW * baseFitScale;
+  const drawH = imgH * baseFitScale;
+
+  // Desplazamiento X / Y en coordenadas reales de la casilla (siempre horizontal y vertical respecto a la hoja)
+  const shiftX = (offsetX / 100) * (canvasWidth * 0.45);
+  const shiftY = (offsetY / 100) * (canvasHeight * 0.45);
+
+  ctx.translate(canvasWidth / 2 + shiftX, canvasHeight / 2 + shiftY);
+  ctx.rotate(rad);
+  ctx.scale(scale, scale);
+
+  if (brightness !== 100 || contrast !== 100) {
+    try {
+      ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
+    } catch (_) {}
+  }
+
+  ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+  ctx.restore();
+}
+
+/**
+ * Genera una imagen JPG ya procesada ("horneada") con todas las modificaciones visuales
+ * (rotación, zoom/escala, desplazamiento, brillo y contraste) en proporción exacta 4:5.
+ */
+export async function bakeBoletaToDataUrl(boletaObj, canvasWidth = 880, canvasHeight = 1100) {
+  if (!boletaObj || !boletaObj.src) return null;
+  const img = await loadImageElement(boletaObj.src);
+  if (!img) return boletaObj.src;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+  const ctx = canvas.getContext('2d');
+  drawBoletaOnCanvas(ctx, img, boletaObj, canvasWidth, canvasHeight);
+  return canvas.toDataURL('image/jpeg', 0.9);
+}
+
+/**
+ * Procesa en paralelo todas las boletas de la plantilla para obtener sus imágenes finales
+ * exactamente como se ven en pantalla antes de imprimir o exportar.
+ */
+export async function bakeAllBoletasMap(images = {}) {
+  const keys = Object.keys(images).filter((k) => Boolean(images[k]?.src));
+  const bakedMap = {};
+
+  await Promise.all(
+    keys.map(async (key) => {
+      const item = images[key];
+      const bakedDataUrl = await bakeBoletaToDataUrl(item, 880, 1100);
+      bakedMap[key] = {
+        ...item,
+        bakedSrc: bakedDataUrl || item.src
+      };
+    })
+  );
+
+  return bakedMap;
+}
+
 /**
  * Optimiza y comprime una imagen en milisegundos usando Canvas en paralelo.
  * Reduce fotos pesadas de celular (5-10MB) a ~65-95KB nítidos para carga instantánea y guardado en nube.
  */
-export function compressBoletaImage(file, maxDimension = 1150, quality = 0.82) {
+export function compressBoletaImage(file, maxDimension = 1200, quality = 0.84) {
   return new Promise((resolve) => {
     if (!file) {
       resolve(null);
@@ -135,7 +259,6 @@ export function distributeBoletasIntoGrid(currentPages, currentImages, newBoleta
   const updatedImages = { ...(currentImages || {}) };
   let maxPage = Math.max(1, ...(currentPages || [1]));
 
-  // Si se indicó una casilla específica de inicio (ej. "2-3"), calcular su índice lineal (base 0)
   let startLinearIndex = 0;
   if (startBoxId && typeof startBoxId === 'string' && startBoxId.includes('-')) {
     const [pStr, bStr] = startBoxId.split('-');
@@ -147,13 +270,11 @@ export function distributeBoletasIntoGrid(currentPages, currentImages, newBoleta
   let currentLinearIndex = startLinearIndex;
 
   for (const boletaObj of newBoletaObjects) {
-    // Si empezó desde 0 (carga masiva general), buscar la primera casilla libre
     if (!startBoxId || newBoletaObjects.length > 1) {
       while (true) {
         const pageNum = Math.floor(currentLinearIndex / 4) + 1;
         const boxNum = (currentLinearIndex % 4) + 1;
         const candidateId = `${pageNum}-${boxNum}`;
-        // Si es el primer archivo y el usuario hizo clic en una casilla específica, permitir reemplazarla
         if (startBoxId && candidateId === startBoxId && boletaObj === newBoletaObjects[0]) {
           break;
         }
@@ -180,8 +301,10 @@ export function distributeBoletasIntoGrid(currentPages, currentImages, newBoleta
 }
 
 /**
- * Genera el HTML oficial autoajustable para Imprimir o Descargar la Plantilla de Boletas.
- * Respeta las rotaciones, escalas, brillo, contraste y desplazamientos de cada boleta.
+ * Genera el HTML oficial para Imprimir o Descargar la Plantilla de Boletas.
+ * - Garantiza estrictamente 4 boletas por hoja tamaño Carta sin cortarse jamás (medidas exactas en mm).
+ * - Si se proveen imágenes ya horneadas (`bakedSrc`), las imprime píxel por píxel idénticas a la pantalla;
+ *   además incluye un renderizador Canvas de respaldo en el propio HTML para que siempre respete rotaciones y zoom.
  */
 export function generatePlantillaBoletasHtml({ pages = [1], images = {}, metadata = {} }) {
   const vendedor = metadata.vendedor || 'General';
@@ -189,7 +312,7 @@ export function generatePlantillaBoletasHtml({ pages = [1], images = {}, metadat
   const referencia = metadata.referencia || '';
   const fecha = metadata.fecha || new Date().toISOString().split('T')[0];
 
-  // Filtrar páginas que tengan al menos una imagen, o dejar al menos la página 1
+  // Filtrar páginas que tengan al menos una imagen, o dejar la página 1
   const activePages = pages.filter((pNum) =>
     ['1', '2', '3', '4'].some((bNum) => Boolean(images[`${pNum}-${bNum}`]?.src))
   );
@@ -202,15 +325,20 @@ export function generatePlantillaBoletasHtml({ pages = [1], images = {}, metadat
         .map((boxNum) => {
           const boxId = `${pageNum}-${boxNum}`;
           const img = images[boxId];
+          const globalNum = pageIdx * 4 + Number(boxNum);
 
           if (!img || !img.src) {
             return `
               <div class="boleta-cell empty-cell">
-                <div class="cell-badge">Cuadro ${boxNum}</div>
+                <div class="cell-badge">Boleta #${globalNum}</div>
                 <div class="empty-placeholder">Espacio Libre</div>
               </div>
             `;
           }
+
+          // Si ya viene horneada (bakedSrc), contiene la rotación, zoom, posición y brillo exactos
+          const displaySrc = img.bakedSrc || img.src;
+          const isPreBaked = Boolean(img.bakedSrc);
 
           const scale = Number(img.scale) || 1;
           const rotation = Number(img.rotation) || 0;
@@ -221,15 +349,19 @@ export function generatePlantillaBoletasHtml({ pages = [1], images = {}, metadat
 
           return `
             <div class="boleta-cell">
-              <div class="cell-badge">#${(pageIdx * 4) + Number(boxNum)}</div>
+              <div class="cell-badge">#${globalNum}</div>
               <div class="boleta-img-wrapper">
                 <img
-                  src="${img.src}"
+                  src="${displaySrc}"
                   alt="Boleta ${boxId}"
-                  style="
-                    transform: translate(${offsetX}px, ${offsetY}px) rotate(${rotation}deg) scale(${scale});
-                    filter: brightness(${brightness}%) contrast(${contrast}%);
-                  "
+                  class="boleta-printable-img"
+                  data-prebaked="${isPreBaked ? '1' : '0'}"
+                  data-scale="${scale}"
+                  data-rotation="${rotation}"
+                  data-brightness="${brightness}"
+                  data-contrast="${contrast}"
+                  data-offset-x="${offsetX}"
+                  data-offset-y="${offsetY}"
                 />
               </div>
             </div>
@@ -255,7 +387,7 @@ export function generatePlantillaBoletasHtml({ pages = [1], images = {}, metadat
             </div>
             <div class="header-right">
               <div><strong>Fecha:</strong> ${fecha}</div>
-              <div><strong>Página ${pageIdx + 1} de ${pagesToRender.length}</strong> (${totalBoletas} boleta${totalBoletas === 1 ? '' : 's'})</div>
+              <div><strong>Hoja ${pageIdx + 1} de ${pagesToRender.length}</strong> (${totalBoletas} boleta${totalBoletas === 1 ? '' : 's'})</div>
             </div>
           </div>
 
@@ -273,92 +405,122 @@ export function generatePlantillaBoletasHtml({ pages = [1], images = {}, metadat
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Plantilla de Boletas - ${vendedor} (${fecha})</title>
+  <style id="orientation-style">
+    @page {
+      size: letter portrait;
+      margin: 5mm 6mm 5mm 6mm;
+    }
+  </style>
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
-    body {
+    html, body {
       font-family: Arial, Helvetica, sans-serif;
-      background: #f1f5f9;
+      background: #e2e8f0;
       color: #0f172a;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
+    /* Vista en pantalla previa a imprimir: Hoja Carta exacta */
     .sheet-page {
-      width: 215.9mm;
-      height: 264mm;
+      width: 196mm;
+      height: 254mm;
+      max-height: 254mm;
       margin: 0 auto 14px auto;
       background: #ffffff;
-      padding: 6mm 8mm;
+      padding: 2mm 3mm;
       display: flex;
       flex-direction: column;
       border: 1px solid #cbd5e1;
-      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+      overflow: hidden;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     body.is-landscape .sheet-page {
-      width: 279.4mm;
-      height: 202mm;
+      width: 258mm;
+      height: 192mm;
+      max-height: 192mm;
     }
     .page-break {
       page-break-after: always;
       break-after: page;
     }
     .sheet-header {
+      height: 10mm;
+      min-height: 10mm;
+      max-height: 10mm;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 2px solid #1e3a8a;
-      padding-bottom: 5px;
-      margin-bottom: 8px;
+      border-bottom: 1.5px solid #1e3a8a;
+      padding-bottom: 1mm;
+      margin-bottom: 2mm;
       flex-shrink: 0;
     }
     .header-left {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
     .header-logo {
-      height: 32px;
+      height: 8mm;
       width: auto;
       object-fit: contain;
     }
     .company-title {
-      font-size: 12px;
+      font-size: 10.5px;
       font-weight: 900;
       color: #1e3a8a;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
+      line-height: 1.15;
     }
     .company-sub {
-      font-size: 10.5px;
+      font-size: 9px;
       color: #334155;
-      margin-top: 2px;
+      margin-top: 1px;
+      line-height: 1.15;
     }
     .header-right {
       text-align: right;
-      font-size: 10px;
+      font-size: 9px;
       color: #334155;
-      line-height: 1.35;
+      line-height: 1.2;
+      white-space: nowrap;
     }
+    /* Cuadrícula estricta 2x2: 4 boletas exactas por hoja (proporción 4:5 idéntica al editor) sin desbordar jamás */
     .boletas-grid {
-      flex: 1;
+      width: 100%;
+      height: 238mm;
+      max-height: 238mm;
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: 1fr 1fr;
-      gap: 8px;
-      min-height: 0;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      gap: 3mm;
+      flex-shrink: 0;
+    }
+    body.is-landscape .boletas-grid {
+      height: 176mm;
+      max-height: 176mm;
     }
     .boleta-cell {
       position: relative;
-      border: 1.8px solid #1e293b;
-      border-radius: 6px;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
+      border: 1.5px solid #1e293b;
+      border-radius: 4px;
       overflow: hidden;
       background: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 0;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     .empty-cell {
       border: 1.5px dashed #cbd5e1;
@@ -371,13 +533,13 @@ export function generatePlantillaBoletasHtml({ pages = [1], images = {}, metadat
     }
     .cell-badge {
       position: absolute;
-      top: 5px;
-      left: 5px;
-      background: rgba(15, 23, 42, 0.78);
+      top: 4px;
+      left: 4px;
+      background: rgba(15, 23, 42, 0.82);
       color: #ffffff;
-      font-size: 9px;
+      font-size: 8.5px;
       font-weight: 800;
-      padding: 2px 6px;
+      padding: 1.5px 5px;
       border-radius: 4px;
       z-index: 5;
     }
@@ -388,33 +550,108 @@ export function generatePlantillaBoletasHtml({ pages = [1], images = {}, metadat
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      padding: 3px;
+      background: #ffffff;
     }
     .boleta-img-wrapper img {
-      max-width: 100%;
-      max-height: 100%;
-      width: auto;
-      height: auto;
+      width: 100%;
+      height: 100%;
       object-fit: contain;
-      transform-origin: center center;
+      display: block;
     }
     @media print {
-      body {
+      html, body {
         background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
       }
       .sheet-page {
-        margin: 0 !important;
+        width: 196mm !important;
+        height: 254mm !important;
+        max-height: 254mm !important;
+        margin: 0 auto !important;
+        padding: 1mm 2mm !important;
         border: none !important;
         box-shadow: none !important;
-        width: 100% !important;
-        height: 98vh !important;
-        padding: 2mm !important;
+        overflow: hidden !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      body.is-landscape .sheet-page {
+        width: 258mm !important;
+        height: 192mm !important;
+        max-height: 192mm !important;
+      }
+      .boletas-grid {
+        height: 238mm !important;
+        max-height: 238mm !important;
+      }
+      body.is-landscape .boletas-grid {
+        height: 176mm !important;
+        max-height: 176mm !important;
       }
     }
   </style>
 </head>
 <body class="is-portrait">
   ${pagesHtml}
+  <script>
+    // Si alguna imagen no venía pre-horneada, aplicarle en Canvas su rotación, zoom y brillo exactos
+    (function() {
+      var imgs = document.querySelectorAll('img.boleta-printable-img[data-prebaked="0"]');
+      imgs.forEach(function(imgEl) {
+        function bakeInPlace() {
+          if (imgEl.getAttribute('data-prebaked') === '1') return;
+          var scale = parseFloat(imgEl.getAttribute('data-scale')) || 1;
+          var rotation = parseFloat(imgEl.getAttribute('data-rotation')) || 0;
+          var brightness = parseFloat(imgEl.getAttribute('data-brightness')) || 100;
+          var contrast = parseFloat(imgEl.getAttribute('data-contrast')) || 100;
+          var offsetX = parseFloat(imgEl.getAttribute('data-offset-x')) || 0;
+          var offsetY = parseFloat(imgEl.getAttribute('data-offset-y')) || 0;
+
+          if (scale === 1 && rotation === 0 && brightness === 100 && contrast === 100 && offsetX === 0 && offsetY === 0) {
+            imgEl.setAttribute('data-prebaked', '1');
+            return;
+          }
+
+          try {
+            var cw = 880, ch = 1100, pad = 14;
+            var availW = cw - pad * 2, availH = ch - pad * 2;
+            var rad = (rotation * Math.PI) / 180;
+            var absCos = Math.abs(Math.cos(rad)), absSin = Math.abs(Math.sin(rad));
+            var iw = imgEl.naturalWidth || imgEl.width || 1;
+            var ih = imgEl.naturalHeight || imgEl.height || 1;
+            var rotW = iw * absCos + ih * absSin;
+            var rotH = iw * absSin + ih * absCos;
+            var fit = Math.min(availW / rotW, availH / rotH);
+            var dw = iw * fit, dh = ih * fit;
+
+            var canvas = document.createElement('canvas');
+            canvas.width = cw;
+            canvas.height = ch;
+            var ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, cw, ch);
+            var sx = (offsetX / 100) * (cw * 0.45);
+            var sy = (offsetY / 100) * (ch * 0.45);
+            ctx.translate(cw / 2 + sx, ch / 2 + sy);
+            ctx.rotate(rad);
+            ctx.scale(scale, scale);
+            if (brightness !== 100 || contrast !== 100) {
+              ctx.filter = 'brightness(' + brightness + '%) contrast(' + contrast + '%)';
+            }
+            ctx.drawImage(imgEl, -dw / 2, -dh / 2, dw, dh);
+            imgEl.setAttribute('data-prebaked', '1');
+            imgEl.src = canvas.toDataURL('image/jpeg', 0.9);
+          } catch (e) {}
+        }
+        if (imgEl.complete && imgEl.naturalWidth > 0) {
+          bakeInPlace();
+        } else {
+          imgEl.addEventListener('load', bakeInPlace, { once: true });
+        }
+      });
+    })();
+  </script>
 </body>
 </html>`;
 }
@@ -467,7 +704,6 @@ export function getLocalBoletasHistory() {
 export function saveLocalBoletasHistory(records) {
   try {
     if (!Array.isArray(records)) return;
-    // Guardar hasta los 40 registros más recientes en localStorage para no saturar cuota local
     localStorage.setItem(BOLETAS_HISTORY_LOCAL_KEY, JSON.stringify(records.slice(0, 40)));
   } catch (err) {
     console.warn('Aviso cuota localStorage en historial de boletas (respaldado en Supabase):', err);
@@ -525,7 +761,17 @@ export async function fetchPlantillaBoletasHistory() {
 export async function savePlantillaBoletasRecord({ id = null, vendedor, ruta, referencia, fecha, pages, images }) {
   const nowIso = new Date().toISOString();
   const recordId = id || `boletas_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const totalBoletas = Object.keys(images || {}).filter((k) => Boolean(images[k]?.src)).length;
+
+  // No guardar bakedSrc duplicado en la nube para ahorrar mitad de espacio (se guarda src + ajustes y el script/baker lo procesa al instante)
+  const cleanImagesForStorage = {};
+  Object.keys(images || {}).forEach((k) => {
+    if (images[k]?.src) {
+      const { bakedSrc, ...rest } = images[k];
+      cleanImagesForStorage[k] = rest;
+    }
+  });
+
+  const totalBoletas = Object.keys(cleanImagesForStorage).length;
 
   const recordPayload = {
     tipo: 'plantilla_boletas_record',
@@ -535,7 +781,7 @@ export async function savePlantillaBoletasRecord({ id = null, vendedor, ruta, re
     referencia: referencia || '',
     fecha: fecha || nowIso.split('T')[0],
     pages: Array.isArray(pages) && pages.length > 0 ? pages : [1],
-    images: images || {},
+    images: cleanImagesForStorage,
     totalBoletas,
     totalPaginas: Array.isArray(pages) ? pages.length : 1,
     fecha_creacion: nowIso
@@ -544,7 +790,6 @@ export async function savePlantillaBoletasRecord({ id = null, vendedor, ruta, re
   let savedCloudId = null;
 
   try {
-    // Verificar si ya existe en Supabase cuando se está editando
     if (id) {
       const { data: existingRows } = await supabase
         .from('daily_supervision_history')
@@ -627,5 +872,66 @@ export async function deletePlantillaBoletasRecord(recordId) {
   const updatedLocal = currentLocal.filter((r) => String(r.id) !== String(recordId));
   saveLocalBoletasHistory(updatedLocal);
   return true;
+}
+
+/**
+ * Abre la ventana de impresión de forma síncrona (evitando bloqueadores de popups),
+ * hornea en Canvas todas las boletas con su rotación, escala/ampliación, posición, brillo y contraste exactos,
+ * y dispara la impresión con 4 boletas exactas por hoja sin recortes.
+ */
+export async function printBoletasWithExactBaking({ pages = [1], images = {}, metadata = {}, fallbackTitle = 'Plantilla_Boletas' }) {
+  const printWindow = window.open('', '_blank');
+
+  if (printWindow) {
+    try {
+      printWindow.document.open();
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="es">
+          <head><meta charset="UTF-8"><title>Preparando impresión...</title></head>
+          <body style="font-family: Arial, sans-serif; display: flex; align-items: center; justify-content: center; height: 90vh; color: #1e3a8a; font-weight: bold;">
+            Preparando boletas con tus ajustes de rotación y ampliación para impresión exacta...
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    } catch (_) {}
+  }
+
+  const bakedImages = await bakeAllBoletasMap(images);
+  const rawHtml = generatePlantillaBoletasHtml({
+    pages,
+    images: bakedImages,
+    metadata
+  });
+  const preparedHtml = injectPrintFeatures(rawHtml, 'portrait');
+
+  if (printWindow) {
+    try {
+      printWindow.document.open();
+      printWindow.document.write(preparedHtml);
+      printWindow.document.close();
+      printWindow.focus();
+      return true;
+    } catch (e) {
+      console.error('Error escribiendo en ventana de impresión:', e);
+    }
+  }
+
+  downloadHtmlFile(preparedHtml, `${fallbackTitle}.html`, 'portrait');
+  return false;
+}
+
+/**
+ * Descarga el archivo HTML con todas las boletas ya horneadas (rotación, zoom, brillo y encuadre exactos).
+ */
+export async function downloadBoletasHtmlWithExactBaking({ pages = [1], images = {}, metadata = {}, fileName = 'Plantilla_Boletas.html' }) {
+  const bakedImages = await bakeAllBoletasMap(images);
+  const rawHtml = generatePlantillaBoletasHtml({
+    pages,
+    images: bakedImages,
+    metadata
+  });
+  downloadHtmlFile(rawHtml, fileName, 'portrait');
 }
 

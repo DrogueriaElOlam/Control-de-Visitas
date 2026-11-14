@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Upload,
   Trash2,
@@ -14,21 +14,101 @@ import {
   Sparkles,
   CheckCircle2,
   Plus,
-  Sliders
+  Sliders,
+  Maximize2
 } from 'lucide-react';
 import { useFormPersistence } from '../hooks/useFormPersistence';
 import FormHeader from './FormHeader';
 import jsPDF from 'jspdf';
 import { isSuperUser, getPermittedRoutesForUser } from '../lib/formsPermissions';
-import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
 import PlantillaBoletasHistory from './PlantillaBoletasHistory';
 import {
   processMultipleBoletasFast,
   distributeBoletasIntoGrid,
-  generatePlantillaBoletasHtml,
   savePlantillaBoletasRecord,
-  OFFICIAL_VENDORS_LIST
+  OFFICIAL_VENDORS_LIST,
+  loadImageElement,
+  drawBoletaOnCanvas,
+  bakeAllBoletasMap,
+  printBoletasWithExactBaking,
+  downloadBoletasHtmlWithExactBaking
 } from '../lib/plantillaBoletasHelper';
+
+/**
+ * Lienzo (Canvas) en vivo que dibuja la boleta en pantalla usando exactamente la misma
+ * función matemática (`drawBoletaOnCanvas`, proporción 4:5 = 880x1100) que se envía a la impresora y al PDF.
+ * Soporta arrastrar con el mouse para acomodar la boleta y rueda del mouse para ampliar/reducir.
+ */
+function BoletaLiveCanvas({ image, onUpdateTransform }) {
+  const canvasRef = useRef(null);
+  const dragStateRef = useRef({ dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 });
+
+  useEffect(() => {
+    let cancelled = false;
+    const canvas = canvasRef.current;
+    if (!canvas || !image?.src) return;
+
+    loadImageElement(image.src).then((imgEl) => {
+      if (cancelled || !canvasRef.current) return;
+      const ctx = canvasRef.current.getContext('2d');
+      drawBoletaOnCanvas(ctx, imgEl, image, 880, 1100);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    image?.src,
+    image?.scale,
+    image?.rotation,
+    image?.brightness,
+    image?.contrast,
+    image?.offsetX,
+    image?.offsetY
+  ]);
+
+  const handleMouseDown = (e) => {
+    if (e.button !== 0 || !onUpdateTransform) return;
+    dragStateRef.current = {
+      dragging: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: Number(image?.offsetX) || 0,
+      origY: Number(image?.offsetY) || 0
+    };
+  };
+
+  const handleMouseMove = (e) => {
+    if (!dragStateRef.current.dragging || !onUpdateTransform) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return;
+
+    const dxPct = ((e.clientX - dragStateRef.current.startX) / (rect.width * 0.45)) * 100;
+    const dyPct = ((e.clientY - dragStateRef.current.startY) / (rect.height * 0.45)) * 100;
+
+    const nextX = Math.max(-120, Math.min(120, Math.round(dragStateRef.current.origX + dxPct)));
+    const nextY = Math.max(-120, Math.min(120, Math.round(dragStateRef.current.origY + dyPct)));
+    onUpdateTransform({ offsetX: nextX, offsetY: nextY });
+  };
+
+  const handleMouseUp = () => {
+    dragStateRef.current.dragging = false;
+  };
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={880}
+      height={1100}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      className="w-full h-full block select-none cursor-grab active:cursor-grabbing bg-white"
+      title="Arrastra para mover la boleta o usa los botones superiores para rotar y ampliar"
+    />
+  );
+}
 
 export default function PlantillaBoletas({ currentUser }) {
   const isSuper = isSuperUser(currentUser);
@@ -90,7 +170,6 @@ export default function PlantillaBoletas({ currentUser }) {
   useEffect(() => {
     if (persistedImagesData && Object.keys(persistedImagesData).length > 0) {
       setImages(persistedImagesData);
-      // Calcular cuántas páginas se requieren según las llaves guardadas (ej. "3-2" -> pág 3)
       let maxP = 1;
       Object.keys(persistedImagesData).forEach((k) => {
         const p = parseInt(String(k).split('-')[0], 10);
@@ -105,7 +184,7 @@ export default function PlantillaBoletas({ currentUser }) {
     setPersistedImagesData(images);
   }, [images, setPersistedImagesData]);
 
-  // Sincronizar valores del editor cuando cambia la casilla seleccionada
+  // Sincronizar valores del editor cuando cambia la casilla seleccionada o se modifica con botones rápidos
   useEffect(() => {
     if (editingBox && images[editingBox]) {
       const img = images[editingBox];
@@ -118,7 +197,7 @@ export default function PlantillaBoletas({ currentUser }) {
         offsetY: img.offsetY ?? 0
       });
     }
-  }, [editingBox]);
+  }, [editingBox, images]);
 
   const totalLoadedBoletas = useMemo(() => {
     return Object.keys(images).filter((k) => Boolean(images[k]?.src)).length;
@@ -130,7 +209,6 @@ export default function PlantillaBoletas({ currentUser }) {
     const neededPages = Math.ceil(num / 4);
     setTargetBoletasCount(neededPages * 4);
 
-    // Conservar páginas que ya tengan imágenes aunque baje el selector
     let highestPageWithImg = 1;
     Object.keys(images).forEach((k) => {
       if (images[k]?.src) {
@@ -173,7 +251,7 @@ export default function PlantillaBoletas({ currentUser }) {
       }
 
       setUploadStatusMsg(
-        `⚡ ¡${processedBoletas.length} boleta(s) cargadas y acomodadas automáticamente en ${newPages.length} página(s)!`
+        `⚡ ¡${processedBoletas.length} boleta(s) cargadas y acomodadas automáticamente en ${newPages.length} página(s) (4 por hoja)!`
       );
       setTimeout(() => setUploadStatusMsg(''), 4500);
     } catch (err) {
@@ -236,12 +314,30 @@ export default function PlantillaBoletas({ currentUser }) {
     setImages((prev) => {
       const current = prev[boxId];
       if (!current) return prev;
-      const nextScale = Math.max(0.5, Math.min(2.2, Number(((current.scale || 1) + deltaScale).toFixed(2))));
+      const nextScale = Math.max(0.4, Math.min(2.6, Number(((current.scale || 1) + deltaScale).toFixed(2))));
       return {
         ...prev,
         [boxId]: {
           ...current,
           scale: nextScale
+        }
+      };
+    });
+  };
+
+  // Restablecer encuadre de una casilla a 100% centrada
+  const quickResetBox = (boxId, e) => {
+    e.stopPropagation();
+    setImages((prev) => {
+      const current = prev[boxId];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [boxId]: {
+          ...current,
+          scale: 1,
+          offsetX: 0,
+          offsetY: 0
         }
       };
     });
@@ -286,6 +382,20 @@ export default function PlantillaBoletas({ currentUser }) {
         }));
       }
       return updated;
+    });
+  };
+
+  const updateBoxPartialTransform = (boxId, patch) => {
+    setImages((prev) => {
+      const current = prev[boxId];
+      if (!current) return prev;
+      return {
+        ...prev,
+        [boxId]: {
+          ...current,
+          ...patch
+        }
+      };
     });
   };
 
@@ -375,9 +485,9 @@ export default function PlantillaBoletas({ currentUser }) {
     return `Plantilla_Boletas_${vendClean}_${fechaStr}`;
   };
 
-  // Imprimir directamente igual que los otros formularios
-  const handlePrint = () => {
-    const htmlContent = generatePlantillaBoletasHtml({
+  // Imprimir directamente horneando primero las modificaciones (rotación, zoom, encuadre) para que salga 100% idéntico
+  const handlePrint = async () => {
+    await printBoletasWithExactBaking({
       pages,
       images,
       metadata: {
@@ -385,14 +495,14 @@ export default function PlantillaBoletas({ currentUser }) {
         ruta: metadata.ruta,
         referencia: metadata.referencia,
         fecha: metadata.fecha
-      }
+      },
+      fallbackTitle: getPreparedFileName()
     });
-    openAndPrintHtml(htmlContent, getPreparedFileName(), 'portrait');
   };
 
-  // Descargar HTML oficial imprimible
-  const handleExportHtml = () => {
-    const htmlContent = generatePlantillaBoletasHtml({
+  // Descargar HTML oficial imprimible con todas las modificaciones horneadas
+  const handleExportHtml = async () => {
+    await downloadBoletasHtmlWithExactBaking({
       pages,
       images,
       metadata: {
@@ -400,13 +510,15 @@ export default function PlantillaBoletas({ currentUser }) {
         ruta: metadata.ruta,
         referencia: metadata.referencia,
         fecha: metadata.fecha
-      }
+      },
+      fileName: `${getPreparedFileName()}.html`
     });
-    downloadHtmlFile(htmlContent, `${getPreparedFileName()}.html`, 'portrait');
   };
 
-  // Exportar a PDF con nombre de vendedor y fecha
-  const exportToPDF = () => {
+  // Exportar a PDF usando exactamente las imágenes horneadas de cada casilla (4 por hoja tamaño Carta)
+  const exportToPDF = async () => {
+    const bakedMap = await bakeAllBoletasMap(images);
+
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -415,133 +527,58 @@ export default function PlantillaBoletas({ currentUser }) {
 
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 10;
-    const topHeaderOffset = 18;
-    const boxWidth = (pageWidth - margin * 2) / 2;
-    const boxHeight = (pageHeight - topHeaderOffset - margin) / 2;
+    const margin = 8;
+    const topHeaderOffset = 16;
+    const gap = 3;
+    const boxWidth = (pageWidth - margin * 2 - gap) / 2;
+    const boxHeight = (pageHeight - topHeaderOffset - margin - gap) / 2;
 
     const positions = [
       { x: margin, y: topHeaderOffset },
-      { x: margin + boxWidth, y: topHeaderOffset },
-      { x: margin, y: topHeaderOffset + boxHeight },
-      { x: margin + boxWidth, y: topHeaderOffset + boxHeight }
+      { x: margin + boxWidth + gap, y: topHeaderOffset },
+      { x: margin, y: topHeaderOffset + boxHeight + gap },
+      { x: margin + boxWidth + gap, y: topHeaderOffset + boxHeight + gap }
     ];
 
-    const allPagePromises = pages.map((pageNum, pageIndex) => {
-      const imagePromises = positions.map((pos, index) => {
-        return new Promise((resolve) => {
-          const boxId = `${pageNum}-${index + 1}`;
-          if (images[boxId]?.src) {
-            const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const ctx = canvas.getContext('2d');
-              const dpi = 220;
-              const pixelWidth = (boxWidth / 25.4) * dpi;
-              const pixelHeight = (boxHeight / 25.4) * dpi;
-
-              canvas.width = pixelWidth;
-              canvas.height = pixelHeight;
-
-              const imgAspectRatio = img.width / img.height;
-              const boxAspectRatio = pixelWidth / pixelHeight;
-
-              let drawWidth, drawHeight, dx, dy;
-              if (imgAspectRatio > boxAspectRatio) {
-                drawWidth = pixelWidth;
-                drawHeight = pixelWidth / imgAspectRatio;
-                dx = 0;
-                dy = (pixelHeight - drawHeight) / 2;
-              } else {
-                drawHeight = pixelHeight;
-                drawWidth = pixelHeight * imgAspectRatio;
-                dx = (pixelWidth - drawWidth) / 2;
-                dy = 0;
-              }
-
-              ctx.fillStyle = '#FFFFFF';
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
-              ctx.save();
-              ctx.filter = `brightness(${images[boxId].brightness || 100}%) contrast(${images[boxId].contrast || 100}%)`;
-              ctx.translate(dx + drawWidth / 2, dy + drawHeight / 2);
-              ctx.rotate(((images[boxId].rotation || 0) * Math.PI) / 180);
-              ctx.scale(images[boxId].scale || 1, images[boxId].scale || 1);
-
-              const scaledOffsetX = ((images[boxId].offsetX || 0) / 100) * drawWidth;
-              const scaledOffsetY = ((images[boxId].offsetY || 0) / 100) * drawHeight;
-              ctx.translate(scaledOffsetX, scaledOffsetY);
-
-              ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
-              ctx.restore();
-
-              const imgData = canvas.toDataURL('image/jpeg', 0.88);
-              resolve({ imgData, pos, boxWidth, boxHeight, index });
-            };
-            img.onerror = () => resolve(null);
-            img.src = images[boxId].src;
-          } else {
-            resolve(null);
-          }
-        });
-      });
-
-      return Promise.all(imagePromises).then((results) => ({ pageIndex, pageNum, results }));
-    });
-
-    Promise.all(allPagePromises).then((allPages) => {
-      allPages.forEach(({ pageIndex, pageNum, results }) => {
-        if (pageIndex > 0) {
-          pdf.addPage();
-        }
-
-        pdf.setFontSize(10);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(
-          `DROGUERIA EL OLAM - PLANTILLA DE BOLETAS (${metadata.vendedor || 'General'})`,
-          margin,
-          10
-        );
-        pdf.setFontSize(8.5);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(
-          `Fecha: ${metadata.fecha || ''} ${metadata.ruta ? `| Ruta: ${metadata.ruta}` : ''} | Pagina ${pageNum} de ${pages.length}`,
-          margin,
-          14.5
-        );
-
-        results.forEach((result, index) => {
-          pdf.rect(positions[index].x, positions[index].y, boxWidth, boxHeight);
-          if (result) {
-            const { imgData, pos } = result;
-            pdf.addImage(imgData, 'JPEG', pos.x + 1, pos.y + 1, boxWidth - 2, boxHeight - 2);
-          }
-        });
-      });
-
-      pdf.save(`${getPreparedFileName()}.pdf`);
-    });
-  };
-
-  const renderImagePreview = (boxId) => {
-    const image = images[boxId];
-    if (!image?.src) return null;
-
-    return (
-      <div className="relative w-full h-full overflow-hidden bg-slate-100 flex items-center justify-center p-1.5">
-        <img
-          src={image.src}
-          alt={`Boleta ${boxId}`}
-          style={{
-            transform: `scale(${image.scale || 1}) rotate(${image.rotation || 0}deg) translateX(${image.offsetX || 0}px) translateY(${image.offsetY || 0}px)`,
-            filter: `brightness(${image.brightness || 100}%) contrast(${image.contrast || 100}%)`,
-            maxWidth: '100%',
-            maxHeight: '100%',
-            objectFit: 'contain'
-          }}
-        />
-      </div>
+    const activePages = pages.filter((pNum) =>
+      ['1', '2', '3', '4'].some((bNum) => Boolean(bakedMap[`${pNum}-${bNum}`]?.bakedSrc))
     );
+    const pagesToRender = activePages.length > 0 ? activePages : [1];
+
+    pagesToRender.forEach((pageNum, pageIndex) => {
+      if (pageIndex > 0) {
+        pdf.addPage();
+      }
+
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(
+        `DROGUERIA EL OLAM - PLANTILLA DE BOLETAS (${metadata.vendedor || 'General'})`,
+        margin,
+        9
+      );
+      pdf.setFontSize(8.5);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(
+        `Fecha: ${metadata.fecha || ''} ${metadata.ruta ? `| Ruta: ${metadata.ruta}` : ''} | Hoja ${pageIndex + 1} de ${pagesToRender.length}`,
+        margin,
+        13.5
+      );
+
+      positions.forEach((pos, idx) => {
+        const boxId = `${pageNum}-${idx + 1}`;
+        const item = bakedMap[boxId];
+        pdf.setDrawColor(30, 41, 59);
+        pdf.setLineWidth(0.35);
+        pdf.rect(pos.x, pos.y, boxWidth, boxHeight);
+
+        if (item?.bakedSrc) {
+          pdf.addImage(item.bakedSrc, 'JPEG', pos.x + 0.8, pos.y + 0.8, boxWidth - 1.6, boxHeight - 1.6);
+        }
+      });
+    });
+
+    pdf.save(`${getPreparedFileName()}.pdf`);
   };
 
   return (
@@ -551,7 +588,7 @@ export default function PlantillaBoletas({ currentUser }) {
 
         <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-950 text-white text-center py-2.5 rounded-xl mb-4 sm:mb-6 shadow-md">
           <h2 className="text-base sm:text-lg font-black tracking-wide">
-            PLANTILLA DE BOLETAS Y DEPÓSITOS BANCARIOS
+            PLANTILLA DE BOLETAS Y DEPÓSITOS BANCARIOS (4 BOLETAS POR HOJA)
           </h2>
         </div>
 
@@ -580,7 +617,7 @@ export default function PlantillaBoletas({ currentUser }) {
             type="button"
             onClick={handlePrint}
             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 font-bold text-sm sm:text-base shadow-sm transition-all cursor-pointer"
-            title="Abrir vista de impresión directa para imprimir todas las páginas de boletas"
+            title="Imprimir exactamente como se ve en pantalla (4 boletas por hoja sin recortes)"
           >
             <Printer className="w-4 h-4" />
             🖨️ Imprimir / Vista Previa
@@ -713,15 +750,14 @@ export default function PlantillaBoletas({ currentUser }) {
           }`}
         >
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            {/* Izquierda: Selector de cantidad de boletas */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[11px] font-black uppercase tracking-wide">
-                  Nuevo • Carga Masiva Inteligente
+                  4 Boletas por Hoja • Impresión Exacta WYSIWYG
                 </span>
                 <span className="text-xs font-bold text-slate-600">
                   Cargadas: <strong className="text-emerald-700">{totalLoadedBoletas}</strong> boleta(s) en{' '}
-                  <strong className="text-blue-900">{pages.length}</strong> página(s)
+                  <strong className="text-blue-900">{pages.length}</strong> hoja(s)
                 </span>
               </div>
 
@@ -731,11 +767,11 @@ export default function PlantillaBoletas({ currentUser }) {
 
               <div className="flex items-center gap-1.5 flex-wrap">
                 {[
-                  { count: 4, label: '4 Boletas (1 Pág)' },
-                  { count: 8, label: '8 Boletas (2 Págs)' },
-                  { count: 12, label: '12 Boletas (3 Págs)' },
-                  { count: 16, label: '16 Boletas (4 Págs)' },
-                  { count: 20, label: '20 Boletas (5 Págs)' }
+                  { count: 4, label: '4 Boletas (1 Hoja)' },
+                  { count: 8, label: '8 Boletas (2 Hojas)' },
+                  { count: 12, label: '12 Boletas (3 Hojas)' },
+                  { count: 16, label: '16 Boletas (4 Hojas)' },
+                  { count: 20, label: '20 Boletas (5 Hojas)' }
                 ].map((preset) => {
                   const isSelected = targetBoletasCount === preset.count;
                   return (
@@ -768,7 +804,6 @@ export default function PlantillaBoletas({ currentUser }) {
               </div>
             </div>
 
-            {/* Derecha: Botón de Selección Múltiple Instantánea */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
               <input
                 type="file"
@@ -789,7 +824,7 @@ export default function PlantillaBoletas({ currentUser }) {
                 <div className="text-left">
                   <div>⚡ Seleccionar Varias Boletas de Golpe</div>
                   <div className="text-[10px] font-medium text-emerald-100">
-                    Elige 4, 8, 12 o más fotos y se acomodan solas
+                    Elige 4, 8, 12 o más fotos y se acomodan 4 por hoja
                   </div>
                 </div>
               </label>
@@ -809,37 +844,46 @@ export default function PlantillaBoletas({ currentUser }) {
           </div>
 
           <p className="text-[11px] text-slate-500 mt-2.5">
-            💡 <strong>Tip rápido:</strong> Puedes seleccionar todas las boletas juntas desde tu carpeta o galería (con{' '}
-            <kbd className="px-1.5 py-0.5 bg-white border rounded text-[10px]">Ctrl + Clic</kbd> o arrastrándolas aquí) y el sistema creará las páginas necesarias automáticamente.
+            💡 <strong>Impresión Fiel 1:1:</strong> Puedes rotar, ampliar o arrastrar cualquier boleta dentro de su recuadro; al presionar{' '}
+            <strong>🖨️ Imprimir / Vista Previa</strong> se imprimirá <strong>exactamente tal y como se ve en pantalla</strong> (4 boletas por hoja sin recortes).
           </p>
         </div>
 
         {/* Editor de Ajuste Fino (Cuando se selecciona una boleta para editar brillo/contraste/desplazamiento) */}
         {editingBox && images[editingBox] && (
           <div className="mb-6 p-4 bg-blue-50/90 rounded-2xl border-2 border-blue-600 shadow-sm animate-in fade-in duration-150">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h3 className="font-black text-blue-950 text-sm flex items-center gap-2">
                 <Sliders className="w-4 h-4 text-blue-700" />
-                Ajuste Fino en Vivo — Boleta Casilla {editingBox}
+                Ajuste en Vivo — Casilla {editingBox} (Se imprimirá tal cual lo ves en el recuadro)
               </h3>
-              <button
-                type="button"
-                onClick={() => setEditingBox(null)}
-                className="px-3 py-1 rounded-lg bg-blue-900 text-white text-xs font-bold hover:bg-blue-950 cursor-pointer"
-              >
-                ✓ Listo / Cerrar Editor
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => quickResetBox(editingBox, e)}
+                  className="px-3 py-1 rounded-lg bg-white border border-blue-300 text-blue-900 text-xs font-bold hover:bg-blue-100 cursor-pointer"
+                >
+                  Centrar / Escala 1.0x
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingBox(null)}
+                  className="px-3 py-1 rounded-lg bg-blue-900 text-white text-xs font-bold hover:bg-blue-950 cursor-pointer"
+                >
+                  ✓ Listo
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Escala (Zoom): {editSettings.scale.toFixed(2)}x
+                  Ampliar / Escala (Zoom): {editSettings.scale.toFixed(2)}x
                 </label>
                 <input
                   type="range"
-                  min="0.5"
-                  max="2"
+                  min="0.4"
+                  max="2.5"
                   step="0.05"
                   value={editSettings.scale}
                   onChange={(e) => updateEditSettings('scale', parseFloat(e.target.value))}
@@ -894,13 +938,13 @@ export default function PlantillaBoletas({ currentUser }) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Mover Horizontal (X): {editSettings.offsetX}px
+                  Mover Horizontal (X): {editSettings.offsetX}%
                 </label>
                 <input
                   type="range"
                   min="-100"
                   max="100"
-                  step="5"
+                  step="2"
                   value={editSettings.offsetX}
                   onChange={(e) => updateEditSettings('offsetX', parseInt(e.target.value, 10))}
                   className="w-full accent-blue-700"
@@ -909,13 +953,13 @@ export default function PlantillaBoletas({ currentUser }) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Mover Vertical (Y): {editSettings.offsetY}px
+                  Mover Vertical (Y): {editSettings.offsetY}%
                 </label>
                 <input
                   type="range"
                   min="-100"
                   max="100"
-                  step="5"
+                  step="2"
                   value={editSettings.offsetY}
                   onChange={(e) => updateEditSettings('offsetY', parseInt(e.target.value, 10))}
                   className="w-full accent-blue-700"
@@ -925,14 +969,14 @@ export default function PlantillaBoletas({ currentUser }) {
           </div>
         )}
 
-        {/* PÁGINAS CON CUADRÍCULA 2x2 (4 BOLETAS POR PÁGINA) */}
+        {/* HOJAS CON CUADRÍCULA 2x2 (4 BOLETAS EXACTAS POR HOJA CON PROPORCIÓN 4:5) */}
         {pages.map((pageNum, pageIdx) => (
           <div key={pageNum} className="mb-8">
             <div className="flex items-center justify-between bg-blue-50/90 border-l-4 border-blue-900 px-3.5 py-2 rounded-r-xl mb-3">
               <h3 className="font-black text-blue-950 text-sm sm:text-base tracking-wide">
-                PÁGINA {pageNum} DE {pages.length}{' '}
+                HOJA {pageNum} DE {pages.length}{' '}
                 <span className="text-xs font-semibold text-slate-600 ml-2">
-                  (Boletas #{pageIdx * 4 + 1} a #{pageIdx * 4 + 4})
+                  (4 Boletas: #{pageIdx * 4 + 1} a #{pageIdx * 4 + 4})
                 </span>
               </h3>
               {pages.length > 1 && (
@@ -946,16 +990,13 @@ export default function PlantillaBoletas({ currentUser }) {
                   }}
                   className="text-xs font-bold text-red-600 hover:text-red-800 cursor-pointer"
                 >
-                  Quitar página
+                  Quitar hoja
                 </button>
               )}
             </div>
 
-            <div
-              className="bg-white border-2 border-blue-900/20 rounded-xl p-3 sm:p-4 shadow-sm"
-              style={{ aspectRatio: '8.5/11' }}
-            >
-              <div className="grid grid-cols-2 grid-rows-2 gap-3 sm:gap-4 h-full">
+            <div className="bg-white border-2 border-blue-900/20 rounded-xl p-3 sm:p-4 shadow-sm">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 {['1', '2', '3', '4'].map((boxNum) => {
                   const boxId = `${pageNum}-${boxNum}`;
                   const globalNumber = pageIdx * 4 + Number(boxNum);
@@ -964,28 +1005,32 @@ export default function PlantillaBoletas({ currentUser }) {
                   return (
                     <div
                       key={boxId}
+                      style={{ aspectRatio: '4 / 5' }}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => handleDrop(e, boxId)}
                       onClick={() => setEditingBox(boxId)}
-                      className={`relative border-2 border-dashed rounded-xl overflow-hidden cursor-pointer transition-all flex flex-col ${
+                      className={`relative border-2 rounded-xl overflow-hidden transition-all flex flex-col ${
                         editingBox === boxId
-                          ? 'ring-2 ring-blue-600 border-blue-600 bg-blue-50/30'
+                          ? 'ring-2 ring-blue-600 border-blue-600 bg-white'
                           : hasImage
-                          ? 'border-slate-300 hover:border-blue-500 bg-white'
-                          : 'border-blue-300 hover:border-blue-500 bg-slate-50/70 hover:bg-blue-50/30'
+                          ? 'border-slate-800 hover:border-blue-600 bg-white'
+                          : 'border-dashed border-blue-300 hover:border-blue-500 bg-slate-50/70 hover:bg-blue-50/30 cursor-pointer'
                       }`}
                     >
                       {/* Etiqueta superior izquierda con número de boleta */}
-                      <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-slate-900/80 text-white text-[11px] font-black shadow-xs">
+                      <span className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-md bg-slate-900/80 text-white text-[11px] font-black shadow-xs pointer-events-none">
                         Boleta #{globalNumber}
                       </span>
 
                       {hasImage ? (
                         <>
-                          {renderImagePreview(boxId)}
+                          <BoletaLiveCanvas
+                            image={images[boxId]}
+                            onUpdateTransform={(patch) => updateBoxPartialTransform(boxId, patch)}
+                          />
 
                           {/* Barra flotante de acciones rápidas en 1 clic sobre cada boleta */}
-                          <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-slate-900/80 backdrop-blur-xs p-1 rounded-lg shadow">
+                          <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-slate-900/85 backdrop-blur-xs p-1 rounded-lg shadow">
                             <button
                               type="button"
                               onClick={(e) => quickRotateBox(boxId, -90, e)}
@@ -1006,7 +1051,7 @@ export default function PlantillaBoletas({ currentUser }) {
                               type="button"
                               onClick={(e) => quickScaleBox(boxId, 0.15, e)}
                               className="p-1 text-white hover:text-emerald-300 rounded transition-colors cursor-pointer"
-                              title="Acercar (Zoom +)"
+                              title="Ampliar (Zoom +)"
                             >
                               <ZoomIn className="w-3.5 h-3.5" />
                             </button>
@@ -1014,9 +1059,17 @@ export default function PlantillaBoletas({ currentUser }) {
                               type="button"
                               onClick={(e) => quickScaleBox(boxId, -0.15, e)}
                               className="p-1 text-white hover:text-emerald-300 rounded transition-colors cursor-pointer"
-                              title="Alejar (Zoom -)"
+                              title="Reducir (Zoom -)"
                             >
                               <ZoomOut className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => quickResetBox(boxId, e)}
+                              className="p-1 text-white hover:text-cyan-300 rounded transition-colors cursor-pointer"
+                              title="Centrar y ajustar al cuadro"
+                            >
+                              <Maximize2 className="w-3.5 h-3.5" />
                             </button>
                             <button
                               type="button"
@@ -1068,7 +1121,7 @@ export default function PlantillaBoletas({ currentUser }) {
           </div>
         ))}
 
-        {/* Botón inferior rápido para agregar más páginas */}
+        {/* Botón inferior rápido para agregar más hojas */}
         <div className="flex justify-center mt-2">
           <button
             type="button"
@@ -1076,7 +1129,7 @@ export default function PlantillaBoletas({ currentUser }) {
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 font-extrabold text-xs sm:text-sm transition-all cursor-pointer shadow-xs"
           >
             <Plus className="w-4 h-4" />
-            <span>Agregar Otra Página (+4 Boletas)</span>
+            <span>Agregar Otra Hoja (+4 Boletas)</span>
           </button>
         </div>
       </div>

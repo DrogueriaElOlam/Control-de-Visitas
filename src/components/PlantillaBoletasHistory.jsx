@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X,
   Printer,
@@ -15,14 +15,46 @@ import {
   Layers
 } from 'lucide-react';
 import { isSuperUser, matchesVendorUser } from '../lib/formsPermissions';
-import { openAndPrintHtml, downloadHtmlFile } from '../lib/printHtmlHelper';
 import {
   fetchPlantillaBoletasHistory,
   deletePlantillaBoletasRecord,
-  generatePlantillaBoletasHtml,
   getLocalBoletasHistory,
-  OFFICIAL_VENDORS_LIST
+  OFFICIAL_VENDORS_LIST,
+  printBoletasWithExactBaking,
+  downloadBoletasHtmlWithExactBaking,
+  loadImageElement,
+  drawBoletaOnCanvas
 } from '../lib/plantillaBoletasHelper';
+
+function BoletaHistoryCanvas({ image }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const canvas = canvasRef.current;
+    if (!canvas || !image?.src) return;
+
+    loadImageElement(image.src).then((imgEl) => {
+      if (cancelled || !canvasRef.current) return;
+      const ctx = canvasRef.current.getContext('2d');
+      drawBoletaOnCanvas(ctx, imgEl, image, 880, 1100);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    image?.src,
+    image?.scale,
+    image?.rotation,
+    image?.brightness,
+    image?.contrast,
+    image?.offsetX,
+    image?.offsetY
+  ]);
+
+  return <canvas ref={canvasRef} width={880} height={1100} className="w-full h-full block bg-white" />;
+}
 
 export default function PlantillaBoletasHistory({ onClose, onEdit, currentUser }) {
   const isSuper = isSuperUser(currentUser);
@@ -97,8 +129,8 @@ export default function PlantillaBoletasHistory({ onClose, onEdit, currentUser }
     return `Plantilla_Boletas_${vendClean}_${fechaStr}`;
   };
 
-  const handlePrintRecord = (record) => {
-    const html = generatePlantillaBoletasHtml({
+  const handlePrintRecord = async (record) => {
+    await printBoletasWithExactBaking({
       pages: record.pages,
       images: record.images,
       metadata: {
@@ -106,13 +138,13 @@ export default function PlantillaBoletasHistory({ onClose, onEdit, currentUser }
         ruta: record.ruta,
         referencia: record.referencia,
         fecha: record.fecha
-      }
+      },
+      fallbackTitle: getFileNameForRecord(record)
     });
-    openAndPrintHtml(html, getFileNameForRecord(record), 'portrait');
   };
 
-  const handleDownloadHtmlRecord = (record) => {
-    const html = generatePlantillaBoletasHtml({
+  const handleDownloadHtmlRecord = async (record) => {
+    await downloadBoletasHtmlWithExactBaking({
       pages: record.pages,
       images: record.images,
       metadata: {
@@ -120,9 +152,9 @@ export default function PlantillaBoletasHistory({ onClose, onEdit, currentUser }
         ruta: record.ruta,
         referencia: record.referencia,
         fecha: record.fecha
-      }
+      },
+      fileName: `${getFileNameForRecord(record)}.html`
     });
-    downloadHtmlFile(html, `${getFileNameForRecord(record)}.html`, 'portrait');
   };
 
   const handleDeleteRecord = async (recordId) => {
@@ -445,28 +477,21 @@ export default function PlantillaBoletasHistory({ onClose, onEdit, currentUser }
                       <span>PÁGINA {pageNum}</span>
                       <span>{previewRecord.vendedor} • {previewRecord.fecha}</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-3" style={{ aspectRatio: '8.5/11' }}>
+                    <div className="grid grid-cols-2 gap-3">
                       {['1', '2', '3', '4'].map((boxNum) => {
                         const boxId = `${pageNum}-${boxNum}`;
                         const img = previewRecord.images?.[boxId];
                         return (
                           <div
                             key={boxId}
-                            className="border border-slate-300 rounded-lg overflow-hidden bg-slate-50 flex items-center justify-center p-2 relative"
+                            style={{ aspectRatio: '4 / 5' }}
+                            className="border border-slate-300 rounded-lg overflow-hidden bg-slate-50 flex items-center justify-center relative"
                           >
-                            <span className="absolute top-1.5 left-1.5 bg-slate-900/75 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                            <span className="absolute top-1.5 left-1.5 z-10 bg-slate-900/75 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
                               Cuadro {boxNum}
                             </span>
                             {img?.src ? (
-                              <img
-                                src={img.src}
-                                alt={`Boleta ${boxId}`}
-                                className="max-w-full max-h-full object-contain"
-                                style={{
-                                  transform: `scale(${img.scale || 1}) rotate(${img.rotation || 0}deg) translate(${img.offsetX || 0}px, ${img.offsetY || 0}px)`,
-                                  filter: `brightness(${img.brightness || 100}%) contrast(${img.contrast || 100}%)`
-                                }}
-                              />
+                              <BoletaHistoryCanvas image={img} />
                             ) : (
                               <span className="text-xs text-slate-400">Sin boleta</span>
                             )}
