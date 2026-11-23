@@ -1255,6 +1255,9 @@
                 <button id="btnConfig" class="btn btn-outline btn-sm" type="button" title="Configurar WhatsApp y datos de la tienda">
                     <i class="fa fa-cog"></i> Configuración
                 </button>
+                <button id="btnViewLogs" class="btn btn-primary btn-sm" type="button" title="Ver contador y registro detallado de personas que visualizan la tienda">
+                    <i class="fa fa-eye"></i> Log de Visitas
+                </button>
                 <button id="btnDownloadHtml" class="btn btn-outline btn-sm" type="button" title="Descargar copia de index.html con los cambios actuales">
                     <i class="fa fa-download"></i> Descargar index.html
                 </button>
@@ -3462,11 +3465,153 @@
                 $('footerContact').innerHTML = contactHtml;
             }
 
+            /* ================= STORE VIEW COUNTER & ANALYTICS LOG ================= */
+            var SUPA_LOG_URL = 'https://mxomzjaupettwpijftcr.supabase.co';
+            var SUPA_LOG_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14b216amF1cGV0dHdwaWpmdGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NjkzNzksImV4cCI6MjEwODI0NTM3OX0.6rXWKJTqiyaEThzUzUqrti1c8yO3wS7cHvB6fCMBRa4';
+
+            function getOrCreateVisitorId() {
+                try {
+                    var existing = localStorage.getItem('olam_tienda_visitor_id');
+                    if (existing) return existing;
+                    var fresh = 'vis_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+                    localStorage.setItem('olam_tienda_visitor_id', fresh);
+                    return fresh;
+                } catch (e) {
+                    return 'vis_' + Math.random().toString(36).slice(2, 10);
+                }
+            }
+
+            function detectDeviceInfoForLog() {
+                var ua = (navigator && navigator.userAgent) ? navigator.userAgent : '';
+                var os = 'Otro';
+                if (/Android/i.test(ua)) os = 'Android';
+                else if (/iPhone|iPad|iPod/i.test(ua)) os = 'iPhone / iOS';
+                else if (/Windows/i.test(ua)) os = 'Windows PC';
+                else if (/Macintosh|Mac OS/i.test(ua)) os = 'Mac';
+                else if (/Linux/i.test(ua)) os = 'Linux';
+
+                var browser = 'Navegador';
+                if (/WhatsApp/i.test(ua)) browser = 'WhatsApp WebView';
+                else if (/FBAN|FBAV/i.test(ua)) browser = 'Facebook';
+                else if (/Instagram/i.test(ua)) browser = 'Instagram';
+                else if (/Edg/i.test(ua)) browser = 'Edge';
+                else if (/Chrome|CriOS/i.test(ua)) browser = 'Chrome';
+                else if (/Safari/i.test(ua)) browser = 'Safari';
+                else if (/Firefox|FxiOS/i.test(ua)) browser = 'Firefox';
+
+                var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (window.innerWidth && window.innerWidth < 768);
+                return {
+                    device: os + ' • ' + browser,
+                    deviceType: isMobile ? 'Móvil' : 'Escritorio'
+                };
+            }
+
+            function trackStoreViewLog() {
+                try {
+                    var now = new Date();
+                    var lastTs = Number(sessionStorage.getItem('olam_tienda_last_view_ts') || '0');
+                    // Evitar contar duplicado en recargas rápidas (< 60 segundos en la misma pestaña)
+                    if (lastTs && (now.getTime() - lastTs) < 60000) {
+                        return;
+                    }
+                    sessionStorage.setItem('olam_tienda_last_view_ts', String(now.getTime()));
+
+                    var isEmbedded = false;
+                    try { isEmbedded = (window.self !== window.top); } catch (e) { isEmbedded = true; }
+
+                    var activeSeller = getActiveSeller();
+                    var params = new URLSearchParams(window.location.search || '');
+                    var sellerName = (activeSeller && activeSeller.name)
+                        ? activeSeller.name
+                        : ((params.get('vn') || '').trim() || 'Catálogo General');
+                    var sellerPhone = (activeSeller && activeSeller.phone)
+                        ? activeSeller.phone
+                        : ((params.get('vp') || '').replace(/[^\d]/g, '') || '');
+
+                    var dev = detectDeviceInfoForLog();
+                    var y = now.getFullYear();
+                    var mo = String(now.getMonth() + 1).padStart(2, '0');
+                    var da = String(now.getDate()).padStart(2, '0');
+                    var dateStr = y + '-' + mo + '-' + da;
+                    var timeStr = now.toLocaleTimeString('es-GT', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true
+                    });
+
+                    var rawRef = (document.referrer || '').trim();
+                    var refLabel = 'Directo / WhatsApp';
+                    if (rawRef) {
+                        if (/whatsapp/i.test(rawRef)) refLabel = 'WhatsApp';
+                        else if (/facebook|fb\./i.test(rawRef)) refLabel = 'Facebook';
+                        else if (/instagram/i.test(rawRef)) refLabel = 'Instagram';
+                        else if (rawRef.indexOf(window.location.origin) === 0 && isEmbedded) refLabel = 'App Droguería El Olam';
+                        else {
+                            try { refLabel = new URL(rawRef).hostname || rawRef; } catch (e) { refLabel = rawRef.slice(0, 40); }
+                        }
+                    } else if (isEmbedded) {
+                        refLabel = 'App Droguería El Olam';
+                    }
+
+                    var logEntry = {
+                        tipo: 'tienda_view_log',
+                        id: 'tview_' + now.getTime() + '_' + Math.random().toString(36).slice(2, 7),
+                        visitorId: getOrCreateVisitorId(),
+                        date: dateStr,
+                        time: timeStr,
+                        timestamp: now.toISOString(),
+                        sellerName: sellerName,
+                        sellerPhone: sellerPhone,
+                        source: isEmbedded ? 'app_interna' : 'cliente_link',
+                        device: dev.device,
+                        deviceType: dev.deviceType,
+                        referrer: refLabel,
+                        path: window.location.pathname + (window.location.search || '')
+                    };
+
+                    // Guardar respaldo local
+                    try {
+                        var localList = JSON.parse(localStorage.getItem('olam_tienda_views_log_v1') || '[]');
+                        if (!Array.isArray(localList)) localList = [];
+                        localList.unshift(logEntry);
+                        if (localList.length > 500) localList.length = 500;
+                        localStorage.setItem('olam_tienda_views_log_v1', JSON.stringify(localList));
+                    } catch (e) {}
+
+                    // Enviar a Supabase (daily_supervision_history con clave dedicada TIENDA_VIEW_LOG)
+                    var supaUrl = SUPA_LOG_URL;
+                    var supaKey = SUPA_LOG_KEY;
+                    try {
+                        var cUrl = localStorage.getItem('olam_custom_supabase_url');
+                        var cKey = localStorage.getItem('olam_custom_supabase_key');
+                        if (cUrl && cKey) { supaUrl = cUrl.trim(); supaKey = cKey.trim(); }
+                    } catch (e) {}
+
+                    fetch(supaUrl.replace(/\/+$/, '') + '/rest/v1/daily_supervision_history', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': supaKey,
+                            'Authorization': 'Bearer ' + supaKey,
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify({
+                            date: dateStr,
+                            vendor_name: 'TIENDA_VIEW_LOG',
+                            supervision_data: logEntry
+                        }),
+                        keepalive: true
+                    }).catch(function () {});
+                } catch (err) {}
+            }
+
             /* ================= INITIALIZE APP ================= */
             function init() {
                 rebuildLookups();
                 ensureSellers();
                 detectActiveSeller();
+                trackStoreViewLog();
 
                 if (!data.lg) {
                     $('hdrLogo').style.display = 'none';
@@ -3740,6 +3885,17 @@
                     renderMissingImagesConfigList();
                     openModal('modConfig');
                 });
+
+                if ($('btnViewLogs')) {
+                    $('btnViewLogs').addEventListener('click', function () {
+                        if (!canUseAdminButton()) return;
+                        try {
+                            if (window.parent && window.parent !== window) {
+                                window.parent.postMessage({ type: 'OLAM_CATALOG_OPEN_LOGS' }, window.location.origin);
+                            }
+                        } catch (e) {}
+                    });
+                }
 
                 $('btnFilterNoImgCatalog').addEventListener('click', function () {
                     if (!canUseAdminButton()) return;

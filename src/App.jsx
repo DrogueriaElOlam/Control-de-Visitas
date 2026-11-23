@@ -162,7 +162,7 @@ export default function App() {
     fetchCashReportsFromCloud().catch(() => {});
 
     // Garantizar purga automática de bundles JS viejos en teléfonos y navegadores
-    const APP_BUILD_REV = 'olam_rev_20261123_tienda_virtual_v1';
+    const APP_BUILD_REV = 'olam_rev_20261123_tienda_log_v2';
     try {
       const storedRev = localStorage.getItem('olam_app_build_rev');
       if (storedRev !== APP_BUILD_REV) {

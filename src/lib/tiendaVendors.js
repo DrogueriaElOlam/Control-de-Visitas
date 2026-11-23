@@ -62,6 +62,7 @@ async function persistPhonesMapToCloudVault(phonesMap) {
       .from('daily_supervision_history')
       .select('id')
       .eq('date', CLOUD_PHONES_DATE_KEY)
+      .eq('vendor_name', 'TIENDA_PHONES_VAULT')
       .limit(1);
 
     const payload = {
@@ -73,12 +74,12 @@ async function persistPhonesMapToCloudVault(phonesMap) {
     if (Array.isArray(existing) && existing.length > 0 && existing[0]?.id) {
       await supabase
         .from('daily_supervision_history')
-        .update({ data: payload })
+        .update({ supervision_data: payload })
         .eq('id', existing[0].id);
     } else {
       await supabase
         .from('daily_supervision_history')
-        .insert([{ date: CLOUD_PHONES_DATE_KEY, data: payload }]);
+        .insert([{ date: CLOUD_PHONES_DATE_KEY, vendor_name: 'TIENDA_PHONES_VAULT', supervision_data: payload }]);
     }
   } catch (_) {
     // Fallback silencioso
@@ -192,11 +193,12 @@ export async function syncVendorPhonesFromCloud(vendorsList = []) {
   try {
     const { data: vaultRows } = await supabase
       .from('daily_supervision_history')
-      .select('data')
+      .select('supervision_data')
       .eq('date', CLOUD_PHONES_DATE_KEY)
+      .eq('vendor_name', 'TIENDA_PHONES_VAULT')
       .limit(1);
 
-    const cloudPhones = vaultRows?.[0]?.data?.phones;
+    const cloudPhones = vaultRows?.[0]?.supervision_data?.phones;
     if (cloudPhones && typeof cloudPhones === 'object') {
       Object.entries(cloudPhones).forEach(([k, val]) => {
         const clean = sanitizeWhatsAppPhone(val);

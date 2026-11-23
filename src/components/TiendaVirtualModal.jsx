@@ -10,7 +10,16 @@ import {
   ExternalLink,
   ShieldCheck,
   UserCheck,
-  Users
+  Users,
+  Eye,
+  RefreshCw,
+  Download,
+  Trash2,
+  ArrowLeft,
+  Smartphone,
+  Monitor,
+  Globe,
+  BarChart3
 } from 'lucide-react';
 import { DEFAULT_VENDORS, normalizeVendorName } from '../lib/db';
 import {
@@ -24,6 +33,12 @@ import {
   buildAllVendorsPayload,
   sanitizeWhatsAppPhone
 } from '../lib/tiendaVendors';
+import {
+  fetchTiendaViewLogs,
+  computeTiendaAnalytics,
+  clearTiendaViewLogs,
+  exportTiendaLogsToExcel
+} from '../lib/tiendaAnalytics';
 
 export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendors = [] }) {
   const canAdmin = canAccessCatalogAdmin(currentUser);
@@ -55,13 +70,55 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
   const [phonesVersion, setPhonesVersion] = useState(0);
   const iframeRef = useRef(null);
 
+  // Estado del Log y Contador de Visualizaciones (solo Admin / Supervisor)
+  const [showLogsPanel, setShowLogsPanel] = useState(false);
+  const [viewLogs, setViewLogs] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [logSourceFilter, setLogSourceFilter] = useState('all'); // all | cliente_link | app_interna
+  const [logSellerFilter, setLogSellerFilter] = useState('');
+  const [logDateFilter, setLogDateFilter] = useState('');
+  const [logSearch, setLogSearch] = useState('');
+
+  const loadViewLogs = async () => {
+    if (!canAdmin) return;
+    setLoadingLogs(true);
+    try {
+      const list = await fetchTiendaViewLogs({ limit: 2000 });
+      setViewLogs(list);
+    } catch (_) {
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  const analytics = useMemo(() => computeTiendaAnalytics(viewLogs), [viewLogs]);
+
+  const filteredLogs = useMemo(() => {
+    const q = logSearch.trim().toLowerCase();
+    return viewLogs.filter((l) => {
+      if (logSourceFilter !== 'all' && l.source !== logSourceFilter) return false;
+      if (logSellerFilter && l.sellerName !== logSellerFilter) return false;
+      if (logDateFilter && l.date !== logDateFilter) return false;
+      if (q) {
+        const hay = `${l.sellerName} ${l.device} ${l.referrer} ${l.visitorId} ${l.date} ${l.time}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [viewLogs, logSourceFilter, logSellerFilter, logDateFilter, logSearch]);
+
   const activeProfileName = canAdmin ? selectedVendorName : myCanonicalName;
 
   useEffect(() => {
     if (!isOpen) return;
     setSelectedVendorName(canAdmin ? '' : myCanonicalName);
+    setShowLogsPanel(false);
     setStatusMsg('');
     setErrorMsg('');
+
+    if (canAdmin) {
+      loadViewLogs();
+    }
 
     syncVendorPhonesFromCloud(availableVendors).then(() => {
       const targetName = canAdmin ? '' : myCanonicalName;
@@ -132,6 +189,14 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
       if (msg.type === 'OLAM_CATALOG_READY') {
         setIframeReady(true);
         sendAuthContextToIframe();
+        return;
+      }
+
+      if (msg.type === 'OLAM_CATALOG_OPEN_LOGS') {
+        if (canAdmin) {
+          setShowLogsPanel(true);
+          loadViewLogs();
+        }
         return;
       }
 
@@ -265,14 +330,42 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-xl bg-white/10 hover:bg-red-500/80 text-white transition-all cursor-pointer shrink-0"
-            title="Cerrar Tienda Virtual"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {canAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !showLogsPanel;
+                  setShowLogsPanel(next);
+                  if (next) loadViewLogs();
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer border shadow-sm ${
+                  showLogsPanel
+                    ? 'bg-amber-400 text-slate-950 border-amber-300'
+                    : 'bg-white/15 hover:bg-white/25 text-white border-white/25'
+                }`}
+                title="Ver log y contador de personas que visualizan la tienda virtual"
+              >
+                {showLogsPanel ? <ArrowLeft size={15} /> : <Eye size={15} className="text-emerald-300" />}
+                <span className="hidden sm:inline">{showLogsPanel ? 'Volver al Catálogo' : 'Log de Visitas'}</span>
+                <span className="sm:hidden">{showLogsPanel ? 'Catálogo' : 'Visitas'}</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                  showLogsPanel ? 'bg-slate-950 text-amber-300' : 'bg-emerald-500 text-slate-950'
+                }`}>
+                  {analytics.clientViews}
+                </span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-xl bg-white/10 hover:bg-red-500/80 text-white transition-all cursor-pointer shrink-0"
+              title="Cerrar Tienda Virtual"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* BARRA DE CONFIGURACIÓN DE WHATSAPP DEL VENDEDOR Y ENLACE COMPARTIBLE */}
@@ -381,19 +474,286 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
           )}
         </div>
 
-        {/* IFRAME DEL CATÁLOGO VIRTUAL */}
-        <div className="flex-1 bg-slate-100 dark:bg-slate-950 relative min-h-0">
-          <iframe
-            ref={iframeRef}
-            src={iframeSrc}
-            title="Tienda Virtual y Catálogo Droguería El Olam"
-            className="w-full h-full border-0"
-            onLoad={() => {
-              setIframeReady(true);
-              sendAuthContextToIframe();
-            }}
-          />
-        </div>
+        {/* PANEL DE LOG Y CONTADOR DE VISUALIZACIONES (SOLO ADMIN / SUPERVISOR) */}
+        {canAdmin && showLogsPanel ? (
+          <div className="flex-1 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-5 space-y-4">
+            {/* Encabezado del Log */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <BarChart3 size={20} className="text-blue-600 dark:text-blue-400" />
+                  <span>Contador y Log de Visualizaciones de la Tienda Virtual</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Registra automáticamente cada persona que abre el enlace de la tienda (clientes externos y accesos internos), sincronizado en Supabase.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={loadViewLogs}
+                  disabled={loadingLogs}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  <RefreshCw size={13} className={loadingLogs ? 'animate-spin' : ''} />
+                  <span>Actualizar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const fname = exportTiendaLogsToExcel(filteredLogs);
+                    setStatusMsg(`Excel descargado: ${fname}`);
+                    setTimeout(() => setStatusMsg(''), 4000);
+                  }}
+                  disabled={filteredLogs.length === 0}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  <Download size={13} />
+                  <span>Exportar Excel</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!window.confirm('¿Deseas limpiar y reiniciar a CERO el contador y log de visualizaciones de la tienda?')) return;
+                    try {
+                      await clearTiendaViewLogs();
+                      setViewLogs([]);
+                      setStatusMsg('Log y contador de visualizaciones reiniciados a 0.');
+                      setTimeout(() => setStatusMsg(''), 4000);
+                    } catch (err) {
+                      setErrorMsg(err.message || 'No se pudo limpiar el log.');
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600/90 hover:bg-rose-700 text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+                  title="Reiniciar el contador y vaciar registros de prueba"
+                >
+                  <Trash2 size={13} />
+                  <span>Reiniciar Log</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tarjetas KPI */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Visitas de Clientes (Link)</div>
+                <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{analytics.clientViews.toLocaleString('es-GT')}</div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Total con internas: <strong>{analytics.totalViews.toLocaleString('es-GT')}</strong> ({analytics.internalViews} internas)
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Personas Únicas</div>
+                <div className="text-3xl font-black text-blue-600 dark:text-blue-400 mt-1">{analytics.uniqueClientVisitors.toLocaleString('es-GT')}</div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Total dispositivos únicos: <strong>{analytics.uniqueVisitors.toLocaleString('es-GT')}</strong>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Visualizaciones Hoy</div>
+                <div className="text-3xl font-black text-indigo-600 dark:text-indigo-400 mt-1">{analytics.todayClientViews.toLocaleString('es-GT')}</div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Total hoy: <strong>{analytics.todayViews}</strong> ({analytics.todayUnique} personas)
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400">Este Mes & Dispositivos</div>
+                <div className="text-3xl font-black text-amber-600 dark:text-amber-400 mt-1">{analytics.monthClientViews.toLocaleString('es-GT')}</div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
+                  <span className="inline-flex items-center gap-0.5"><Smartphone size={11} /> {analytics.mobileViews}</span>
+                  <span>•</span>
+                  <span className="inline-flex items-center gap-0.5"><Monitor size={11} /> {analytics.desktopViews}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Desglose por Vendedor / Enlace */}
+            {analytics.bySeller.length > 0 && (
+              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="text-xs font-black uppercase text-slate-600 dark:text-slate-300 mb-2.5 flex items-center justify-between">
+                  <span>Visualizaciones por Vendedor / Enlace (clic para filtrar)</span>
+                  {logSellerFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setLogSellerFilter('')}
+                      className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer"
+                    >
+                      Quitar filtro ({logSellerFilter})
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {analytics.bySeller.map((item) => {
+                    const active = logSellerFilter === item.sellerName;
+                    return (
+                      <button
+                        key={item.sellerName}
+                        type="button"
+                        onClick={() => setLogSellerFilter(active ? '' : item.sellerName)}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                          active
+                            ? 'bg-blue-600 text-white border-blue-500 shadow'
+                            : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-blue-400'
+                        }`}
+                      >
+                        <span>{item.sellerName}</span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                          active ? 'bg-white text-blue-700' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                        }`}>
+                          {item.clients} clientes
+                        </span>
+                        <span className="text-[10px] opacity-75">({item.total} total)</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Filtros del Log */}
+            <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                {[
+                  { id: 'all', label: `Todos (${viewLogs.length})` },
+                  { id: 'cliente_link', label: `Clientes Link (${analytics.clientViews})` },
+                  { id: 'app_interna', label: `App Interna (${analytics.internalViews})` }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setLogSourceFilter(tab.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      logSourceFilter === tab.id
+                        ? 'bg-white dark:bg-slate-700 text-blue-700 dark:text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="date"
+                value={logDateFilter}
+                onChange={(e) => setLogDateFilter(e.target.value)}
+                className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
+              />
+
+              <input
+                type="text"
+                value={logSearch}
+                onChange={(e) => setLogSearch(e.target.value)}
+                placeholder="Buscar vendedor, dispositivo, visitante..."
+                className="flex-1 min-w-[180px] text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
+              />
+
+              {(logDateFilter || logSearch || logSellerFilter || logSourceFilter !== 'all') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLogSourceFilter('all');
+                    setLogSellerFilter('');
+                    setLogDateFilter('');
+                    setLogSearch('');
+                  }}
+                  className="text-xs font-bold text-rose-600 hover:underline px-2 cursor-pointer"
+                >
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+
+            {/* Tabla Cronológica de Visualizaciones */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 uppercase text-[10px] font-black tracking-wider border-b border-slate-200 dark:border-slate-700">
+                      <th className="py-2.5 px-3">#</th>
+                      <th className="py-2.5 px-3">Fecha y Hora</th>
+                      <th className="py-2.5 px-3">Origen</th>
+                      <th className="py-2.5 px-3">Vendedor / Enlace</th>
+                      <th className="py-2.5 px-3">Dispositivo</th>
+                      <th className="py-2.5 px-3">Referencia</th>
+                      <th className="py-2.5 px-3">Visitante</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {loadingLogs ? (
+                      <tr>
+                        <td colSpan={7} className="py-10 text-center text-slate-400 font-semibold">
+                          Cargando log de visualizaciones desde Supabase...
+                        </td>
+                      </tr>
+                    ) : filteredLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-10 text-center text-slate-400">
+                          Aún no hay visualizaciones registradas con estos filtros. Cada vez que alguien abra la tienda aparecerá aquí.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredLogs.slice(0, 300).map((log, idx) => (
+                        <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                          <td className="py-2 px-3 font-bold text-slate-400">{idx + 1}</td>
+                          <td className="py-2 px-3 whitespace-nowrap">
+                            <div className="font-bold text-slate-800 dark:text-slate-100">{log.date}</div>
+                            <div className="text-[11px] text-slate-500">{log.time}</div>
+                          </td>
+                          <td className="py-2 px-3 whitespace-nowrap">
+                            {log.source === 'cliente_link' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/60">
+                                <Globe size={11} /> Cliente (Link)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                                App Interna
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 font-bold text-slate-800 dark:text-slate-200">
+                            <div>{log.sellerName}</div>
+                            {log.sellerPhone && (
+                              <div className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">+{log.sellerPhone}</div>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 whitespace-nowrap">
+                            <div className="font-semibold text-slate-700 dark:text-slate-300">{log.device}</div>
+                            <div className="text-[10px] text-slate-400">{log.deviceType}</div>
+                          </td>
+                          <td className="py-2 px-3 text-slate-600 dark:text-slate-400">{log.referrer}</td>
+                          <td className="py-2 px-3 font-mono text-[10px] text-slate-400">{String(log.visitorId || '').slice(0, 14)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {filteredLogs.length > 300 && (
+                <div className="p-2.5 text-center text-[11px] text-slate-500 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800">
+                  Mostrando las 300 visualizaciones más recientes de {filteredLogs.length.toLocaleString('es-GT')}. Usa "Exportar Excel" para descargar el historial completo.
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* IFRAME DEL CATÁLOGO VIRTUAL */
+          <div className="flex-1 bg-slate-100 dark:bg-slate-950 relative min-h-0">
+            <iframe
+              ref={iframeRef}
+              src={iframeSrc}
+              title="Tienda Virtual y Catálogo Droguería El Olam"
+              className="w-full h-full border-0"
+              onLoad={() => {
+                setIframeReady(true);
+                sendAuthContextToIframe();
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
