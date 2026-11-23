@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Download, Trash2, Save, RefreshCw, History, UserPlus, MapPin, Shield, LayoutGrid, FileText, Receipt, Award, Handshake, DollarSign, Target } from 'lucide-react';
+import { Plus, Download, Trash2, Save, RefreshCw, History, UserPlus, MapPin, Shield, LayoutGrid, FileText, Receipt, Award, Handshake, DollarSign, Target, ShoppingBag } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Logo from './Logo';
 import FormHeader from './FormHeader';
@@ -27,7 +27,7 @@ import SupervisionHistory from './SupervisionHistory';
 import VendorEvaluationForm from './VendorEvaluationForm';
 import DailySupervisionForm from './DailySupervisionForm';
 
-export default function SupervisionForm({ currentUser = null, autoAuth = true }) {
+export default function SupervisionForm({ currentUser = null, autoAuth = true, onOpenTiendaModal = null }) {
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(autoAuth || currentUser?.role === 'admin'));
   const [activeSection, setActiveSection] = useState('todos');
   const [password, setPassword] = useState('');
@@ -1325,7 +1325,19 @@ export default function SupervisionForm({ currentUser = null, autoAuth = true })
             </div>
           </div>
 
-          <div className="flex items-center gap-2 self-start md:self-auto">
+          <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+            {onOpenTiendaModal && (
+              <button
+                type="button"
+                onClick={onOpenTiendaModal}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl shadow-md transition-all text-xs sm:text-sm cursor-pointer whitespace-nowrap"
+                title="Abrir Tienda Virtual y Catálogo de Droguería El Olam"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span className="hidden sm:inline">Tienda y Catálogo</span>
+                <span className="sm:hidden">Tda/Cat</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setShowHistorialGeneral(true)}

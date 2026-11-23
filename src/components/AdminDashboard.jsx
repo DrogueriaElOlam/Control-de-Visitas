@@ -19,7 +19,8 @@ import {
   Settings,
   Wifi,
   Key,
-  Cloud
+  Cloud,
+  ShoppingBag
 } from 'lucide-react';
 import { getLocalDateString, getLocalYesterdayString } from '../lib/dateUtils';
 import { getOtpKeysStats, getLogoutOtpKeysStats } from '../lib/security';
@@ -37,6 +38,7 @@ export default function AdminDashboard({
   onOpenOtpModal,
   onOpenLogoutOtpModal,
   onOpenSupabaseModal,
+  onOpenTiendaModal,
   onlineVendors = {}
 }) {
   const todayStr = getLocalDateString();
@@ -137,6 +139,16 @@ export default function AdminDashboard({
               >
                 <Navigation size={16} className="text-white animate-pulse" />
                 <span>🛰️ Rastreo GPS en Vivo</span>
+              </button>
+            )}
+            {onOpenTiendaModal && (
+              <button
+                onClick={onOpenTiendaModal}
+                className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-extrabold text-xs sm:text-sm transition-all shadow-lg shadow-emerald-500/25 flex items-center gap-2 border border-emerald-400/50 cursor-pointer active:scale-95"
+                title="Abrir Tienda Virtual y Catálogo de Droguería El Olam"
+              >
+                <ShoppingBag size={16} className="text-white" />
+                <span>Tienda y Catálogo</span>
               </button>
             )}
             {onOpenFormulariosModal && (

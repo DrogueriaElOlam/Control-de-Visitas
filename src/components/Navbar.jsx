@@ -23,7 +23,8 @@ import {
   Bell,
   Key,
   Cloud,
-  X
+  X,
+  ShoppingBag
 } from 'lucide-react';
 import { getOtpKeysStats, getLogoutOtpKeysStats } from '../lib/security';
 import { isSuperUser, normalizeText } from '../lib/formsPermissions';
@@ -49,6 +50,7 @@ export default function Navbar({
   onOpenLogoutOtpModal,
   onOpenRemindersModal,
   onOpenSupabaseModal,
+  onOpenTiendaModal,
   pendingTicketsCount = 0,
   onlineVendors = {},
   connectionNotifications = [],
@@ -442,6 +444,15 @@ export default function Navbar({
               </button>
 
               <button
+                onClick={() => onOpenTiendaModal && onOpenTiendaModal()}
+                className="flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold transition-all whitespace-nowrap bg-emerald-500/25 text-emerald-100 hover:bg-emerald-500 hover:text-white border border-emerald-400/50 shadow-sm cursor-pointer"
+                title="Abrir Tienda Virtual y Catálogo de Productos (Edición habilitada para Administrador)"
+              >
+                <ShoppingBag size={15} className="text-emerald-300" />
+                <span>Tienda y Catálogo</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab('map')}
                 className={`flex-shrink-0 flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium transition-all whitespace-nowrap shadow-sm ${
                   activeTab === 'map'
@@ -588,7 +599,7 @@ export default function Navbar({
               {/* Apartado de Información General con acceso a Base de Datos e Historial */}
               <button
                 onClick={() => setActiveTab('info_general')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
                   activeTab === 'info_general'
                     ? 'bg-white text-blue-900 shadow-md font-bold'
                     : 'text-blue-100 hover:bg-white/10'
@@ -597,6 +608,17 @@ export default function Navbar({
               >
                 <Database size={15} />
                 <span>Información General</span>
+              </button>
+
+              {/* Botón Tienda Virtual y Catálogo a la par de Información General */}
+              <button
+                onClick={() => onOpenTiendaModal && onOpenTiendaModal()}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap bg-emerald-500/25 text-emerald-100 hover:bg-emerald-500 hover:text-white border border-emerald-400/50 shadow-sm cursor-pointer"
+                title="Abrir Tienda Virtual y Catálogo de Droguería El Olam"
+              >
+                <ShoppingBag size={15} className="text-emerald-300" />
+                <span className="hidden xl:inline">Tienda y Catálogo</span>
+                <span className="xl:hidden">Tda/Cat</span>
               </button>
 
               <button
@@ -665,7 +687,7 @@ export default function Navbar({
       {/* MOBILE BOTTOM NAVIGATION BAR (Phones & Small Tablets) */}
       <nav 
         aria-label="Navegación Móvil" 
-        className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] px-2 py-1.5 flex justify-around items-center"
+        className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] px-1.5 py-1.5 flex items-center justify-between gap-0.5 overflow-x-auto scrollbar-none"
       >
         {isAdmin ? (
           <>
@@ -707,7 +729,7 @@ export default function Navbar({
 
             <button
               onClick={() => setActiveTab('visits')}
-              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+              className={`flex flex-col items-center justify-center shrink-0 min-w-[52px] flex-1 py-1 rounded-xl transition-all ${
                 activeTab === 'visits'
                   ? 'text-blue-600 dark:text-blue-400 font-bold scale-105'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
@@ -715,6 +737,15 @@ export default function Navbar({
             >
               <ListFilter size={20} className={activeTab === 'visits' ? 'stroke-[2.5]' : ''} />
               <span className="text-[10px] mt-0.5">Visitas</span>
+            </button>
+
+            <button
+              onClick={() => onOpenTiendaModal && onOpenTiendaModal()}
+              className="flex flex-col items-center justify-center shrink-0 min-w-[52px] flex-1 py-1 rounded-xl transition-all text-emerald-600 dark:text-emerald-400 hover:text-emerald-700"
+              title="Tienda Virtual y Catálogo"
+            >
+              <ShoppingBag size={20} />
+              <span className="text-[10px] mt-0.5 font-bold whitespace-nowrap">Tda/Cat</span>
             </button>
 
             <button
@@ -831,7 +862,7 @@ export default function Navbar({
             {/* Apartado Información General para celulares */}
             <button
               onClick={() => setActiveTab('info_general')}
-              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
+              className={`flex flex-col items-center justify-center shrink-0 min-w-[50px] flex-1 py-1 rounded-xl transition-all ${
                 activeTab === 'info_general'
                   ? 'text-blue-600 dark:text-blue-400 font-bold scale-105'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
@@ -839,7 +870,17 @@ export default function Navbar({
               title="Información General (Base de datos e Historial)"
             >
               <Database size={20} className={activeTab === 'info_general' ? 'stroke-[2.5] text-blue-600 dark:text-blue-400' : ''} />
-              <span className="text-[10px] mt-0.5 font-bold">Info General</span>
+              <span className="text-[10px] mt-0.5 font-bold whitespace-nowrap">Info General</span>
+            </button>
+
+            {/* Botón Tienda y Catálogo a la par de Info General para celulares */}
+            <button
+              onClick={() => onOpenTiendaModal && onOpenTiendaModal()}
+              className="flex flex-col items-center justify-center shrink-0 min-w-[48px] flex-1 py-1 rounded-xl transition-all text-emerald-600 dark:text-emerald-400 hover:text-emerald-700"
+              title="Tienda Virtual y Catálogo Droguería El Olam"
+            >
+              <ShoppingBag size={20} />
+              <span className="text-[10px] mt-0.5 font-bold whitespace-nowrap">Tda/Cat</span>
             </button>
 
             <button

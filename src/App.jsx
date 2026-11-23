@@ -28,6 +28,7 @@ import ActiveReminderAlertModal from './components/ActiveReminderAlertModal';
 import AdminSupabaseStatusModal from './components/AdminSupabaseStatusModal';
 import VisualFeedbackSelector from './components/VisualFeedbackSelector';
 import SupervisionForm from './components/SupervisionForm';
+import TiendaVirtualModal from './components/TiendaVirtualModal';
 
 import { 
   getStoredReminders, 
@@ -87,6 +88,7 @@ export default function App() {
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [showLogoutOtpModal, setShowLogoutOtpModal] = useState(false);
   const [showSupabaseModal, setShowSupabaseModal] = useState(false);
+  const [showTiendaModal, setShowTiendaModal] = useState(false);
   const [vendorOnlineToast, setVendorOnlineToast] = useState(null);
   const [connectionNotifications, setConnectionNotifications] = useState([]);
   const prevOnlineVendorsRef = useRef({});
@@ -160,7 +162,7 @@ export default function App() {
     fetchCashReportsFromCloud().catch(() => {});
 
     // Garantizar purga automática de bundles JS viejos en teléfonos y navegadores
-    const APP_BUILD_REV = 'olam_rev_20261114_boletas_wysiwyg_v6';
+    const APP_BUILD_REV = 'olam_rev_20261123_tienda_virtual_v1';
     try {
       const storedRev = localStorage.getItem('olam_app_build_rev');
       if (storedRev !== APP_BUILD_REV) {
@@ -519,6 +521,7 @@ export default function App() {
         onOpenLogoutOtpModal={() => setShowLogoutOtpModal(true)}
         onOpenRemindersModal={() => setShowSupervisorRemindersModal(true)}
         onOpenSupabaseModal={() => setShowSupabaseModal(true)}
+        onOpenTiendaModal={() => setShowTiendaModal(true)}
         pendingTicketsCount={pendingTicketsCount}
         onlineVendors={onlineVendors}
         connectionNotifications={connectionNotifications}
@@ -590,6 +593,7 @@ export default function App() {
               <SupervisionForm
                 currentUser={currentUser}
                 autoAuth={true}
+                onOpenTiendaModal={() => setShowTiendaModal(true)}
               />
             )}
 
@@ -607,6 +611,7 @@ export default function App() {
                 onOpenOtpModal={() => setShowOtpModal(true)}
                 onOpenLogoutOtpModal={() => setShowLogoutOtpModal(true)}
                 onOpenSupabaseModal={() => setShowSupabaseModal(true)}
+                onOpenTiendaModal={() => setShowTiendaModal(true)}
                 onlineVendors={onlineVendors}
               />
             )}
@@ -652,8 +657,8 @@ export default function App() {
           </>
         )}
 
-        {/* VENDOR VIEWS */}
-        {currentUser.role === 'vendor' && (
+        {/* VENDOR & SUPERVISOR VIEWS */}
+        {(currentUser.role === 'vendor' || currentUser.role === 'supervisor') && (
           <>
             {activeTab === 'register' && (
               <VisitRegistration
@@ -833,6 +838,14 @@ export default function App() {
         onCompleted={(completedRem) => {
           console.log('Recordatorio completado y desactivado:', completedRem);
         }}
+      />
+
+      {/* Modal Oficial: Tienda Virtual y Catálogo Droguería El Olam */}
+      <TiendaVirtualModal
+        isOpen={showTiendaModal}
+        onClose={() => setShowTiendaModal(false)}
+        currentUser={currentUser}
+        vendors={vendors}
       />
 
       {/* Herramienta Visual para Seleccionar y Marcar Cambios (100% oculta por defecto; solo se activa si se presiona Ctrl+Shift+S) */}
