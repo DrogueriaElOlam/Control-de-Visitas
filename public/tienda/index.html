@@ -4451,10 +4451,19 @@
                         showToast('No hay número de WhatsApp configurado. Configúralo en el Administrador.', 'error');
                         return;
                     }
+                    var sanitizeForMiNegocio = function (val) {
+                        return String(val || '')
+                            .replace(/\*+/g, ' ')
+                            .replace(/->/g, ' ')
+                            .replace(/:/g, ' ')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                    };
                     var clientName = $('clientNameInput').value.trim();
-                    // FORMATO EXACTO DE EXPORTACIÓN PARA COTIZADOR (NO ALTERAR):
-                    // Nombre: <cliente>\n\n*<cantidad> -> <descripcion> :<clave>\n\nTotal estimado: Q<total>
-                    var text = (data.nam || 'Nombre') + ': ' + clientName + '\n\n';
+                    var safeClientName = sanitizeForMiNegocio(clientName);
+                    // FORMATO EXACTO DE EXPORTACIÓN PARA COTIZADOR / MINEGOCIO (NO ALTERAR):
+                    // Nombre: <cliente>\n\n*<cantidad> -> <descripcion sin *> :<clave>\n\nTotal estimado: Q<total>
+                    var text = (data.nam || 'Nombre') + ': ' + safeClientName + '\n\n';
                     var ok = true;
                     var total = 0;
                     cart.itms.forEach(function (v) {
@@ -4463,7 +4472,9 @@
                             return;
                         }
                         total += parseFloat(v.q) * (Number(v.v) || 0);
-                        text += '*' + v.q + ' -> ' + v.d + ' :' + v.k + '\n';
+                        var safeDesc = sanitizeForMiNegocio(v.d);
+                        var safeKey = String(v.k || '').replace(/\*+/g, '').trim();
+                        text += '*' + v.q + ' -> ' + safeDesc + ' :' + safeKey + '\n';
                     });
                     if (!ok) {
                         showToast('Ingrese solo valores numéricos válidos en cantidades.', 'error');

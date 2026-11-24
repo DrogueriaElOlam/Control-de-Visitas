@@ -783,6 +783,9 @@
       - **Regla Estricta del Formato de Pedido:** El mensaje exportado al confirmar el carrito y al copiar/reenviar desde el Historial debe seguir exactamente la estructura requerida por la plataforma traductora de cotizaciones:
         `Nombre: <cliente>\n\n*<cantidad> -> <descripcion> :<clave>\n...\n\nTotal estimado: Q<total.toFixed(2)>`
       - **Sin Prefijos de Pedido ni Vendedor:** Se eliminaron `Pedido: PED-...` y `Vendedor: ...` del encabezado del mensaje, conservando únicamente `Nombre: ...`, las líneas `*qty -> desc :clave` y el cierre `\nTotal estimado: Q...`, mientras Supabase guarda en silencio todos los metadatos completos en `TIENDA_ORDER_HISTORY`.
+  100. **Saneamiento Automático de Asteriscos (`*` / `**`) para Compatibilidad con MiNegocio (`public/tienda/index.html`, `TiendaVirtualModal.jsx`):**
+      - **Problema Resuelto sin Tocar SAE ni Desarmar MiNegocio:** 8 productos del catálogo de SAE contienen `*` o `**` en su descripción (`1946`, `1214`, `1553`, `2799`, `853`, `1059`, `2046`, `1075`), lo que rompía el separador `*` de la app **MiNegocio**.
+      - **Limpieza Automática al Exportar (`sanitizeForMiNegocio`):** Al generar el pedido en el carrito y al copiar/reenviar desde el Historial, se limpian automáticamente cualquier `*`, `**`, `->` o `:` dentro del nombre del cliente y de las descripciones de productos, conservando intactos el `*` inicial de cada línea, el ` -> `, la `:clave` final y el cierre `\nTotal estimado: Q...`.
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

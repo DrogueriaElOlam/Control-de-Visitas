@@ -906,12 +906,10 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                               <button
                                 type="button"
                                 onClick={async () => {
-                                  const exactFormat = `Nombre: ${order.clientName || ''}\n\n${(order.items || []).map((it) => `*${it.qty} -> ${it.rawDesc || it.name} :${it.code}`).join('\n')}\n\nTotal estimado: Q${Number(order.totalAmount || 0).toFixed(2)}`;
-                                  const txt = (order.whatsappText && order.whatsappText.includes('Total estimado: Q') && !order.whatsappText.includes('Vendedor:') && !order.whatsappText.startsWith('Pedido:'))
-                                    ? order.whatsappText
-                                    : exactFormat;
-                                  try { await navigator.clipboard.writeText(txt); } catch (_) {}
-                                  setStatusMsg(`Pedido ${order.orderNumber} copiado en formato exacto para cotizador.`);
+                                  const cleanForMiNegocio = (s) => String(s || '').replace(/\*+/g, ' ').replace(/->/g, ' ').replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                                  const exactFormat = `Nombre: ${cleanForMiNegocio(order.clientName)}\n\n${(order.items || []).map((it) => `*${it.qty} -> ${cleanForMiNegocio(it.rawDesc || it.name)} :${String(it.code || '').replace(/\*+/g, '').trim()}`).join('\n')}\n\nTotal estimado: Q${Number(order.totalAmount || 0).toFixed(2)}`;
+                                  try { await navigator.clipboard.writeText(exactFormat); } catch (_) {}
+                                  setStatusMsg(`Pedido ${order.orderNumber} copiado limpio para MiNegocio.`);
                                   setTimeout(() => setStatusMsg(''), 3000);
                                 }}
                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer"
@@ -923,9 +921,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                               {order.sellerPhone && (
                                 <a
                                   href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(order.sellerPhone)}&text=${encodeURIComponent(
-                                    (order.whatsappText && order.whatsappText.includes('Total estimado: Q') && !order.whatsappText.includes('Vendedor:') && !order.whatsappText.startsWith('Pedido:'))
-                                      ? order.whatsappText
-                                      : `Nombre: ${order.clientName || ''}\n\n${(order.items || []).map((it) => `*${it.qty} -> ${it.rawDesc || it.name} :${it.code}`).join('\n')}\n\nTotal estimado: Q${Number(order.totalAmount || 0).toFixed(2)}`
+                                    `Nombre: ${String(order.clientName || '').replace(/\*+/g, ' ').replace(/->/g, ' ').replace(/:/g, ' ').replace(/\s+/g, ' ').trim()}\n\n${(order.items || []).map((it) => `*${it.qty} -> ${String(it.rawDesc || it.name || '').replace(/\*+/g, ' ').replace(/->/g, ' ').replace(/:/g, ' ').replace(/\s+/g, ' ').trim()} :${String(it.code || '').replace(/\*+/g, '').trim()}`).join('\n')}\n\nTotal estimado: Q${Number(order.totalAmount || 0).toFixed(2)}`
                                   )}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
