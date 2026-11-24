@@ -779,6 +779,10 @@
       - **Paginación Ilimitada en Supabase (`fetchAllVisitsFromSupabase` y `fetchAllHistoryRows`):** Implementada descarga automática por lotes de 1,000 filas ordenadas determinísticamente por `id` descendente hasta recuperar el 100% del historial de visitas y de los 5 historiales de supervisión, sin topes futuros.
       - **Rendimiento $O(n)$ y Protección contra `QuotaExceededError`:** Reescrita `deduplicateVisitsList()` usando mapas indexados (`indexById` + `indicesBySemantic`) evitando congelamientos en móviles, agregado `saveVisitsLocalCacheSafely()` para impedir fallos de cuota de 5 MB en `localStorage`, y habilitada edición directa en Supabase de registros históricos antiguos en `updateVisitSalesAndCollections()`.
       - **Filtros de Rango de Fechas y Carga Progresiva Visual:** Soportados rangos parciales (`Desde`, `Hasta` o ambos) con normalización estricta `YYYY-MM-DD`, corregido bug de zona horaria UTC en `ExportModal.jsx` (`this_month`), añadido indicador de rango histórico sincronizado con botón `Recargar Nube`, y paginación visual progresiva (`150` + `Cargar 200 más` / `Ver todos`) manteniendo el 100% de registros en KPIs y exportaciones Excel/HTML.
+  99. **Restauración Estricta del Formato Original de Exportación de Pedidos en Tienda Virtual (`public/tienda/index.html`, `TiendaVirtualModal.jsx`):**
+      - **Regla Inmutable de Formato de Pedido (Original `web231126.zip`):** Restaurado carácter por carácter el formato original que el cliente envía por WhatsApp al confirmar su pedido:
+        `Nombre: <cliente>\n\n*<cantidad> -> <descripcion> :<clave>\n`
+      - **Sin Líneas Extra:** Removidos los agregados `Pedido: PED-...`, `Vendedor: ...` y `Total estimado: Q...` del texto exportado tanto al enviar desde el carrito como al copiar/reenviar desde el Historial de Pedidos, manteniendo intacto el guardado silencioso completo de todos los metadatos en Supabase (`TIENDA_ORDER_HISTORY`).
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.

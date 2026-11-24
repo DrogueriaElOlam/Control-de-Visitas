@@ -906,9 +906,10 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                               <button
                                 type="button"
                                 onClick={async () => {
-                                  const txt = order.whatsappText || `Pedido ${order.orderNumber} - ${order.clientName} - Total Q${Number(order.totalAmount || 0).toFixed(2)}`;
+                                  const fallbackOriginal = `Nombre: ${order.clientName || ''}\n\n${(order.items || []).map((it) => `*${it.qty} -> ${it.rawDesc || it.name} :${it.code}`).join('\n')}\n`;
+                                  const txt = order.whatsappText || fallbackOriginal;
                                   try { await navigator.clipboard.writeText(txt); } catch (_) {}
-                                  setStatusMsg(`Texto del pedido ${order.orderNumber} copiado.`);
+                                  setStatusMsg(`Pedido ${order.orderNumber} copiado en formato original.`);
                                   setTimeout(() => setStatusMsg(''), 3000);
                                 }}
                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer"
@@ -919,7 +920,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
 
                               {order.sellerPhone && (
                                 <a
-                                  href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(order.sellerPhone)}&text=${encodeURIComponent(`Pedido: ${order.orderNumber}\n${order.whatsappText || ''}`)}`}
+                                  href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(order.sellerPhone)}&text=${encodeURIComponent(order.whatsappText || `Nombre: ${order.clientName || ''}\n\n${(order.items || []).map((it) => `*${it.qty} -> ${it.rawDesc || it.name} :${it.code}`).join('\n')}\n`)}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"

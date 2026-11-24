@@ -4452,11 +4452,9 @@
                         return;
                     }
                     var clientName = $('clientNameInput').value.trim();
-                    var text = (data.nam || 'Nombre') + ': ' + clientName + '\n';
-                    if (target.seller) {
-                        text += 'Vendedor: ' + target.seller.name + '\n';
-                    }
-                    text += '\n';
+                    // FORMATO ORIGINAL EXACTO DE EXPORTACIÓN (NO ALTERAR):
+                    // Nombre: <cliente>\n\n*<cantidad> -> <descripcion> :<clave>\n
+                    var text = (data.nam || 'Nombre') + ': ' + clientName + '\n\n';
                     var ok = true;
                     var total = 0;
                     cart.itms.forEach(function (v) {
@@ -4471,11 +4469,8 @@
                         showToast('Ingrese solo valores numéricos válidos en cantidades.', 'error');
                         return;
                     }
-                    text += '\nTotal estimado: Q' + total.toFixed(2);
-                    var savedOrder = saveOrderToDatabase(clientName, target, cart.itms, total, text);
-                    if (savedOrder && savedOrder.orderNumber) {
-                        text = 'Pedido: ' + savedOrder.orderNumber + '\n' + text;
-                    }
+                    // Guardar silenciosamente el pedido completo en Supabase sin alterar el texto exportado
+                    saveOrderToDatabase(clientName, target, cart.itms, total, text);
                     saveCart({ itms: [] });
                     closeModal('modCart');
                     showToast('Pedido registrado en el historial y abriendo WhatsApp...', 'success');
