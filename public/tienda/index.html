@@ -1167,12 +1167,53 @@
 
         .footer-contact {
             display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 14px;
+            font-size: 14px;
+        }
+
+        .footer-vendor-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            padding: 10px 20px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+        }
+
+        .footer-vendor-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.2px;
+        }
+
+        .footer-vendor-role {
+            font-size: 12px;
+            font-weight: 600;
+            color: #93c5fd;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+        }
+
+        .footer-vendor-phone {
+            margin-top: 2px;
+            font-size: 15px;
+            font-weight: 700;
+            color: #86efac !important;
+        }
+
+        .footer-extra-links {
+            display: flex;
             align-items: center;
             justify-content: center;
             gap: 18px;
             flex-wrap: wrap;
-            margin-bottom: 14px;
-            font-size: 14px;
         }
 
         .footer-contact a {
@@ -1254,6 +1295,9 @@
                 </button>
                 <button id="btnConfig" class="btn btn-outline btn-sm" type="button" title="Configurar WhatsApp y datos de la tienda">
                     <i class="fa fa-cog"></i> Configuración
+                </button>
+                <button id="btnViewOrders" class="btn btn-success btn-sm" type="button" title="Ver historial completo de pedidos generados en todos los dispositivos">
+                    <i class="fa fa-list-alt"></i> Historial Pedidos
                 </button>
                 <button id="btnViewLogs" class="btn btn-primary btn-sm" type="button" title="Ver contador y registro detallado de personas que visualizan la tienda">
                     <i class="fa fa-eye"></i> Log de Visitas
@@ -2883,6 +2927,7 @@
                 received: false,
                 allowAdmin: false,
                 lockedVendor: null,
+                displayVendor: null,
                 allVendorsList: []
             };
 
@@ -3419,6 +3464,23 @@
                 renderCatalog();
             }
 
+            function formatGuatemalaPhoneDisplay(rawPhone) {
+                var digits = String(rawPhone || '').replace(/[^\d]/g, '');
+                if (!digits) return '';
+                if (digits.length === 11 && digits.indexOf('502') === 0) {
+                    return '+502 ' + digits.slice(3, 7) + '-' + digits.slice(7, 11);
+                }
+                if (digits.length === 8) {
+                    return '+502 ' + digits.slice(0, 4) + '-' + digits.slice(4, 8);
+                }
+                if (digits.length > 8 && digits.indexOf('502') === 0) {
+                    var rest = digits.slice(3);
+                    if (rest.length === 8) return '+502 ' + rest.slice(0, 4) + '-' + rest.slice(4, 8);
+                    return '+502 ' + rest;
+                }
+                return '+' + digits;
+            }
+
             function applyStoreBranding() {
                 if (data.ngc) {
                     document.title = data.ngc;
@@ -3428,12 +3490,17 @@
                 }
 
                 var activeSeller = getActiveSeller();
-                var effectivePhone = (activeSeller && activeSeller.phone) ? activeSeller.phone : (data.tel2 || '');
+                var displayVendor = activeSeller || hostAuthContext.displayVendor || null;
+                var footerVendorName = (displayVendor && displayVendor.name) ? String(displayVendor.name).trim() : '';
+                var effectivePhone = (activeSeller && activeSeller.phone)
+                    ? activeSeller.phone
+                    : ((hostAuthContext.displayVendor && hostAuthContext.displayVendor.phone) ? hostAuthContext.displayVendor.phone : (data.tel2 || ''));
+                var formattedPhone = formatGuatemalaPhoneDisplay(effectivePhone);
 
                 $('btnCart').style.display = (data.crt && (effectivePhone || ensureSellers().length > 0)) ? 'inline-flex' : 'none';
 
-                if (activeSeller) {
-                    $('sellerBannerText').textContent = 'Atendido por: ' + activeSeller.name + ' (+' + String(activeSeller.phone).replace(/^\+/, '') + ')';
+                if (activeSeller && activeSeller.phone) {
+                    $('sellerBannerText').textContent = 'Atendido por: ' + activeSeller.name + ' (' + formatGuatemalaPhoneDisplay(activeSeller.phone) + ')';
                     $('sellerBannerWa').href = 'https://api.whatsapp.com/send?phone=' + encodeURIComponent(activeSeller.phone) + '&text=%20';
                     $('sellerBanner').classList.add('show');
                 } else {
@@ -3445,8 +3512,21 @@
                 }
 
                 var contactHtml = '';
+                if (footerVendorName) {
+                    contactHtml += '<div class="footer-vendor-card">' +
+                        '<div class="footer-vendor-name">' + escapeHtml(footerVendorName) + '</div>' +
+                        '<div class="footer-vendor-role">Ejecutivo de Ventas</div>' +
+                        (effectivePhone
+                            ? '<a class="footer-vendor-phone" href="tel:+' + escapeHtml(String(effectivePhone).replace(/[^\d]/g, '')) + '"><i class="fa fa-phone"></i> ' + escapeHtml(formattedPhone) + '</a>'
+                            : '<span style="font-size:12px;color:#cbd5e1;">Teléfono pendiente de asignar</span>') +
+                    '</div>';
+                }
+
+                var extraLinks = '';
                 if (effectivePhone) {
-                    contactHtml += '<a href="tel:' + escapeHtml(effectivePhone) + '"><i class="fa fa-phone"></i> +' + escapeHtml(String(effectivePhone).replace(/^\+/, '')) + (activeSeller ? ' (' + escapeHtml(activeSeller.name) + ')' : '') + '</a>';
+                    if (!footerVendorName) {
+                        extraLinks += '<a href="tel:+' + escapeHtml(String(effectivePhone).replace(/[^\d]/g, '')) + '"><i class="fa fa-phone"></i> ' + escapeHtml(formattedPhone) + '</a>';
+                    }
                     if (data.wha) {
                         $('fabWhatsapp').href = 'https://api.whatsapp.com/send?phone=' + encodeURIComponent(effectivePhone) + '&text=%20';
                         $('fabWhatsapp').style.display = 'flex';
@@ -3457,10 +3537,13 @@
                     $('fabWhatsapp').style.display = 'none';
                 }
                 if (data.cor2) {
-                    contactHtml += '<a href="mailto:' + escapeHtml(data.cor2) + '"><i class="fa fa-envelope"></i> ' + escapeHtml(data.cor2) + '</a>';
+                    extraLinks += '<a href="mailto:' + escapeHtml(data.cor2) + '"><i class="fa fa-envelope"></i> ' + escapeHtml(data.cor2) + '</a>';
                 }
                 if (data.dir2) {
-                    contactHtml += '<span><i class="fa fa-map-marker"></i> ' + escapeHtml(data.dir2) + '</span>';
+                    extraLinks += '<span><i class="fa fa-map-marker"></i> ' + escapeHtml(data.dir2) + '</span>';
+                }
+                if (extraLinks) {
+                    contactHtml += '<div class="footer-extra-links">' + extraLinks + '</div>';
                 }
                 $('footerContact').innerHTML = contactHtml;
             }
@@ -3606,6 +3689,109 @@
                 } catch (err) {}
             }
 
+            function saveOrderToDatabase(clientName, target, cartItems, total, whatsappText) {
+                try {
+                    var now = new Date();
+                    var y = now.getFullYear();
+                    var mo = String(now.getMonth() + 1).padStart(2, '0');
+                    var da = String(now.getDate()).padStart(2, '0');
+                    var dateStr = y + '-' + mo + '-' + da;
+                    var timeStr = now.toLocaleTimeString('es-GT', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true
+                    });
+
+                    var isEmbedded = false;
+                    try { isEmbedded = (window.self !== window.top); } catch (e) { isEmbedded = true; }
+                    var dev = detectDeviceInfoForLog();
+
+                    var totalUnits = 0;
+                    var normalizedItems = (cartItems || []).map(function (v) {
+                        var qty = parseFloat(v.q) || 0;
+                        var unitPrice = Number(v.v) || 0;
+                        totalUnits += qty;
+                        return {
+                            code: String(v.k || v.i || ''),
+                            name: getCleanName(v),
+                            rawDesc: String(v.d || ''),
+                            qty: qty,
+                            unitPrice: Math.round(unitPrice * 100) / 100,
+                            subtotal: Math.round(qty * unitPrice * 100) / 100
+                        };
+                    });
+
+                    var suffix = String(now.getTime()).slice(-4) + Math.floor(10 + Math.random() * 89);
+                    var orderRecord = {
+                        tipo: 'tienda_order_record',
+                        id: 'ord_' + now.getTime() + '_' + Math.random().toString(36).slice(2, 7),
+                        orderNumber: 'PED-' + String(y).slice(-2) + mo + da + '-' + suffix.slice(0, 4),
+                        date: dateStr,
+                        time: timeStr,
+                        timestamp: now.toISOString(),
+                        clientName: clientName || 'Cliente',
+                        sellerName: (target && target.seller && target.seller.name) ? target.seller.name : 'Catálogo General',
+                        sellerPhone: (target && target.phone) ? String(target.phone).replace(/[^\d]/g, '') : '',
+                        source: isEmbedded ? 'app_interna' : 'cliente_link',
+                        device: dev.device,
+                        deviceType: dev.deviceType,
+                        visitorId: getOrCreateVisitorId(),
+                        itemsCount: normalizedItems.length,
+                        totalUnits: Math.round(totalUnits * 100) / 100,
+                        totalAmount: Math.round((Number(total) || 0) * 100) / 100,
+                        items: normalizedItems,
+                        whatsappText: whatsappText || '',
+                        status: 'Pendiente'
+                    };
+
+                    // 1. Guardar respaldo instantáneo en localStorage
+                    try {
+                        var localOrders = JSON.parse(localStorage.getItem('olam_tienda_orders_history_v1') || '[]');
+                        if (!Array.isArray(localOrders)) localOrders = [];
+                        localOrders.unshift(orderRecord);
+                        if (localOrders.length > 500) localOrders.length = 500;
+                        localStorage.setItem('olam_tienda_orders_history_v1', JSON.stringify(localOrders));
+                    } catch (e) {}
+
+                    // 2. Notificar a la app padre si está embebido
+                    try {
+                        if (window.parent && window.parent !== window) {
+                            window.parent.postMessage({ type: 'OLAM_CATALOG_ORDER_CREATED', order: orderRecord }, window.location.origin);
+                        }
+                    } catch (e) {}
+
+                    // 3. Guardar persistentemente en Supabase (daily_supervision_history con vendor_name = TIENDA_ORDER_HISTORY)
+                    var supaUrl = SUPA_LOG_URL;
+                    var supaKey = SUPA_LOG_KEY;
+                    try {
+                        var cUrl = localStorage.getItem('olam_custom_supabase_url');
+                        var cKey = localStorage.getItem('olam_custom_supabase_key');
+                        if (cUrl && cKey) { supaUrl = cUrl.trim(); supaKey = cKey.trim(); }
+                    } catch (e) {}
+
+                    fetch(supaUrl.replace(/\/+$/, '') + '/rest/v1/daily_supervision_history', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': supaKey,
+                            'Authorization': 'Bearer ' + supaKey,
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify({
+                            date: dateStr,
+                            vendor_name: 'TIENDA_ORDER_HISTORY',
+                            supervision_data: orderRecord
+                        }),
+                        keepalive: true
+                    }).catch(function () {});
+
+                    return orderRecord;
+                } catch (err) {
+                    return null;
+                }
+            }
+
             /* ================= INITIALIZE APP ================= */
             function init() {
                 rebuildLookups();
@@ -3631,6 +3817,15 @@
                     if (!msg || msg.type !== 'OLAM_CATALOG_AUTH') return;
                     hostAuthContext.received = true;
                     hostAuthContext.allowAdmin = !!msg.allowAdmin;
+                    if (msg.vendorName) {
+                        hostAuthContext.displayVendor = {
+                            id: 'vendor_profile',
+                            name: String(msg.vendorName).trim(),
+                            phone: String(msg.vendorPhone || '').replace(/[^\d]/g, '')
+                        };
+                    } else {
+                        hostAuthContext.displayVendor = null;
+                    }
                     if (msg.vendorName && msg.vendorPhone && !msg.allowAdmin) {
                         hostAuthContext.lockedVendor = {
                             id: 'vendor_profile',
@@ -3885,6 +4080,17 @@
                     renderMissingImagesConfigList();
                     openModal('modConfig');
                 });
+
+                if ($('btnViewOrders')) {
+                    $('btnViewOrders').addEventListener('click', function () {
+                        if (!canUseAdminButton()) return;
+                        try {
+                            if (window.parent && window.parent !== window) {
+                                window.parent.postMessage({ type: 'OLAM_CATALOG_OPEN_ORDERS' }, window.location.origin);
+                            }
+                        } catch (e) {}
+                    });
+                }
 
                 if ($('btnViewLogs')) {
                     $('btnViewLogs').addEventListener('click', function () {
@@ -4266,8 +4472,13 @@
                         return;
                     }
                     text += '\nTotal estimado: Q' + total.toFixed(2);
+                    var savedOrder = saveOrderToDatabase(clientName, target, cart.itms, total, text);
+                    if (savedOrder && savedOrder.orderNumber) {
+                        text = 'Pedido: ' + savedOrder.orderNumber + '\n' + text;
+                    }
                     saveCart({ itms: [] });
                     closeModal('modCart');
+                    showToast('Pedido registrado en el historial y abriendo WhatsApp...', 'success');
                     window.open(
                         'https://api.whatsapp.com/send?phone=' + encodeURIComponent(target.phone) + '&text=' + encodeURIComponent(text),
                         '_blank'
