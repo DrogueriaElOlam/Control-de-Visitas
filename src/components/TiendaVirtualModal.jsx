@@ -906,10 +906,12 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                               <button
                                 type="button"
                                 onClick={async () => {
-                                  const fallbackOriginal = `Nombre: ${order.clientName || ''}\n\n${(order.items || []).map((it) => `*${it.qty} -> ${it.rawDesc || it.name} :${it.code}`).join('\n')}\n`;
-                                  const txt = order.whatsappText || fallbackOriginal;
+                                  const exactFormat = `Nombre: ${order.clientName || ''}\n\n${(order.items || []).map((it) => `*${it.qty} -> ${it.rawDesc || it.name} :${it.code}`).join('\n')}\n\nTotal estimado: Q${Number(order.totalAmount || 0).toFixed(2)}`;
+                                  const txt = (order.whatsappText && order.whatsappText.includes('Total estimado: Q') && !order.whatsappText.includes('Vendedor:') && !order.whatsappText.startsWith('Pedido:'))
+                                    ? order.whatsappText
+                                    : exactFormat;
                                   try { await navigator.clipboard.writeText(txt); } catch (_) {}
-                                  setStatusMsg(`Pedido ${order.orderNumber} copiado en formato original.`);
+                                  setStatusMsg(`Pedido ${order.orderNumber} copiado en formato exacto para cotizador.`);
                                   setTimeout(() => setStatusMsg(''), 3000);
                                 }}
                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer"
@@ -920,7 +922,11 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
 
                               {order.sellerPhone && (
                                 <a
-                                  href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(order.sellerPhone)}&text=${encodeURIComponent(order.whatsappText || `Nombre: ${order.clientName || ''}\n\n${(order.items || []).map((it) => `*${it.qty} -> ${it.rawDesc || it.name} :${it.code}`).join('\n')}\n`)}`}
+                                  href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(order.sellerPhone)}&text=${encodeURIComponent(
+                                    (order.whatsappText && order.whatsappText.includes('Total estimado: Q') && !order.whatsappText.includes('Vendedor:') && !order.whatsappText.startsWith('Pedido:'))
+                                      ? order.whatsappText
+                                      : `Nombre: ${order.clientName || ''}\n\n${(order.items || []).map((it) => `*${it.qty} -> ${it.rawDesc || it.name} :${it.code}`).join('\n')}\n\nTotal estimado: Q${Number(order.totalAmount || 0).toFixed(2)}`
+                                  )}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"

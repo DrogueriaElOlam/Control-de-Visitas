@@ -4452,8 +4452,8 @@
                         return;
                     }
                     var clientName = $('clientNameInput').value.trim();
-                    // FORMATO ORIGINAL EXACTO DE EXPORTACIÓN (NO ALTERAR):
-                    // Nombre: <cliente>\n\n*<cantidad> -> <descripcion> :<clave>\n
+                    // FORMATO EXACTO DE EXPORTACIÓN PARA COTIZADOR (NO ALTERAR):
+                    // Nombre: <cliente>\n\n*<cantidad> -> <descripcion> :<clave>\n\nTotal estimado: Q<total>
                     var text = (data.nam || 'Nombre') + ': ' + clientName + '\n\n';
                     var ok = true;
                     var total = 0;
@@ -4469,6 +4469,7 @@
                         showToast('Ingrese solo valores numéricos válidos en cantidades.', 'error');
                         return;
                     }
+                    text += '\nTotal estimado: Q' + total.toFixed(2);
                     // Guardar silenciosamente el pedido completo en Supabase sin alterar el texto exportado
                     saveOrderToDatabase(clientName, target, cart.itms, total, text);
                     saveCart({ itms: [] });
