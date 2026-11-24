@@ -285,7 +285,8 @@ function normalizeVisibilityConfig(raw) {
     perVendor[cleanKey] = {
       useCustom: Boolean(val.useCustom),
       excludedIds: Array.from(new Set((Array.isArray(val.excludedIds) ? val.excludedIds : []).map((x) => String(x)).filter(Boolean))),
-      hideZeroPrice: Boolean(val.hideZeroPrice)
+      hideZeroPrice: Boolean(val.hideZeroPrice),
+      hideDisponibleCodes: Boolean(val.hideDisponibleCodes)
     };
   });
 
@@ -293,7 +294,8 @@ function normalizeVisibilityConfig(raw) {
     tipo: 'tienda_visibility_config',
     global: {
       excludedIds: Array.from(new Set((Array.isArray(globalRaw.excludedIds) ? globalRaw.excludedIds : []).map((x) => String(x)).filter(Boolean))),
-      hideZeroPrice: Boolean(globalRaw.hideZeroPrice)
+      hideZeroPrice: Boolean(globalRaw.hideZeroPrice),
+      hideDisponibleCodes: Boolean(globalRaw.hideDisponibleCodes)
     },
     perVendor,
     updatedAt: raw?.updatedAt || ''
@@ -317,12 +319,14 @@ export function resolveVisibilityForVendor(config, vendorName = '') {
     return {
       excludedIds: normalized.perVendor[key].excludedIds,
       hideZeroPrice: normalized.perVendor[key].hideZeroPrice,
+      hideDisponibleCodes: normalized.perVendor[key].hideDisponibleCodes,
       isCustom: true
     };
   }
   return {
     excludedIds: normalized.global.excludedIds,
     hideZeroPrice: normalized.global.hideZeroPrice,
+    hideDisponibleCodes: normalized.global.hideDisponibleCodes,
     isCustom: false
   };
 }
@@ -406,7 +410,8 @@ export function buildPublicCatalogUrl({
   vendorPhone = '',
   allLabIds = [],
   excludedLabIds = [],
-  hideZeroPrice = false
+  hideZeroPrice = false,
+  hideDisponibleCodes = false
 } = {}) {
   const base = getCatalogBaseUrl();
   const sep = base.includes('?') ? '&' : '?';
@@ -440,6 +445,10 @@ export function buildPublicCatalogUrl({
 
   if (hideZeroPrice) {
     parts.push('nz=1');
+  }
+
+  if (hideDisponibleCodes) {
+    parts.push('nd=1');
   }
 
   return `${base}${sep}${parts.join('&')}`;

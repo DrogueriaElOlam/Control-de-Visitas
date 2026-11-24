@@ -252,14 +252,16 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
         enforcedVisibility: !canAdmin
           ? {
               excludedIds: activeEffectiveVisibility.excludedIds,
-              hideZeroPrice: activeEffectiveVisibility.hideZeroPrice
+              hideZeroPrice: activeEffectiveVisibility.hideZeroPrice,
+              hideDisponibleCodes: activeEffectiveVisibility.hideDisponibleCodes
             }
           : null,
         // Para Admin/Supervisor: sincroniza la preferencia del enlace que genere desde dentro de la tienda
         shareFilterPrefs: canAdmin
           ? {
               excludedIds: activeEffectiveVisibility.excludedIds,
-              hideZeroPrice: activeEffectiveVisibility.hideZeroPrice
+              hideZeroPrice: activeEffectiveVisibility.hideZeroPrice,
+              hideDisponibleCodes: activeEffectiveVisibility.hideDisponibleCodes
             }
           : null
       },
@@ -290,16 +292,25 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
         return;
       }
 
+      if (msg.type === 'OLAM_CATALOG_LABS_UPDATED') {
+        if (Array.isArray(msg.labs) && msg.labs.length > 0) {
+          setCatalogLabs(msg.labs.map((l) => ({ id: String(l.id), name: String(l.name || '') })));
+        }
+        return;
+      }
+
       if (msg.type === 'OLAM_CATALOG_SHARE_PREFS_CHANGED') {
         if (!canAdmin) return; // Bloqueo estricto: vendedores nunca modifican visibilidad
         const nextEx = Array.isArray(msg.excludedIds) ? msg.excludedIds.map((x) => String(x)) : [];
         const nextNz = Boolean(msg.hideZeroPrice);
+        const nextNd = Boolean(msg.hideDisponibleCodes);
         setVisibilityConfig((prev) => {
           const nextCfg = {
             ...prev,
             global: {
               excludedIds: nextEx,
-              hideZeroPrice: nextNz
+              hideZeroPrice: nextNz,
+              hideDisponibleCodes: nextNd
             }
           };
           saveVisibilityConfigToCloud(nextCfg).catch(() => {});
@@ -372,6 +383,10 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
     ? Boolean(visibilityConfig.global?.hideZeroPrice)
     : (editUsesCustomRule ? Boolean(editVendorEntry?.hideZeroPrice) : Boolean(visibilityConfig.global?.hideZeroPrice));
 
+  const editHideDisponibleCodes = isEditingGlobalTarget
+    ? Boolean(visibilityConfig.global?.hideDisponibleCodes)
+    : (editUsesCustomRule ? Boolean(editVendorEntry?.hideDisponibleCodes) : Boolean(visibilityConfig.global?.hideDisponibleCodes));
+
   const editExcludedSet = useMemo(() => new Set(editExcludedIds), [editExcludedIds]);
   const editIncludedCount = useMemo(() => {
     if (!catalogLabs.length) return 1;
@@ -404,14 +419,15 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
     );
   }, [catalogLabs, labFilterSearch]);
 
-  const applyDraftVisibilityRule = (nextExcluded, nextHideZero, forceUseCustom = true) => {
+  const applyDraftVisibilityRule = (nextExcluded, nextHideZero, nextHideDisponible, forceUseCustom = true) => {
     const cleanEx = Array.from(new Set((nextExcluded || []).map((x) => String(x)).filter(Boolean)));
     const cleanNz = Boolean(nextHideZero);
+    const cleanNd = Boolean(nextHideDisponible);
     setVisibilityConfig((prev) => {
       if (isEditingGlobalTarget) {
         return {
           ...prev,
-          global: { excludedIds: cleanEx, hideZeroPrice: cleanNz }
+          global: { excludedIds: cleanEx, hideZeroPrice: cleanNz, hideDisponibleCodes: cleanNd }
         };
       }
       if (!editVendorKey) return prev;
@@ -422,7 +438,8 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
           [editVendorKey]: {
             useCustom: Boolean(forceUseCustom),
             excludedIds: cleanEx,
-            hideZeroPrice: cleanNz
+            hideZeroPrice: cleanNz,
+            hideDisponibleCodes: cleanNd
           }
         }
       };
@@ -440,7 +457,8 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
           [editVendorKey]: {
             useCustom: Boolean(enableCustom),
             excludedIds: existing?.excludedIds || prev.global?.excludedIds || [],
-            hideZeroPrice: existing?.hideZeroPrice != null ? Boolean(existing.hideZeroPrice) : Boolean(prev.global?.hideZeroPrice)
+            hideZeroPrice: existing?.hideZeroPrice != null ? Boolean(existing.hideZeroPrice) : Boolean(prev.global?.hideZeroPrice),
+            hideDisponibleCodes: existing?.hideDisponibleCodes != null ? Boolean(existing.hideDisponibleCodes) : Boolean(prev.global?.hideDisponibleCodes)
           }
         }
       };
@@ -452,7 +470,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
     const next = new Set(editExcludedIds);
     if (next.has(labId)) next.delete(labId);
     else next.add(labId);
-    applyDraftVisibilityRule(Array.from(next), editHideZeroPrice, true);
+    applyDraftVisibilityRule(Array.from(next), editHideZeroPrice, editHideDisponibleCodes, true);
   };
 
   const handleHideInternalLabsQuick = () => {
@@ -463,7 +481,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
         return nm === 'disponible' || nm === 'especiales' || nm.startsWith('disponible');
       })
       .map((l) => l.id);
-    applyDraftVisibilityRule(internalIds, editHideZeroPrice, true);
+    applyDraftVisibilityRule(internalIds, editHideZeroPrice, editHideDisponibleCodes, true);
   };
 
   const handleSaveVisibilityToCloud = async () => {
@@ -490,7 +508,8 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
   const shareFilterBadgeText = useMemo(() => {
     const globalExCount = (visibilityConfig.global?.excludedIds || []).length;
     const globalNz = Boolean(visibilityConfig.global?.hideZeroPrice);
-    if (activeExcludedValidCount > 0 || activeEffectiveVisibility.hideZeroPrice) {
+    const globalNd = Boolean(visibilityConfig.global?.hideDisponibleCodes);
+    if (activeExcludedValidCount > 0 || activeEffectiveVisibility.hideZeroPrice || activeEffectiveVisibility.hideDisponibleCodes) {
       const parts = [];
       if (activeExcludedValidCount > 0) {
         parts.push(
@@ -500,11 +519,12 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
         );
       }
       if (activeEffectiveVisibility.hideZeroPrice) parts.push('sin Q0');
+      if (activeEffectiveVisibility.hideDisponibleCodes) parts.push('sin DISP.');
       if (customVendorsCount > 0 && !activeProfileName) parts.push(`${customVendorsCount} pers.`);
       return parts.join(' · ');
     }
     if (customVendorsCount > 0) return `${customVendorsCount} ${customVendorsCount === 1 ? 'vendedor' : 'vendedores'}`;
-    if (globalExCount > 0 || globalNz) return `${globalExCount} ocultos`;
+    if (globalExCount > 0 || globalNz || globalNd) return `${globalExCount} ocultos`;
     return 'Todos';
   }, [visibilityConfig, activeExcludedValidCount, activeIncludedCount, activeEffectiveVisibility, catalogLabs.length, customVendorsCount, activeProfileName]);
 
@@ -515,7 +535,8 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
     vendorPhone: savedPhone,
     allLabIds,
     excludedLabIds: activeEffectiveVisibility.excludedIds || [],
-    hideZeroPrice: Boolean(activeEffectiveVisibility.hideZeroPrice)
+    hideZeroPrice: Boolean(activeEffectiveVisibility.hideZeroPrice),
+    hideDisponibleCodes: Boolean(activeEffectiveVisibility.hideDisponibleCodes)
   });
 
   const handleSavePhone = async (e) => {
@@ -773,7 +794,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                     setShowShareFilterModal(true);
                   }}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border shadow-sm ${
-                    activeExcludedValidCount > 0 || activeEffectiveVisibility.hideZeroPrice || customVendorsCount > 0
+                    activeExcludedValidCount > 0 || activeEffectiveVisibility.hideZeroPrice || activeEffectiveVisibility.hideDisponibleCodes || customVendorsCount > 0
                       ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-200 dark:border-amber-700'
                       : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600'
                   }`}
@@ -782,7 +803,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                   <Filter size={13} />
                   <span>Controlar qué ven</span>
                   <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-                    activeExcludedValidCount > 0 || activeEffectiveVisibility.hideZeroPrice || customVendorsCount > 0
+                    activeExcludedValidCount > 0 || activeEffectiveVisibility.hideZeroPrice || activeEffectiveVisibility.hideDisponibleCodes || customVendorsCount > 0
                       ? 'bg-amber-500 text-white'
                       : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200'
                   }`}>
@@ -1584,7 +1605,8 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                     <div>
                       Actualmente tiene <strong>{editIncludedCount}</strong> de <strong>{catalogLabs.length}</strong> laboratorios visibles
                       {editExcludedValidCount > 0 ? ` (${editExcludedValidCount} ocultos)` : ' (todos visibles)'}
-                      {editHideZeroPrice ? ' · sin productos Q0' : ''}.
+                      {editHideZeroPrice ? ' · sin productos Q0' : ''}
+                      {editHideDisponibleCodes ? ' · sin códigos DISPONIBLE' : ''}.
                     </div>
                     <div className="text-[11px] text-slate-500">
                       Si quieres darle un catálogo diferente solo a este vendedor, presiona <strong>&ldquo;Personalizar solo para {visibilityEditTarget}&rdquo;</strong> arriba.
@@ -1595,14 +1617,14 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                     <div className="flex flex-wrap items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => applyDraftVisibilityRule([], editHideZeroPrice, true)}
+                        onClick={() => applyDraftVisibilityRule([], editHideZeroPrice, editHideDisponibleCodes, true)}
                         className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-indigo-100 text-slate-800 hover:text-indigo-800 border border-slate-300 cursor-pointer"
                       >
                         Marcar todos
                       </button>
                       <button
                         type="button"
-                        onClick={() => applyDraftVisibilityRule(allLabIds, editHideZeroPrice, true)}
+                        onClick={() => applyDraftVisibilityRule(allLabIds, editHideZeroPrice, editHideDisponibleCodes, true)}
                         className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 cursor-pointer"
                       >
                         Desmarcar todos
@@ -1660,15 +1682,27 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                       </div>
                     )}
 
-                    <label className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={editHideZeroPrice}
-                        onChange={(e) => applyDraftVisibilityRule(editExcludedIds, e.target.checked, true)}
-                        className="w-4 h-4 accent-indigo-700 rounded cursor-pointer shrink-0"
-                      />
-                      <span>Ocultar también productos con precio Q0 (ej. códigos reservados &ldquo;DISPONIBLE&rdquo;)</span>
-                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={editHideZeroPrice}
+                          onChange={(e) => applyDraftVisibilityRule(editExcludedIds, e.target.checked, editHideDisponibleCodes, true)}
+                          className="w-4 h-4 accent-indigo-700 rounded cursor-pointer shrink-0"
+                        />
+                        <span>Ocultar también productos con precio Q0</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/70 text-xs font-semibold text-amber-950 dark:text-amber-200 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={editHideDisponibleCodes}
+                          onChange={(e) => applyDraftVisibilityRule(editExcludedIds, editHideZeroPrice, e.target.checked, true)}
+                          className="w-4 h-4 accent-amber-600 rounded cursor-pointer shrink-0"
+                        />
+                        <span>Ocultar todos los códigos/productos que digan &ldquo;DISPONIBLE&rdquo; (en todos los laboratorios)</span>
+                      </label>
+                    </div>
 
                     {catalogLabs.length > 0 && editIncludedCount === 0 && (
                       <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-bold">
@@ -1680,7 +1714,8 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                       Vista para <strong>{isEditingGlobalTarget ? 'todos los vendedores (Regla General)' : visibilityEditTarget}</strong>:{' '}
                       <strong className="text-slate-800 dark:text-slate-200">{editIncludedCount}</strong> de <strong>{catalogLabs.length}</strong> laboratorios visibles
                       {editExcludedValidCount > 0 && ` (${editExcludedValidCount} ${editExcludedValidCount === 1 ? 'oculto' : 'ocultos'})`}
-                      {editHideZeroPrice && ' · sin productos Q0'}.
+                      {editHideZeroPrice && ' · sin productos Q0'}
+                      {editHideDisponibleCodes && ' · sin códigos DISPONIBLE'}.
                     </div>
                   </>
                 )}

@@ -357,6 +357,7 @@
             padding: 3px;
         }
 
+        body.can-admin .img-filter-group,
         body.is-admin .img-filter-group { display: inline-flex; }
 
         .img-filter-btn {
@@ -1087,6 +1088,73 @@
             display: none;
         }
 
+        /* LABS MANAGER (RENAME & MERGE) */
+        .lab-mgr-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 9px 11px;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            background: #f8fafc;
+        }
+
+        .lab-mgr-row.will-merge {
+            border-color: #34d399;
+            background: #ecfdf5;
+        }
+
+        .lab-mgr-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .lab-mgr-input {
+            flex: 1 1 220px;
+            padding: 7px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: inherit;
+            color: var(--text);
+            background: #ffffff;
+            text-transform: uppercase;
+        }
+
+        .lab-mgr-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(40, 53, 147, 0.14);
+        }
+
+        .lab-mgr-count {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            color: #334155;
+            white-space: nowrap;
+        }
+
+        .lab-mgr-merge-hint {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #065f46;
+            background: #d1fae5;
+            border: 1px solid #6ee7b7;
+            border-radius: 6px;
+            padding: 5px 8px;
+            display: none;
+        }
+
+        .lab-mgr-merge-hint.show {
+            display: block;
+        }
+
         /* ACTIVE SELLER BANNER */
         .seller-banner {
             display: none;
@@ -1637,6 +1705,9 @@
                 <button id="btnExportCsv" class="btn btn-primary btn-sm" type="button">
                     <i class="fa fa-file-excel-o"></i> Exportar CSV
                 </button>
+                <button id="btnManageLabs" class="btn btn-warning btn-sm" type="button" title="Renombrar laboratorios mal escritos o unificar laboratorios repetidos (ej. DONOVAN -> DONOVAN WERKE)">
+                    <i class="fa fa-tags"></i> Laboratorios
+                </button>
                 <button id="btnConfig" class="btn btn-outline btn-sm" type="button" title="Configurar WhatsApp y datos de la tienda">
                     <i class="fa fa-cog"></i> Configuración
                 </button>
@@ -1948,7 +2019,11 @@
                     <div id="shareLabsList" class="share-labs-grid"></div>
                     <label class="share-opt-row" for="shareHideZeroPrice">
                         <input id="shareHideZeroPrice" type="checkbox">
-                        <span>Ocultar también productos con precio Q0 (ej. códigos reservados &ldquo;DISPONIBLE&rdquo;)</span>
+                        <span>Ocultar también productos con precio Q0</span>
+                    </label>
+                    <label class="share-opt-row" for="shareHideDisponibleCodes" style="margin-top:4px;padding-top:6px;border-top:none;">
+                        <input id="shareHideDisponibleCodes" type="checkbox">
+                        <span>Ocultar todos los códigos/productos que digan &ldquo;DISPONIBLE&rdquo; en cualquier laboratorio</span>
                     </label>
                     <div id="shareLabsSummary" class="share-labs-summary"></div>
                     <div id="shareLabsWarn" class="share-labs-warn">
@@ -2055,16 +2130,19 @@
 
                     <div class="sellers-section" id="missingImagesSection">
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-                            <h4 style="margin:0;"><i class="fa fa-picture-o"></i> Productos sin Imagen (Filtrado y Auditoría)</h4>
+                            <h4 style="margin:0;"><i class="fa fa-picture-o"></i> Filtrado de Productos Con Imagen / Sin Imagen (Solo Admin / Supervisor)</h4>
                             <span id="missingImgStatsBadge" style="font-size:11px;font-weight:700;color:#9a3412;background:#ffedd5;border:1px solid #fed7aa;padding:3px 10px;border-radius:999px;">
                                 Calculando...
                             </span>
                         </div>
                         <p style="margin:0 0 10px;font-size:12px;color:var(--muted);">
-                            Filtra y revisa todos los productos del catálogo que aún no tienen fotografía asignada. Puedes verlos directamente en la cuadrícula del catálogo, buscarlos por nombre/categoría o exportar el listado a CSV.
+                            Filtra y revisa los productos con fotografía o sin fotografía asignada. También puedes alternar entre <strong>Todos</strong>, <strong>Con imagen</strong> y <strong>Sin imagen</strong> directamente en la barra superior del catálogo (exclusivo Supervisor / Administrador).
                         </p>
 
                         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                            <button id="btnFilterWithImgCatalog" type="button" class="btn btn-success btn-sm">
+                                <i class="fa fa-picture-o"></i> Ver solo con imagen en el Catálogo
+                            </button>
                             <button id="btnFilterNoImgCatalog" type="button" class="btn btn-warning btn-sm">
                                 <i class="fa fa-filter"></i> Ver solo sin imagen en el Catálogo
                             </button>
@@ -2073,6 +2151,9 @@
                             </button>
                             <button id="btnExportNoImgCsv" type="button" class="btn btn-primary btn-sm">
                                 <i class="fa fa-file-excel-o"></i> Exportar CSV Sin Imagen
+                            </button>
+                            <button id="btnOpenLabsFromConfig" type="button" class="btn btn-outline btn-sm" style="border-color:#6366f1;color:#3730a3;background:#eef2ff;">
+                                <i class="fa fa-tags"></i> Renombrar / Unificar Laboratorios
                             </button>
                         </div>
 
@@ -2091,6 +2172,43 @@
                     <button type="submit" class="btn btn-success"><i class="fa fa-save"></i> Guardar Configuración</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL: LABORATORIES MANAGER (RENAME & AUTO-MERGE) -->
+    <div id="modLabs" class="modal-backdrop">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3><i class="fa fa-tags"></i> Gestionar Laboratorios (Renombrar y Unificar)</h3>
+                <button type="button" class="modal-close" data-close="modLabs">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin:0 0 10px;font-size:12.5px;color:var(--muted);line-height:1.45;">
+                    Corrige nombres de laboratorios mal escritos. <strong>Unificación automática:</strong> si le colocas a un laboratorio el mismo nombre de otro ya existente (por ejemplo, cambiar <code>DONOVAN</code> a <code>DONOVAN WERKE</code>), todos sus productos se unificarán de inmediato en uno solo y se sincronizarán en la nube para todos tus vendedores y clientes (sin alterar la clave ni el formato de exportación de pedidos).
+                </p>
+
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                        <button id="btnLabsMgrAll" type="button" class="btn btn-primary btn-sm">Todos</button>
+                        <button id="btnLabsMgrSimilar" type="button" class="btn btn-warning btn-sm">
+                            <i class="fa fa-compress"></i> Posibles similares / repetidos
+                        </button>
+                    </div>
+                    <span id="labsMgrStats" style="font-size:11.5px;font-weight:700;color:#1e40af;background:#dbeafe;padding:4px 10px;border-radius:999px;">
+                        0 laboratorios
+                    </span>
+                </div>
+
+                <input id="labsMgrSearch" type="text" placeholder="Buscar laboratorio por nombre (ej. DONOVAN, SANOFI, VIJOSA)..." autocomplete="off" style="width:100%;padding:8px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:10px;">
+
+                <div id="labsMgrList" style="display:flex;flex-direction:column;gap:8px;max-height:54vh;overflow-y:auto;padding-right:2px;"></div>
+            </div>
+            <div class="modal-footer">
+                <span id="labsMgrCloudStatus" style="font-size:11.5px;color:var(--muted);">
+                    <i class="fa fa-cloud"></i> Los cambios se guardan automáticamente en Supabase.
+                </span>
+                <button type="button" class="btn btn-outline" data-close="modLabs">Cerrar</button>
+            </div>
         </div>
     </div>
 
@@ -2180,25 +2298,35 @@
                 active: false,
                 includeSet: null,
                 excludeSet: null,
-                hideZeroPrice: false
+                hideZeroPrice: false,
+                hideDisponibleCodes: false
             };
             var shareSelection = {
                 excludedSet: new Set(),
-                hideZeroPrice: false
+                hideZeroPrice: false,
+                hideDisponibleCodes: false
             };
+
+            function isDisponibleCodeItem(itm) {
+                if (!itm) return false;
+                var clean = normalizeText(getCleanName(itm)).trim();
+                return /^disponib/.test(clean) || /\bdisponibles?\b/.test(clean);
+            }
 
             function detectSharedCatalogScope() {
                 sharedScope = {
                     active: false,
                     includeSet: null,
                     excludeSet: null,
-                    hideZeroPrice: false
+                    hideZeroPrice: false,
+                    hideDisponibleCodes: false
                 };
                 try {
                     var params = new URLSearchParams(window.location.search || '');
                     var inParam = (params.get('in') || params.get('labs') || '').trim();
                     var exParam = (params.get('ex') || params.get('exclude') || '').trim();
                     var nzParam = (params.get('nz') || '').trim();
+                    var ndParam = (params.get('nd') || '').trim();
 
                     if (inParam) {
                         var inIds = inParam.split(',').map(function (x) { return String(x).trim(); }).filter(Boolean);
@@ -2218,6 +2346,11 @@
                         sharedScope.hideZeroPrice = true;
                         sharedScope.active = true;
                     }
+
+                    if (ndParam === '1' || ndParam === 'true') {
+                        sharedScope.hideDisponibleCodes = true;
+                        sharedScope.active = true;
+                    }
                 } catch (e) {}
             }
 
@@ -2234,6 +2367,7 @@
                 if (!sharedScope.active) return true;
                 if (!isCategoryAllowedByScope(itm.c)) return false;
                 if (sharedScope.hideZeroPrice && (Number(itm.v) || 0) <= 0) return false;
+                if (sharedScope.hideDisponibleCodes && isDisponibleCodeItem(itm)) return false;
                 return true;
             }
 
@@ -2246,6 +2380,7 @@
             function loadShareSelectionPrefs() {
                 shareSelection.excludedSet = new Set();
                 shareSelection.hideZeroPrice = false;
+                shareSelection.hideDisponibleCodes = false;
                 // Si el enlace o la sesión viene restringida por el Admin/Supervisor, respetar estrictamente esa regla
                 if (sharedScope.active || !canUseAdminButton()) {
                     if (sharedScope.active) {
@@ -2256,6 +2391,7 @@
                             }
                         });
                         shareSelection.hideZeroPrice = !!sharedScope.hideZeroPrice;
+                        shareSelection.hideDisponibleCodes = !!sharedScope.hideDisponibleCodes;
                     }
                     return;
                 }
@@ -2271,6 +2407,7 @@
                         });
                     }
                     shareSelection.hideZeroPrice = Boolean(parsed && parsed.hideZeroPrice);
+                    shareSelection.hideDisponibleCodes = Boolean(parsed && parsed.hideDisponibleCodes);
                 } catch (e) {}
             }
 
@@ -2278,7 +2415,8 @@
                 if (sharedScope.active) return;
                 var payload = {
                     excludedIds: Array.from(shareSelection.excludedSet),
-                    hideZeroPrice: !!shareSelection.hideZeroPrice
+                    hideZeroPrice: !!shareSelection.hideZeroPrice,
+                    hideDisponibleCodes: !!shareSelection.hideDisponibleCodes
                 };
                 try {
                     localStorage.setItem(STORAGE_SHARE_LABS_PREF, JSON.stringify(payload));
@@ -2288,7 +2426,8 @@
                         window.parent.postMessage({
                             type: 'OLAM_CATALOG_SHARE_PREFS_CHANGED',
                             excludedIds: payload.excludedIds,
-                            hideZeroPrice: payload.hideZeroPrice
+                            hideZeroPrice: payload.hideZeroPrice,
+                            hideDisponibleCodes: payload.hideDisponibleCodes
                         }, window.location.origin);
                     }
                 } catch (e) {}
@@ -2395,11 +2534,12 @@
             }
 
             function ensureCategoryId(catName) {
-                var trimmed = String(catName || '').trim();
+                var trimmed = resolveAliasedLabName(String(catName || '').trim());
                 if (!trimmed) trimmed = 'GENERAL';
                 if (!Array.isArray(data.ctg)) data.ctg = [];
+                var targetNorm = normalizeText(trimmed).replace(/\s+/g, ' ').trim();
                 for (var i = 0; i < data.ctg.length; i++) {
-                    if (String(data.ctg[i].n).trim().toLowerCase() === trimmed.toLowerCase()) {
+                    if (normalizeText(data.ctg[i].n).replace(/\s+/g, ' ').trim() === targetNorm) {
                         return data.ctg[i].i;
                     }
                 }
@@ -2410,6 +2550,366 @@
                 data.ctg.sort(function (a, b) { return collator.compare(a.n, b.n); });
                 catMap[String(newId)] = trimmed.toUpperCase();
                 return newId;
+            }
+
+            /* ================= LABORATORIES RENAME & AUTO-MERGE (CLOUD SYNCED) ================= */
+            var STORAGE_LABS_OVERRIDES_KEY = 'olam_tienda_labs_overrides_v1';
+            var CLOUD_LABS_OVERRIDES_DATE = '2099-12-19';
+            var CLOUD_LABS_OVERRIDES_VENDOR = 'TIENDA_LABS_OVERRIDES';
+            var labsOverridesOps = [];
+            var labsMgrMode = 'all'; // 'all' | 'similar'
+
+            function normalizeLabCompare(name) {
+                return normalizeText(String(name || '')).replace(/\s+/g, ' ').trim();
+            }
+
+            function resolveAliasedLabName(rawName) {
+                var current = String(rawName || '').trim();
+                if (!current || !Array.isArray(labsOverridesOps) || !labsOverridesOps.length) return current;
+                var guard = 0;
+                while (guard < 20) {
+                    guard++;
+                    var normCur = normalizeLabCompare(current);
+                    var matchedNext = null;
+                    for (var i = 0; i < labsOverridesOps.length; i++) {
+                        var op = labsOverridesOps[i];
+                        if (op && op.sourceName && op.targetName && normalizeLabCompare(op.sourceName) === normCur) {
+                            matchedNext = String(op.targetName).trim();
+                        }
+                    }
+                    if (!matchedNext || normalizeLabCompare(matchedNext) === normCur) break;
+                    current = matchedNext;
+                }
+                return current;
+            }
+
+            function notifyParentLabsUpdated() {
+                try {
+                    if (window.parent && window.parent !== window) {
+                        var labsPayload = getSortedLabsList().map(function (c) {
+                            return { id: String(c.i), name: String(c.n || '') };
+                        });
+                        window.parent.postMessage({
+                            type: 'OLAM_CATALOG_LABS_UPDATED',
+                            labs: labsPayload
+                        }, window.location.origin);
+                    }
+                } catch (e) {}
+            }
+
+            function applySingleLabOperation(op) {
+                if (!op || !op.targetName) return null;
+                var cleanNew = String(op.targetName).replace(/\s+/g, ' ').trim().toUpperCase();
+                if (!cleanNew) return null;
+
+                var ctgs = data.ctg || [];
+                var sourceIdx = -1;
+                if (op.sourceId != null && String(op.sourceId) !== '') {
+                    for (var i = 0; i < ctgs.length; i++) {
+                        if (String(ctgs[i].i) === String(op.sourceId)) {
+                            sourceIdx = i;
+                            break;
+                        }
+                    }
+                }
+                if (sourceIdx === -1 && op.sourceName) {
+                    var srcNorm = normalizeLabCompare(op.sourceName);
+                    for (var j = 0; j < ctgs.length; j++) {
+                        if (normalizeLabCompare(ctgs[j].n) === srcNorm) {
+                            sourceIdx = j;
+                            break;
+                        }
+                    }
+                }
+                if (sourceIdx === -1) return null;
+
+                var sourceCat = ctgs[sourceIdx];
+                var oldName = String(sourceCat.n || '');
+                var newNorm = normalizeLabCompare(cleanNew);
+
+                // Buscar si ya existe OTRO laboratorio con ese nombre exacto (unificación automática)
+                var targetCat = null;
+                for (var k = 0; k < ctgs.length; k++) {
+                    if (k === sourceIdx) continue;
+                    if (normalizeLabCompare(ctgs[k].n) === newNorm) {
+                        targetCat = ctgs[k];
+                        break;
+                    }
+                }
+
+                if (targetCat) {
+                    var movedCount = 0;
+                    var srcIdStr = String(sourceCat.i);
+                    (data.itm || []).forEach(function (it) {
+                        if (String(it.c) === srcIdStr) {
+                            // Unificar categoría preservando intacta la descripción SAE (it.d) para MiNegocio
+                            it.c = targetCat.i;
+                            movedCount++;
+                        }
+                    });
+                    ctgs.splice(sourceIdx, 1);
+                    if (String(state.category) === srcIdStr) {
+                        state.category = String(targetCat.i);
+                    }
+                    if (shareSelection.excludedSet.has(srcIdStr)) {
+                        shareSelection.excludedSet.delete(srcIdStr);
+                    }
+                    ctgs.sort(function (a, b) { return collator.compare(a.n, b.n); });
+                    rebuildLookups();
+                    return {
+                        merged: true,
+                        movedCount: movedCount,
+                        sourceId: srcIdStr,
+                        sourceName: oldName,
+                        targetId: String(targetCat.i),
+                        targetName: String(targetCat.n)
+                    };
+                }
+
+                // Renombre directo (sin duplicado destino)
+                sourceCat.n = cleanNew;
+                ctgs.sort(function (a, b) { return collator.compare(a.n, b.n); });
+                rebuildLookups();
+                return {
+                    merged: false,
+                    movedCount: 0,
+                    sourceId: String(sourceCat.i),
+                    sourceName: oldName,
+                    targetId: String(sourceCat.i),
+                    targetName: cleanNew
+                };
+            }
+
+            function applyLabOverridesList(ops) {
+                if (!Array.isArray(ops) || !ops.length) return false;
+                var changed = false;
+                ops.forEach(function (op) {
+                    var res = applySingleLabOperation(op);
+                    if (res) changed = true;
+                });
+                return changed;
+            }
+
+            function loadCachedLabOverridesAndApply() {
+                try {
+                    var raw = localStorage.getItem(STORAGE_LABS_OVERRIDES_KEY);
+                    if (!raw) return;
+                    var parsed = JSON.parse(raw);
+                    var ops = Array.isArray(parsed && parsed.ops) ? parsed.ops : [];
+                    if (ops.length) {
+                        labsOverridesOps = ops;
+                        applyLabOverridesList(ops);
+                    }
+                } catch (e) {}
+            }
+
+            function syncLabOverridesFromCloud() {
+                try {
+                    var endpoint = SUPA_LOG_URL + '/rest/v1/daily_supervision_history?select=supervision_data&date=eq.' + CLOUD_LABS_OVERRIDES_DATE + '&vendor_name=eq.' + CLOUD_LABS_OVERRIDES_VENDOR + '&order=id.desc&limit=1';
+                    fetch(endpoint, {
+                        method: 'GET',
+                        headers: {
+                            'apikey': SUPA_LOG_KEY,
+                            'Authorization': 'Bearer ' + SUPA_LOG_KEY
+                        }
+                    }).then(function (r) { return r.ok ? r.json() : null; }).then(function (rows) {
+                        if (!Array.isArray(rows) || !rows.length || !rows[0] || !rows[0].supervision_data) return;
+                        var payload = rows[0].supervision_data;
+                        var ops = Array.isArray(payload.ops) ? payload.ops : [];
+                        if (!ops.length) return;
+                        labsOverridesOps = ops;
+                        try {
+                            localStorage.setItem(STORAGE_LABS_OVERRIDES_KEY, JSON.stringify({ ops: ops, updatedAt: payload.updatedAt || '' }));
+                        } catch (e) {}
+                        var changed = applyLabOverridesList(ops);
+                        if (changed) {
+                            populateCategorySelects();
+                            renderCatalog();
+                            notifyParentLabsUpdated();
+                            if ($('modLabs') && $('modLabs').classList.contains('open')) {
+                                renderLabsManagerList();
+                            }
+                        }
+                    }).catch(function () {});
+                } catch (e) {}
+            }
+
+            function saveLabOverridesToCloud(ops) {
+                var payload = {
+                    tipo: 'tienda_labs_overrides',
+                    ops: Array.isArray(ops) ? ops : [],
+                    updatedAt: new Date().toISOString()
+                };
+                try {
+                    localStorage.setItem(STORAGE_LABS_OVERRIDES_KEY, JSON.stringify(payload));
+                } catch (e) {}
+
+                var selUrl = SUPA_LOG_URL + '/rest/v1/daily_supervision_history?select=id&date=eq.' + CLOUD_LABS_OVERRIDES_DATE + '&vendor_name=eq.' + CLOUD_LABS_OVERRIDES_VENDOR + '&order=id.desc&limit=1';
+                return fetch(selUrl, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPA_LOG_KEY,
+                        'Authorization': 'Bearer ' + SUPA_LOG_KEY
+                    }
+                }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
+                    if (Array.isArray(rows) && rows.length > 0 && rows[0] && rows[0].id) {
+                        return fetch(SUPA_LOG_URL + '/rest/v1/daily_supervision_history?id=eq.' + rows[0].id, {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'apikey': SUPA_LOG_KEY,
+                                'Authorization': 'Bearer ' + SUPA_LOG_KEY,
+                                'Prefer': 'return=minimal'
+                            },
+                            body: JSON.stringify({ supervision_data: payload })
+                        });
+                    }
+                    return fetch(SUPA_LOG_URL + '/rest/v1/daily_supervision_history', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': SUPA_LOG_KEY,
+                            'Authorization': 'Bearer ' + SUPA_LOG_KEY,
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify({
+                            date: CLOUD_LABS_OVERRIDES_DATE,
+                            vendor_name: CLOUD_LABS_OVERRIDES_VENDOR,
+                            supervision_data: payload
+                        })
+                    });
+                }).catch(function () {});
+            }
+
+            function getProductCountsByLab() {
+                var counts = {};
+                (data.itm || []).forEach(function (it) {
+                    var cid = String(it.c);
+                    counts[cid] = (counts[cid] || 0) + 1;
+                });
+                return counts;
+            }
+
+            function findSimilarLabIds(allLabs) {
+                var similarSet = new Set();
+                for (var i = 0; i < allLabs.length; i++) {
+                    var ni = normalizeLabCompare(allLabs[i].n);
+                    var firstWordI = ni.split(' ')[0] || '';
+                    for (var j = i + 1; j < allLabs.length; j++) {
+                        var nj = normalizeLabCompare(allLabs[j].n);
+                        var firstWordJ = nj.split(' ')[0] || '';
+                        if (
+                            (ni.length >= 4 && nj.indexOf(ni) === 0) ||
+                            (nj.length >= 4 && ni.indexOf(nj) === 0) ||
+                            (firstWordI.length >= 5 && firstWordI === firstWordJ)
+                        ) {
+                            similarSet.add(String(allLabs[i].i));
+                            similarSet.add(String(allLabs[j].i));
+                        }
+                    }
+                }
+                return similarSet;
+            }
+
+            function updateLabRowMergePreview(inputEl) {
+                if (!inputEl) return;
+                var row = inputEl.closest('.lab-mgr-row');
+                if (!row) return;
+                var labId = String(inputEl.dataset.labEditInput || '');
+                var origName = String(inputEl.dataset.origName || '');
+                var typed = String(inputEl.value || '').replace(/\s+/g, ' ').trim();
+                var typedNorm = normalizeLabCompare(typed);
+                var origNorm = normalizeLabCompare(origName);
+                var hintEl = row.querySelector('[data-lab-merge-hint]');
+                var saveBtn = row.querySelector('[data-lab-save-id]');
+                var counts = getProductCountsByLab();
+                var myCount = counts[labId] || 0;
+
+                var targetMatch = null;
+                if (typedNorm) {
+                    var ctgs = data.ctg || [];
+                    for (var i = 0; i < ctgs.length; i++) {
+                        if (String(ctgs[i].i) === labId) continue;
+                        if (normalizeLabCompare(ctgs[i].n) === typedNorm) {
+                            targetMatch = ctgs[i];
+                            break;
+                        }
+                    }
+                }
+
+                if (targetMatch) {
+                    var targetCount = counts[String(targetMatch.i)] || 0;
+                    row.classList.add('will-merge');
+                    if (hintEl) {
+                        hintEl.innerHTML = '<i class="fa fa-compress"></i> Se unificarán <strong>' + myCount + '</strong> productos con <strong>' + escapeHtml(targetMatch.n) + '</strong> (actualmente tiene ' + targetCount + ' &rarr; total unificado: <strong>' + (myCount + targetCount) + '</strong>).';
+                        hintEl.classList.add('show');
+                    }
+                    if (saveBtn) {
+                        saveBtn.className = 'btn btn-success btn-sm';
+                        saveBtn.innerHTML = '<i class="fa fa-compress"></i> Unificar';
+                        saveBtn.disabled = false;
+                    }
+                } else {
+                    row.classList.remove('will-merge');
+                    if (hintEl) {
+                        hintEl.textContent = '';
+                        hintEl.classList.remove('show');
+                    }
+                    if (saveBtn) {
+                        saveBtn.className = 'btn btn-primary btn-sm';
+                        saveBtn.innerHTML = '<i class="fa fa-save"></i> Guardar';
+                        saveBtn.disabled = !typed || typedNorm === origNorm;
+                    }
+                }
+            }
+
+            function renderLabsManagerList() {
+                var container = $('labsMgrList');
+                if (!container) return;
+                var allLabs = getSortedLabsList();
+                var counts = getProductCountsByLab();
+                var similarSet = findSimilarLabIds(allLabs);
+                var q = normalizeLabCompare(($('labsMgrSearch') ? $('labsMgrSearch').value : ''));
+
+                if ($('btnLabsMgrAll')) {
+                    $('btnLabsMgrAll').className = labsMgrMode === 'all' ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+                }
+                if ($('btnLabsMgrSimilar')) {
+                    $('btnLabsMgrSimilar').className = labsMgrMode === 'similar' ? 'btn btn-warning btn-sm' : 'btn btn-outline btn-sm';
+                    $('btnLabsMgrSimilar').innerHTML = '<i class="fa fa-compress"></i> Posibles similares / repetidos (' + similarSet.size + ')';
+                }
+
+                var filtered = allLabs.filter(function (c) {
+                    if (labsMgrMode === 'similar' && !similarSet.has(String(c.i))) return false;
+                    if (q && normalizeLabCompare(c.n).indexOf(q) === -1) return false;
+                    return true;
+                });
+
+                if ($('labsMgrStats')) {
+                    $('labsMgrStats').textContent = allLabs.length + ' laboratorios activos' + (labsOverridesOps.length ? (' · ' + labsOverridesOps.length + ' cambios en la nube') : '');
+                }
+
+                if (!filtered.length) {
+                    container.innerHTML = '<div style="text-align:center;padding:18px;font-size:12.5px;color:var(--muted);border:1px dashed var(--border);border-radius:8px;">No se encontraron laboratorios con ese filtro.</div>';
+                    return;
+                }
+
+                var html = '';
+                filtered.forEach(function (c) {
+                    var idStr = escapeHtml(String(c.i));
+                    var nameEsc = escapeHtml(String(c.n || ''));
+                    var prodCount = counts[String(c.i)] || 0;
+                    html +=
+                        '<div class="lab-mgr-row">' +
+                            '<div class="lab-mgr-top">' +
+                                '<input type="text" class="lab-mgr-input" data-lab-edit-input="' + idStr + '" data-orig-name="' + nameEsc + '" value="' + nameEsc + '">' +
+                                '<span class="lab-mgr-count">' + prodCount + (prodCount === 1 ? ' producto' : ' productos') + '</span>' +
+                                '<button type="button" class="btn btn-primary btn-sm" data-lab-save-id="' + idStr + '" disabled><i class="fa fa-save"></i> Guardar</button>' +
+                            '</div>' +
+                            '<div class="lab-mgr-merge-hint" data-lab-merge-hint="' + idStr + '"></div>' +
+                        '</div>';
+                });
+                container.innerHTML = html;
             }
 
             function populateCategorySelects() {
@@ -2468,7 +2968,7 @@
                 var q = normalizeText(state.search.trim());
                 var tokens = q ? q.split(/\s+/).filter(Boolean) : [];
                 var catFilter = state.category;
-                var imgFilter = state.isAdmin ? state.imgFilter : 'all';
+                var imgFilter = canUseAdminButton() ? state.imgFilter : 'all';
 
                 var list = (data.itm || []).filter(function (it) {
                     if (!isItemAllowedByScope(it)) return false;
@@ -3161,7 +3661,7 @@
                     if (active) sessionStorage.setItem(STORAGE_ADMIN_KEY, '1');
                     else sessionStorage.removeItem(STORAGE_ADMIN_KEY);
                 } catch (e) {}
-                if (!active && state.imgFilter !== 'all') {
+                if (!canUseAdminButton() && state.imgFilter !== 'all') {
                     state.imgFilter = 'all';
                     document.querySelectorAll('.img-filter-btn').forEach(function (b) {
                         b.classList.toggle('active', b.dataset.imgFilter === 'all');
@@ -3455,11 +3955,18 @@
 
             function syncAdminButtonVisibility() {
                 var allowed = canUseAdminButton();
+                document.body.classList.toggle('can-admin', allowed);
                 var btn = $('btnAdmin');
                 if (btn) {
                     btn.style.display = allowed ? 'inline-flex' : 'none';
                 }
                 if (!allowed) {
+                    if (state.imgFilter !== 'all') {
+                        state.imgFilter = 'all';
+                        document.querySelectorAll('.img-filter-btn').forEach(function (b) {
+                            b.classList.toggle('active', b.dataset.imgFilter === 'all');
+                        });
+                    }
                     try { sessionStorage.removeItem(STORAGE_ADMIN_KEY); } catch (e) {}
                     if (state.isAdmin) {
                         setAdminState(false);
@@ -3651,6 +4158,9 @@
                 if (shareSelection.hideZeroPrice) {
                     parts.push('nz=1');
                 }
+                if (shareSelection.hideDisponibleCodes) {
+                    parts.push('nd=1');
+                }
                 return parts.join('&');
             }
 
@@ -3693,20 +4203,22 @@
                 return canUseAdminButton() && !sharedScope.active;
             }
 
-            function applyEnforcedVisibility(excludedIds, hideZeroPrice) {
+            function applyEnforcedVisibility(excludedIds, hideZeroPrice, hideDisponibleCodes) {
                 var cleanEx = Array.isArray(excludedIds)
                     ? excludedIds.map(function (id) { return String(id).trim(); }).filter(Boolean)
                     : [];
-                var hasFilter = cleanEx.length > 0 || !!hideZeroPrice;
+                var hasFilter = cleanEx.length > 0 || !!hideZeroPrice || !!hideDisponibleCodes;
 
                 sharedScope = {
                     active: hasFilter,
                     includeSet: null,
                     excludeSet: cleanEx.length > 0 ? new Set(cleanEx) : null,
-                    hideZeroPrice: !!hideZeroPrice
+                    hideZeroPrice: !!hideZeroPrice,
+                    hideDisponibleCodes: !!hideDisponibleCodes
                 };
                 shareSelection.excludedSet = new Set(cleanEx);
                 shareSelection.hideZeroPrice = !!hideZeroPrice;
+                shareSelection.hideDisponibleCodes = !!hideDisponibleCodes;
 
                 populateCategorySelects();
                 renderCatalog();
@@ -3738,14 +4250,15 @@
                         var rawVendorName = (activeSeller && activeSeller.name) ? activeSeller.name : (params.get('vn') || '');
                         var vendorKey = normalizeText(rawVendorName).trim();
 
-                        var rule = (cfg.global && typeof cfg.global === 'object') ? cfg.global : { excludedIds: [], hideZeroPrice: false };
+                        var rule = (cfg.global && typeof cfg.global === 'object') ? cfg.global : { excludedIds: [], hideZeroPrice: false, hideDisponibleCodes: false };
                         if (vendorKey && cfg.perVendor && cfg.perVendor[vendorKey] && cfg.perVendor[vendorKey].useCustom) {
                             rule = cfg.perVendor[vendorKey];
                         }
 
                         var cloudEx = Array.isArray(rule.excludedIds) ? rule.excludedIds.map(function (x) { return String(x).trim(); }).filter(Boolean) : [];
                         var cloudNz = !!rule.hideZeroPrice;
-                        if (cloudEx.length === 0 && !cloudNz) return;
+                        var cloudNd = !!rule.hideDisponibleCodes;
+                        if (cloudEx.length === 0 && !cloudNz && !cloudNd) return;
 
                         // Si el enlace ya traía ?in=... respetar la intersección (quitar cualquier lab que la nube excluya)
                         if (sharedScope.includeSet) {
@@ -3755,6 +4268,7 @@
                             cloudEx.forEach(function (id) { sharedScope.excludeSet.add(id); });
                         }
                         if (cloudNz) sharedScope.hideZeroPrice = true;
+                        if (cloudNd) sharedScope.hideDisponibleCodes = true;
                         sharedScope.active = true;
 
                         loadShareSelectionPrefs();
@@ -3803,6 +4317,10 @@
                 if (hideZeroEl) {
                     hideZeroEl.checked = !!shareSelection.hideZeroPrice;
                 }
+                var hideDispEl = $('shareHideDisponibleCodes');
+                if (hideDispEl) {
+                    hideDispEl.checked = !!shareSelection.hideDisponibleCodes;
+                }
                 updateShareLabsStatusUi();
             }
 
@@ -3835,21 +4353,27 @@
                     btnWa.style.opacity = noneSelected ? '0.5' : '';
                 }
 
+                var extraTags = [];
+                if (shareSelection.hideZeroPrice) extraTags.push('sin Q0');
+                if (shareSelection.hideDisponibleCodes) extraTags.push('sin DISPONIBLE');
+                var extraBadgeSuffix = extraTags.length ? (' + ' + extraTags.join(' + ')) : '';
+                var extraSummarySuffix = extraTags.length ? (' &middot; <em>' + extraTags.join(', ') + '</em>') : '';
+
                 if (badge) {
-                    if (excludedList.length === 0 && !shareSelection.hideZeroPrice) {
+                    if (excludedList.length === 0 && extraTags.length === 0) {
                         badge.textContent = 'Catálogo completo';
                         badge.className = 'share-labs-badge';
                     } else if (noneSelected) {
                         badge.textContent = 'Ninguno seleccionado';
                         badge.className = 'share-labs-badge filtered';
                     } else if (excludedList.length > 0 && includedList.length > total / 2) {
-                        badge.textContent = excludedList.length + (excludedList.length === 1 ? ' oculto' : ' ocultos') + (shareSelection.hideZeroPrice ? ' + sin Q0' : '');
+                        badge.textContent = excludedList.length + (excludedList.length === 1 ? ' oculto' : ' ocultos') + extraBadgeSuffix;
                         badge.className = 'share-labs-badge filtered';
                     } else if (excludedList.length > 0) {
-                        badge.textContent = 'Solo ' + includedList.length + (includedList.length === 1 ? ' lab' : ' labs') + (shareSelection.hideZeroPrice ? ' + sin Q0' : '');
+                        badge.textContent = 'Solo ' + includedList.length + (includedList.length === 1 ? ' lab' : ' labs') + extraBadgeSuffix;
                         badge.className = 'share-labs-badge filtered';
                     } else {
-                        badge.textContent = 'Sin productos Q0';
+                        badge.textContent = extraTags.join(' + ');
                         badge.className = 'share-labs-badge filtered';
                     }
                 }
@@ -3858,15 +4382,15 @@
                     if (noneSelected) {
                         summary.innerHTML = '';
                     } else if (excludedList.length === 0) {
-                        summary.innerHTML = shareSelection.hideZeroPrice
-                            ? 'Se compartirán <strong>todos los laboratorios</strong> (ocultando productos con precio Q0).'
+                        summary.innerHTML = extraTags.length
+                            ? 'Se compartirán <strong>todos los laboratorios</strong> (' + escapeHtml(extraTags.join(', ')) + ').'
                             : 'Se compartirá el <strong>catálogo completo</strong> con todos los laboratorios.';
                     } else if (excludedList.length <= 6) {
-                        summary.innerHTML = '<strong>Ocultos para el cliente:</strong> ' + escapeHtml(excludedList.join(', ')) + (shareSelection.hideZeroPrice ? ' &middot; <em>sin productos Q0</em>' : '') + '.';
+                        summary.innerHTML = '<strong>Ocultos para el cliente:</strong> ' + escapeHtml(excludedList.join(', ')) + extraSummarySuffix + '.';
                     } else if (includedList.length <= 6) {
-                        summary.innerHTML = '<strong>Solo visibles para el cliente:</strong> ' + escapeHtml(includedList.join(', ')) + (shareSelection.hideZeroPrice ? ' &middot; <em>sin productos Q0</em>' : '') + '.';
+                        summary.innerHTML = '<strong>Solo visibles para el cliente:</strong> ' + escapeHtml(includedList.join(', ')) + extraSummarySuffix + '.';
                     } else {
-                        summary.innerHTML = 'Compartiendo <strong>' + includedList.length + ' de ' + total + '</strong> laboratorios (' + excludedList.length + ' ocultos)' + (shareSelection.hideZeroPrice ? ' &middot; <em>sin productos Q0</em>' : '') + '.';
+                        summary.innerHTML = 'Compartiendo <strong>' + includedList.length + ' de ' + total + '</strong> laboratorios (' + excludedList.length + ' ocultos)' + extraSummarySuffix + '.';
                     }
                 }
             }
@@ -4523,10 +5047,12 @@
             /* ================= INITIALIZE APP ================= */
             function init() {
                 rebuildLookups();
+                loadCachedLabOverridesAndApply();
                 ensureSellers();
                 detectActiveSeller();
                 detectSharedCatalogScope();
                 loadShareSelectionPrefs();
+                syncLabOverridesFromCloud();
                 syncCloudVisibilityForPublicClient();
                 trackStoreViewLog();
 
@@ -4589,7 +5115,8 @@
                     if (!hostAuthContext.allowAdmin && msg.enforcedVisibility) {
                         applyEnforcedVisibility(
                             msg.enforcedVisibility.excludedIds || [],
-                            Boolean(msg.enforcedVisibility.hideZeroPrice)
+                            Boolean(msg.enforcedVisibility.hideZeroPrice),
+                            Boolean(msg.enforcedVisibility.hideDisponibleCodes)
                         );
                     } else if (hostAuthContext.allowAdmin && msg.shareFilterPrefs) {
                         // Para Admin/Supervisor: mantener su vista administrativa completa pero sincronizar la preferencia del enlace a compartir
@@ -4599,6 +5126,7 @@
                                 : []
                         );
                         shareSelection.hideZeroPrice = Boolean(msg.shareFilterPrefs.hideZeroPrice);
+                        shareSelection.hideDisponibleCodes = Boolean(msg.shareFilterPrefs.hideDisponibleCodes);
                         if ($('modShare') && $('modShare').classList.contains('open')) {
                             renderShareLabsList();
                             updateShareModalLink();
@@ -4669,8 +5197,9 @@
                     renderCatalog();
                 });
 
-                // Image filter pills in Admin mode
+                // Image filter pills (exclusivo Supervisor / Administrador)
                 $('imgFilterGroup').addEventListener('click', function (ev) {
+                    if (!canUseAdminButton()) return;
                     var btn = ev.target.closest('.img-filter-btn');
                     if (!btn) return;
                     state.imgFilter = btn.dataset.imgFilter;
@@ -4876,6 +5405,14 @@
                     });
                 }
 
+                if ($('shareHideDisponibleCodes')) {
+                    $('shareHideDisponibleCodes').addEventListener('change', function () {
+                        shareSelection.hideDisponibleCodes = !!this.checked;
+                        persistShareSelectionPrefs();
+                        updateShareModalLink();
+                    });
+                }
+
                 $('btnCopyShareLink').addEventListener('click', function () {
                     copyTextToClipboard($('shareLinkInput').value, 'Enlace del catálogo copiado al portapapeles.');
                 });
@@ -4890,6 +5427,115 @@
                         }).catch(function () {});
                     }
                 });
+
+                // Gestionar Laboratorios (Renombrar y Unificar - Exclusivo Admin / Supervisor)
+                function openLabsManagerModal() {
+                    if (!canUseAdminButton()) return;
+                    labsMgrMode = 'all';
+                    if ($('labsMgrSearch')) $('labsMgrSearch').value = '';
+                    renderLabsManagerList();
+                    openModal('modLabs');
+                }
+
+                if ($('btnManageLabs')) {
+                    $('btnManageLabs').addEventListener('click', openLabsManagerModal);
+                }
+
+                if ($('btnOpenLabsFromConfig')) {
+                    $('btnOpenLabsFromConfig').addEventListener('click', function () {
+                        closeModal('modConfig');
+                        openLabsManagerModal();
+                    });
+                }
+
+                if ($('btnLabsMgrAll')) {
+                    $('btnLabsMgrAll').addEventListener('click', function () {
+                        labsMgrMode = 'all';
+                        renderLabsManagerList();
+                    });
+                }
+
+                if ($('btnLabsMgrSimilar')) {
+                    $('btnLabsMgrSimilar').addEventListener('click', function () {
+                        labsMgrMode = 'similar';
+                        renderLabsManagerList();
+                    });
+                }
+
+                if ($('labsMgrSearch')) {
+                    $('labsMgrSearch').addEventListener('input', renderLabsManagerList);
+                }
+
+                if ($('labsMgrList')) {
+                    $('labsMgrList').addEventListener('input', function (ev) {
+                        var inp = ev.target.closest('[data-lab-edit-input]');
+                        if (inp) updateLabRowMergePreview(inp);
+                    });
+
+                    $('labsMgrList').addEventListener('keydown', function (ev) {
+                        if (ev.key !== 'Enter') return;
+                        var inp = ev.target.closest('[data-lab-edit-input]');
+                        if (!inp) return;
+                        ev.preventDefault();
+                        var row = inp.closest('.lab-mgr-row');
+                        var btn = row ? row.querySelector('[data-lab-save-id]') : null;
+                        if (btn && !btn.disabled) btn.click();
+                    });
+
+                    $('labsMgrList').addEventListener('click', function (ev) {
+                        var saveBtn = ev.target.closest('[data-lab-save-id]');
+                        if (!saveBtn || saveBtn.disabled) return;
+                        if (!canUseAdminButton()) return;
+
+                        var labId = String(saveBtn.dataset.labSaveId || '');
+                        var row = saveBtn.closest('.lab-mgr-row');
+                        var inp = row ? row.querySelector('[data-lab-edit-input]') : null;
+                        if (!inp) return;
+
+                        var oldName = String(inp.dataset.origName || '').trim();
+                        var newName = String(inp.value || '').replace(/\s+/g, ' ').trim().toUpperCase();
+                        if (!newName) {
+                            showToast('El nombre del laboratorio no puede estar vacío.', 'error');
+                            return;
+                        }
+                        if (normalizeLabCompare(newName) === normalizeLabCompare(oldName)) {
+                            return;
+                        }
+
+                        var op = {
+                            sourceId: labId,
+                            sourceName: oldName,
+                            targetName: newName,
+                            at: new Date().toISOString()
+                        };
+
+                        var result = applySingleLabOperation(op);
+                        if (!result) {
+                            showToast('No se pudo actualizar el laboratorio seleccionado.', 'error');
+                            return;
+                        }
+
+                        labsOverridesOps.push(op);
+                        populateCategorySelects();
+                        renderCatalog();
+                        renderLabsManagerList();
+                        notifyParentLabsUpdated();
+                        persistDataToServer().catch(function () {});
+
+                        var statusEl = $('labsMgrCloudStatus');
+                        if (statusEl) statusEl.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Guardando cambio en Supabase...';
+
+                        saveLabOverridesToCloud(labsOverridesOps).then(function () {
+                            if (statusEl) statusEl.innerHTML = '<i class="fa fa-check-circle" style="color:#16a34a;"></i> Sincronizado en la nube para todos los vendedores y clientes.';
+                        });
+
+                        if (result.merged) {
+                            showToast('¡Unificados! ' + result.movedCount + ' productos de "' + result.sourceName + '" se unieron a "' + result.targetName + '" y se guardó en la nube.', 'success');
+                        } else {
+                            showToast('Laboratorio renombrado de "' + result.sourceName + '" a "' + result.targetName + '" y guardado en la nube.', 'success');
+                        }
+                    });
+                }
 
                 // Admin config modal & sellers management
                 $('btnConfig').addEventListener('click', function () {
@@ -4928,9 +5574,23 @@
                     });
                 }
 
+                if ($('btnFilterWithImgCatalog')) {
+                    $('btnFilterWithImgCatalog').addEventListener('click', function () {
+                        if (!canUseAdminButton()) return;
+                        var selectedCat = $('cfgNoImgCat') ? $('cfgNoImgCat').value : '';
+                        if (selectedCat) {
+                            state.category = selectedCat;
+                            $('catSelect').value = selectedCat;
+                        }
+                        applyCatalogImageFilter('with');
+                        closeModal('modConfig');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        showToast('Mostrando únicamente los productos CON imagen en el catálogo.', 'success');
+                    });
+                }
+
                 $('btnFilterNoImgCatalog').addEventListener('click', function () {
                     if (!canUseAdminButton()) return;
-                    if (!state.isAdmin) setAdminState(true);
                     var selectedCat = $('cfgNoImgCat') ? $('cfgNoImgCat').value : '';
                     if (selectedCat) {
                         state.category = selectedCat;
