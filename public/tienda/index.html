@@ -901,6 +901,192 @@
             color: var(--text);
         }
 
+        /* SHARE LABORATORIES SELECTOR */
+        .share-labs-box {
+            margin: 12px 0;
+            padding: 10px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background: #f8fafc;
+        }
+
+        .share-labs-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+
+        .share-labs-head strong {
+            font-size: 13px;
+            color: var(--primary);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .share-labs-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 9px;
+            border-radius: 999px;
+            background: #e0e7ff;
+            color: #1e3a8a;
+        }
+
+        .share-labs-badge.filtered {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .share-labs-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .share-labs-actions button {
+            padding: 4px 9px;
+            font-size: 11.5px;
+            font-weight: 600;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: var(--text);
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .share-labs-actions button:hover {
+            background: #eef2ff;
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .share-labs-actions button.quick-hide {
+            background: #fffbeb;
+            border-color: #fcd34d;
+            color: #92400e;
+        }
+
+        .share-labs-actions button.quick-hide:hover {
+            background: #fef3c7;
+        }
+
+        .share-labs-search {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            font-size: 12.5px;
+            font-family: inherit;
+            margin-bottom: 8px;
+            background: #ffffff;
+            color: var(--text);
+        }
+
+        .share-labs-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 5px 8px;
+            max-height: 195px;
+            overflow-y: auto;
+            padding: 6px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+
+        @media (max-width: 520px) {
+            .share-labs-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .share-lab-item {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 7px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+            cursor: pointer;
+            border: 1px solid transparent;
+            user-select: none;
+            transition: background 0.12s;
+        }
+
+        .share-lab-item:hover {
+            background: #f1f5f9;
+        }
+
+        .share-lab-item.unchecked {
+            color: #94a3b8;
+            background: #fafafa;
+            text-decoration: line-through;
+        }
+
+        .share-lab-item input {
+            width: 15px;
+            height: 15px;
+            accent-color: var(--primary);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .share-lab-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .share-opt-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #cbd5e1;
+            font-size: 12px;
+            font-weight: 600;
+            color: #334155;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .share-opt-row input {
+            width: 15px;
+            height: 15px;
+            accent-color: var(--primary);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .share-labs-summary {
+            margin-top: 6px;
+            font-size: 11.5px;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        .share-labs-warn {
+            margin-top: 6px;
+            padding: 6px 9px;
+            border-radius: 7px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #b91c1c;
+            font-size: 12px;
+            font-weight: 600;
+            display: none;
+        }
+
         /* ACTIVE SELLER BANNER */
         .seller-banner {
             display: none;
@@ -1698,8 +1884,8 @@
             <form id="cartForm">
                 <div class="modal-body">
                     <div class="field" style="margin-bottom:12px;">
-                        <label for="clientNameInput" id="clientNameLabel">Nombre</label>
-                        <input id="clientNameInput" type="text" required placeholder="Ingrese su nombre completo">
+                        <label for="clientNameInput" id="clientNameLabel">Ingrese el nombre de su farmacia o su Nombre completo y dónde se ubica</label>
+                        <input id="clientNameInput" type="text" required placeholder="Ingrese el nombre de su farmacia o su Nombre completo y dónde se ubica">
                     </div>
                     <div class="field" id="cartSellerField" style="margin-bottom:12px;display:none;">
                         <label for="cartSellerSelect">Vendedor / Asesor que atiende tu pedido</label>
@@ -1734,7 +1920,7 @@
 
     <!-- MODAL: SHARE CATALOG -->
     <div id="modShare" class="modal-backdrop">
-        <div class="modal modal-sm">
+        <div class="modal" style="max-width:580px;">
             <div class="modal-header">
                 <h3><i class="fa fa-share-alt"></i> Compartir Catálogo</h3>
                 <button type="button" class="modal-close" data-close="modShare">&times;</button>
@@ -1744,8 +1930,34 @@
                     <label for="shareSellerSelect">Compartir enlace asignado a:</label>
                     <select id="shareSellerSelect"></select>
                 </div>
-                <p style="margin:0 0 8px;font-size:13px;color:var(--muted);">
-                    Comparte este enlace directo para que tus clientes visualicen la tienda y envíen sus pedidos. <strong>Este enlace nunca muestra el botón Administrar.</strong>
+
+                <div id="shareLabsSection" class="share-labs-box">
+                    <div class="share-labs-head">
+                        <strong><i class="fa fa-filter"></i> Selecciona qué laboratorios compartir</strong>
+                        <span id="shareLabsBadge" class="share-labs-badge">Todos</span>
+                    </div>
+                    <p style="margin:0 0 8px;font-size:12px;color:var(--muted);">
+                        Desmarca los laboratorios que <strong>no</strong> deseas mostrar al cliente (ej. <em>DISPONIBLE</em> o <em>ESPECIALES</em>). Quedarán completamente ocultos del catálogo y del buscador.
+                    </p>
+                    <div class="share-labs-actions">
+                        <button id="btnShareLabsAll" type="button"><i class="fa fa-check-square-o"></i> Todos</button>
+                        <button id="btnShareLabsNone" type="button"><i class="fa fa-square-o"></i> Ninguno</button>
+                        <button id="btnShareLabsClean" type="button" class="quick-hide"><i class="fa fa-eye-slash"></i> Ocultar Disponible y Especiales</button>
+                    </div>
+                    <input id="shareLabsSearch" class="share-labs-search" type="text" placeholder="Buscar laboratorio para marcar o desmarcar..." autocomplete="off">
+                    <div id="shareLabsList" class="share-labs-grid"></div>
+                    <label class="share-opt-row" for="shareHideZeroPrice">
+                        <input id="shareHideZeroPrice" type="checkbox">
+                        <span>Ocultar también productos con precio Q0 (ej. códigos reservados &ldquo;DISPONIBLE&rdquo;)</span>
+                    </label>
+                    <div id="shareLabsSummary" class="share-labs-summary"></div>
+                    <div id="shareLabsWarn" class="share-labs-warn">
+                        <i class="fa fa-exclamation-triangle"></i> Selecciona al menos 1 laboratorio para generar el enlace.
+                    </div>
+                </div>
+
+                <p style="margin:0 0 8px;font-size:12.5px;color:var(--muted);">
+                    Comparte este enlace directo para que tus clientes visualicen únicamente lo seleccionado y envíen sus pedidos. <strong>Este enlace nunca muestra el botón Administrar.</strong>
                 </p>
                 <div class="share-link-box">
                     <input id="shareLinkInput" type="text" readonly>
@@ -1753,7 +1965,7 @@
                         <i class="fa fa-copy"></i> Copiar
                     </button>
                 </div>
-                <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+                <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
                     <a id="btnShareWa" href="#" target="_blank" rel="noopener" class="btn btn-success btn-sm" style="flex:1;text-decoration:none;">
                         <i class="fa fa-whatsapp"></i> Enviar link por WhatsApp
                     </a>
@@ -1962,6 +2174,126 @@
             var catMap = {};
             var unitMap = {};
 
+            /* ================= SHARED CATALOG LAB FILTER SCOPE ================= */
+            var STORAGE_SHARE_LABS_PREF = 'olam_tienda_share_labs_pref_v1';
+            var sharedScope = {
+                active: false,
+                includeSet: null,
+                excludeSet: null,
+                hideZeroPrice: false
+            };
+            var shareSelection = {
+                excludedSet: new Set(),
+                hideZeroPrice: false
+            };
+
+            function detectSharedCatalogScope() {
+                sharedScope = {
+                    active: false,
+                    includeSet: null,
+                    excludeSet: null,
+                    hideZeroPrice: false
+                };
+                try {
+                    var params = new URLSearchParams(window.location.search || '');
+                    var inParam = (params.get('in') || params.get('labs') || '').trim();
+                    var exParam = (params.get('ex') || params.get('exclude') || '').trim();
+                    var nzParam = (params.get('nz') || '').trim();
+
+                    if (inParam) {
+                        var inIds = inParam.split(',').map(function (x) { return String(x).trim(); }).filter(Boolean);
+                        if (inIds.length > 0) {
+                            sharedScope.includeSet = new Set(inIds);
+                            sharedScope.active = true;
+                        }
+                    } else if (exParam) {
+                        var exIds = exParam.split(',').map(function (x) { return String(x).trim(); }).filter(Boolean);
+                        if (exIds.length > 0) {
+                            sharedScope.excludeSet = new Set(exIds);
+                            sharedScope.active = true;
+                        }
+                    }
+
+                    if (nzParam === '1' || nzParam === 'true') {
+                        sharedScope.hideZeroPrice = true;
+                        sharedScope.active = true;
+                    }
+                } catch (e) {}
+            }
+
+            function isCategoryAllowedByScope(catId) {
+                if (!sharedScope.active) return true;
+                var idStr = String(catId);
+                if (sharedScope.includeSet) return sharedScope.includeSet.has(idStr);
+                if (sharedScope.excludeSet) return !sharedScope.excludeSet.has(idStr);
+                return true;
+            }
+
+            function isItemAllowedByScope(itm) {
+                if (!itm) return false;
+                if (!sharedScope.active) return true;
+                if (!isCategoryAllowedByScope(itm.c)) return false;
+                if (sharedScope.hideZeroPrice && (Number(itm.v) || 0) <= 0) return false;
+                return true;
+            }
+
+            function getSortedLabsList() {
+                return (data.ctg || []).slice().sort(function (a, b) {
+                    return collator.compare(a.n, b.n);
+                });
+            }
+
+            function loadShareSelectionPrefs() {
+                shareSelection.excludedSet = new Set();
+                shareSelection.hideZeroPrice = false;
+                // Si el enlace o la sesión viene restringida por el Admin/Supervisor, respetar estrictamente esa regla
+                if (sharedScope.active || !canUseAdminButton()) {
+                    if (sharedScope.active) {
+                        var allLabs = getSortedLabsList();
+                        allLabs.forEach(function (c) {
+                            if (!isCategoryAllowedByScope(c.i)) {
+                                shareSelection.excludedSet.add(String(c.i));
+                            }
+                        });
+                        shareSelection.hideZeroPrice = !!sharedScope.hideZeroPrice;
+                    }
+                    return;
+                }
+                try {
+                    var raw = localStorage.getItem(STORAGE_SHARE_LABS_PREF);
+                    if (!raw) return;
+                    var parsed = JSON.parse(raw);
+                    if (parsed && Array.isArray(parsed.excludedIds)) {
+                        parsed.excludedIds.forEach(function (id) {
+                            if (id != null && String(id).trim() !== '') {
+                                shareSelection.excludedSet.add(String(id).trim());
+                            }
+                        });
+                    }
+                    shareSelection.hideZeroPrice = Boolean(parsed && parsed.hideZeroPrice);
+                } catch (e) {}
+            }
+
+            function persistShareSelectionPrefs() {
+                if (sharedScope.active) return;
+                var payload = {
+                    excludedIds: Array.from(shareSelection.excludedSet),
+                    hideZeroPrice: !!shareSelection.hideZeroPrice
+                };
+                try {
+                    localStorage.setItem(STORAGE_SHARE_LABS_PREF, JSON.stringify(payload));
+                } catch (e) {}
+                try {
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({
+                            type: 'OLAM_CATALOG_SHARE_PREFS_CHANGED',
+                            excludedIds: payload.excludedIds,
+                            hideZeroPrice: payload.hideZeroPrice
+                        }, window.location.origin);
+                    }
+                } catch (e) {}
+            }
+
             function $(id) { return document.getElementById(id); }
 
             function showToast(msg, type) {
@@ -2090,31 +2422,46 @@
                 var sortedCtgs = (data.ctg || []).slice().sort(function (a, b) {
                     return collator.compare(a.n, b.n);
                 });
+                var visibleCtgs = sortedCtgs.filter(function (c) {
+                    return isCategoryAllowedByScope(c.i);
+                });
 
                 var sel = $('catSelect');
                 var prevVal = state.category;
                 sel.innerHTML = '';
-                var allOpt = document.createElement('option');
-                allOpt.value = '';
-                allOpt.textContent = 'Todos los laboratorios';
-                sel.appendChild(allOpt);
+                if (visibleCtgs.length !== 1) {
+                    var allOpt = document.createElement('option');
+                    allOpt.value = '';
+                    allOpt.textContent = 'Todos los laboratorios';
+                    sel.appendChild(allOpt);
+                }
 
                 var editSel = $('fCategoria');
                 editSel.innerHTML = '';
 
-                sortedCtgs.forEach(function (c) {
+                visibleCtgs.forEach(function (c) {
                     var opt = document.createElement('option');
                     opt.value = String(c.i);
                     opt.textContent = c.n;
                     sel.appendChild(opt);
+                });
 
+                sortedCtgs.forEach(function (c) {
                     var opt2 = document.createElement('option');
                     opt2.value = String(c.i);
                     opt2.textContent = c.n;
                     editSel.appendChild(opt2);
                 });
 
-                sel.value = prevVal;
+                if (visibleCtgs.length === 1) {
+                    state.category = String(visibleCtgs[0].i);
+                    sel.value = state.category;
+                } else if (prevVal && isCategoryAllowedByScope(prevVal)) {
+                    sel.value = prevVal;
+                } else {
+                    state.category = '';
+                    sel.value = '';
+                }
             }
 
             function getFilteredSortedItems() {
@@ -2124,6 +2471,7 @@
                 var imgFilter = state.isAdmin ? state.imgFilter : 'all';
 
                 var list = (data.itm || []).filter(function (it) {
+                    if (!isItemAllowedByScope(it)) return false;
                     if (catFilter && String(it.c) !== catFilter) return false;
                     if (imgFilter === 'with' && !hasImage(it)) return false;
                     if (imgFilter === 'without' && hasImage(it)) return false;
@@ -2206,7 +2554,9 @@
             function renderCatalog() {
                 var grid = $('productGrid');
                 var items = getFilteredSortedItems();
-                var total = (data.itm || []).length;
+                var total = sharedScope.active
+                    ? (data.itm || []).filter(isItemAllowedByScope).length
+                    : (data.itm || []).length;
                 var token = ++state.renderToken;
 
                 $('resultsInfo').textContent = items.length === total
@@ -3277,7 +3627,34 @@
                 showToast(successMsg || 'Copiado al portapapeles.', 'success');
             }
 
-            function getCatalogShareUrl(sellerIdOrObj) {
+            function buildShareFilterParamsString() {
+                var allLabs = getSortedLabsList();
+                var total = allLabs.length;
+                var included = [];
+                var excluded = [];
+                allLabs.forEach(function (c) {
+                    var idStr = String(c.i);
+                    if (shareSelection.excludedSet.has(idStr)) {
+                        excluded.push(idStr);
+                    } else {
+                        included.push(idStr);
+                    }
+                });
+                var parts = [];
+                if (total > 0 && excluded.length > 0 && included.length > 0) {
+                    if (included.length <= total / 2) {
+                        parts.push('in=' + encodeURIComponent(included.join(',')));
+                    } else {
+                        parts.push('ex=' + encodeURIComponent(excluded.join(',')));
+                    }
+                }
+                if (shareSelection.hideZeroPrice) {
+                    parts.push('nz=1');
+                }
+                return parts.join('&');
+            }
+
+            function getCatalogShareUrl(sellerIdOrObj, includeLabFilter) {
                 var base = '';
                 if (data.shareUrl && String(data.shareUrl).trim()) {
                     base = String(data.shareUrl).trim();
@@ -3289,17 +3666,209 @@
                     }
                 }
                 var sep = base.indexOf('?') >= 0 ? '&' : '?';
+                var url = '';
                 if (sellerIdOrObj && typeof sellerIdOrObj === 'object' && sellerIdOrObj.name && sellerIdOrObj.phone) {
-                    return base + sep + 'vn=' + encodeURIComponent(sellerIdOrObj.name) + '&vp=' + encodeURIComponent(String(sellerIdOrObj.phone).replace(/[^\d]/g, '')) + '&cliente=1';
-                }
-                if (sellerIdOrObj) {
+                    url = base + sep + 'vn=' + encodeURIComponent(sellerIdOrObj.name) + '&vp=' + encodeURIComponent(String(sellerIdOrObj.phone).replace(/[^\d]/g, '')) + '&cliente=1';
+                } else if (sellerIdOrObj) {
                     var found = findSellerById(sellerIdOrObj);
                     if (found && found.name && found.phone) {
-                        return base + sep + 'vn=' + encodeURIComponent(found.name) + '&vp=' + encodeURIComponent(String(found.phone).replace(/[^\d]/g, '')) + '&cliente=1';
+                        url = base + sep + 'vn=' + encodeURIComponent(found.name) + '&vp=' + encodeURIComponent(String(found.phone).replace(/[^\d]/g, '')) + '&cliente=1';
+                    } else {
+                        url = base + sep + 'v=' + encodeURIComponent(sellerIdOrObj) + '&cliente=1';
                     }
-                    return base + sep + 'v=' + encodeURIComponent(sellerIdOrObj) + '&cliente=1';
+                } else {
+                    url = base + sep + 'cliente=1';
                 }
-                return base + sep + 'cliente=1';
+                if (includeLabFilter !== false) {
+                    var filterQuery = buildShareFilterParamsString();
+                    if (filterQuery) {
+                        url += '&' + filterQuery;
+                    }
+                }
+                return url;
+            }
+
+            function canEditShareLabFilter() {
+                // Solo Administrador y Supervisor (dentro de la app Droguería El Olam) pueden seleccionar qué laboratorios se comparten
+                return canUseAdminButton() && !sharedScope.active;
+            }
+
+            function applyEnforcedVisibility(excludedIds, hideZeroPrice) {
+                var cleanEx = Array.isArray(excludedIds)
+                    ? excludedIds.map(function (id) { return String(id).trim(); }).filter(Boolean)
+                    : [];
+                var hasFilter = cleanEx.length > 0 || !!hideZeroPrice;
+
+                sharedScope = {
+                    active: hasFilter,
+                    includeSet: null,
+                    excludeSet: cleanEx.length > 0 ? new Set(cleanEx) : null,
+                    hideZeroPrice: !!hideZeroPrice
+                };
+                shareSelection.excludedSet = new Set(cleanEx);
+                shareSelection.hideZeroPrice = !!hideZeroPrice;
+
+                populateCategorySelects();
+                renderCatalog();
+                if ($('modShare') && $('modShare').classList.contains('open')) {
+                    renderShareLabsList();
+                    updateShareModalLink();
+                }
+            }
+
+            function syncCloudVisibilityForPublicClient() {
+                // Cuando un cliente abre el enlace directamente en el navegador/WhatsApp, reforzar en vivo con las reglas más recientes de Supabase
+                var isTopWindow = false;
+                try { isTopWindow = (window.self === window.top); } catch (e) { isTopWindow = false; }
+                if (!isTopWindow) return;
+
+                try {
+                    var endpoint = SUPA_LOG_URL + '/rest/v1/daily_supervision_history?select=supervision_data&date=eq.2099-12-21&vendor_name=eq.TIENDA_VISIBILITY_CONFIG&order=id.desc&limit=1';
+                    fetch(endpoint, {
+                        method: 'GET',
+                        headers: {
+                            'apikey': SUPA_LOG_KEY,
+                            'Authorization': 'Bearer ' + SUPA_LOG_KEY
+                        }
+                    }).then(function (r) { return r.ok ? r.json() : null; }).then(function (rows) {
+                        if (!Array.isArray(rows) || !rows.length || !rows[0] || !rows[0].supervision_data) return;
+                        var cfg = rows[0].supervision_data;
+                        var activeSeller = getActiveSeller();
+                        var params = new URLSearchParams(window.location.search || '');
+                        var rawVendorName = (activeSeller && activeSeller.name) ? activeSeller.name : (params.get('vn') || '');
+                        var vendorKey = normalizeText(rawVendorName).trim();
+
+                        var rule = (cfg.global && typeof cfg.global === 'object') ? cfg.global : { excludedIds: [], hideZeroPrice: false };
+                        if (vendorKey && cfg.perVendor && cfg.perVendor[vendorKey] && cfg.perVendor[vendorKey].useCustom) {
+                            rule = cfg.perVendor[vendorKey];
+                        }
+
+                        var cloudEx = Array.isArray(rule.excludedIds) ? rule.excludedIds.map(function (x) { return String(x).trim(); }).filter(Boolean) : [];
+                        var cloudNz = !!rule.hideZeroPrice;
+                        if (cloudEx.length === 0 && !cloudNz) return;
+
+                        // Si el enlace ya traía ?in=... respetar la intersección (quitar cualquier lab que la nube excluya)
+                        if (sharedScope.includeSet) {
+                            cloudEx.forEach(function (id) { sharedScope.includeSet.delete(id); });
+                        } else {
+                            if (!sharedScope.excludeSet) sharedScope.excludeSet = new Set();
+                            cloudEx.forEach(function (id) { sharedScope.excludeSet.add(id); });
+                        }
+                        if (cloudNz) sharedScope.hideZeroPrice = true;
+                        sharedScope.active = true;
+
+                        loadShareSelectionPrefs();
+                        populateCategorySelects();
+                        renderCatalog();
+                    }).catch(function () {});
+                } catch (e) {}
+            }
+
+            function renderShareLabsList() {
+                var container = $('shareLabsList');
+                var section = $('shareLabsSection');
+                if (!container || !section) return;
+
+                // Solo Administrador y Supervisor pueden modificar qué laboratorios se comparten; vendedores y clientes nunca ven este control
+                if (!canEditShareLabFilter()) {
+                    section.style.display = 'none';
+                    return;
+                }
+                section.style.display = 'block';
+
+                var allLabs = getSortedLabsList();
+                var searchEl = $('shareLabsSearch');
+                var q = normalizeText((searchEl ? searchEl.value : '').trim());
+                var filteredLabs = q
+                    ? allLabs.filter(function (c) { return normalizeText(c.n).indexOf(q) !== -1; })
+                    : allLabs;
+
+                var html = '';
+                filteredLabs.forEach(function (c) {
+                    var idStr = String(c.i);
+                    var checked = !shareSelection.excludedSet.has(idStr);
+                    html +=
+                        '<label class="share-lab-item' + (checked ? '' : ' unchecked') + '" title="' + escapeHtml(c.n) + '">' +
+                            '<input type="checkbox" data-share-lab-id="' + escapeHtml(idStr) + '"' + (checked ? ' checked' : '') + '>' +
+                            '<span class="share-lab-name">' + escapeHtml(c.n) + '</span>' +
+                        '</label>';
+                });
+
+                if (!filteredLabs.length) {
+                    html = '<div style="grid-column:1/-1;text-align:center;font-size:12px;color:var(--muted);padding:10px;">No se encontró ningún laboratorio con ese nombre.</div>';
+                }
+                container.innerHTML = html;
+
+                var hideZeroEl = $('shareHideZeroPrice');
+                if (hideZeroEl) {
+                    hideZeroEl.checked = !!shareSelection.hideZeroPrice;
+                }
+                updateShareLabsStatusUi();
+            }
+
+            function updateShareLabsStatusUi() {
+                var allLabs = getSortedLabsList();
+                var total = allLabs.length;
+                var excludedList = [];
+                var includedList = [];
+                allLabs.forEach(function (c) {
+                    if (shareSelection.excludedSet.has(String(c.i))) {
+                        excludedList.push(c.n);
+                    } else {
+                        includedList.push(c.n);
+                    }
+                });
+
+                var badge = $('shareLabsBadge');
+                var summary = $('shareLabsSummary');
+                var warn = $('shareLabsWarn');
+                var btnCopy = $('btnCopyShareLink');
+                var btnWa = $('btnShareWa');
+                var btnNat = $('btnNativeShare');
+
+                var noneSelected = includedList.length === 0;
+                if (warn) warn.style.display = noneSelected ? 'block' : 'none';
+                if (btnCopy) btnCopy.disabled = noneSelected;
+                if (btnNat) btnNat.disabled = noneSelected;
+                if (btnWa) {
+                    btnWa.style.pointerEvents = noneSelected ? 'none' : '';
+                    btnWa.style.opacity = noneSelected ? '0.5' : '';
+                }
+
+                if (badge) {
+                    if (excludedList.length === 0 && !shareSelection.hideZeroPrice) {
+                        badge.textContent = 'Catálogo completo';
+                        badge.className = 'share-labs-badge';
+                    } else if (noneSelected) {
+                        badge.textContent = 'Ninguno seleccionado';
+                        badge.className = 'share-labs-badge filtered';
+                    } else if (excludedList.length > 0 && includedList.length > total / 2) {
+                        badge.textContent = excludedList.length + (excludedList.length === 1 ? ' oculto' : ' ocultos') + (shareSelection.hideZeroPrice ? ' + sin Q0' : '');
+                        badge.className = 'share-labs-badge filtered';
+                    } else if (excludedList.length > 0) {
+                        badge.textContent = 'Solo ' + includedList.length + (includedList.length === 1 ? ' lab' : ' labs') + (shareSelection.hideZeroPrice ? ' + sin Q0' : '');
+                        badge.className = 'share-labs-badge filtered';
+                    } else {
+                        badge.textContent = 'Sin productos Q0';
+                        badge.className = 'share-labs-badge filtered';
+                    }
+                }
+
+                if (summary) {
+                    if (noneSelected) {
+                        summary.innerHTML = '';
+                    } else if (excludedList.length === 0) {
+                        summary.innerHTML = shareSelection.hideZeroPrice
+                            ? 'Se compartirán <strong>todos los laboratorios</strong> (ocultando productos con precio Q0).'
+                            : 'Se compartirá el <strong>catálogo completo</strong> con todos los laboratorios.';
+                    } else if (excludedList.length <= 6) {
+                        summary.innerHTML = '<strong>Ocultos para el cliente:</strong> ' + escapeHtml(excludedList.join(', ')) + (shareSelection.hideZeroPrice ? ' &middot; <em>sin productos Q0</em>' : '') + '.';
+                    } else if (includedList.length <= 6) {
+                        summary.innerHTML = '<strong>Solo visibles para el cliente:</strong> ' + escapeHtml(includedList.join(', ')) + (shareSelection.hideZeroPrice ? ' &middot; <em>sin productos Q0</em>' : '') + '.';
+                    } else {
+                        summary.innerHTML = 'Compartiendo <strong>' + includedList.length + ' de ' + total + '</strong> laboratorios (' + excludedList.length + ' ocultos)' + (shareSelection.hideZeroPrice ? ' &middot; <em>sin productos Q0</em>' : '') + '.';
+                    }
+                }
             }
 
             function updateShareModalLink() {
@@ -3308,20 +3877,21 @@
                 var url = '';
                 if (hostAuthContext.lockedVendor && hostAuthContext.lockedVendor.name && hostAuthContext.lockedVendor.phone) {
                     seller = hostAuthContext.lockedVendor;
-                    url = getCatalogShareUrl(seller);
+                    url = getCatalogShareUrl(seller, true);
                 } else if (urlCustomSeller && urlCustomSeller.name && urlCustomSeller.phone) {
                     seller = urlCustomSeller;
-                    url = getCatalogShareUrl(seller);
+                    url = getCatalogShareUrl(seller, true);
                 } else {
                     var sellerId = (sel && sel.value) ? sel.value : '';
                     seller = sellerId ? findSellerById(sellerId) : null;
-                    url = getCatalogShareUrl(seller || sellerId);
+                    url = getCatalogShareUrl(seller || sellerId, true);
                 }
                 $('shareLinkInput').value = url;
                 var shareMsg = seller
                     ? ('Hola, te comparto nuestro catálogo virtual de ' + (data.ngc || 'la tienda') + ' (asesor: ' + seller.name + '): ' + url)
                     : ('Consulta nuestro catálogo virtual de ' + (data.ngc || 'la tienda') + ': ' + url);
                 $('btnShareWa').href = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(shareMsg);
+                updateShareLabsStatusUi();
             }
 
             function getMergedVendorsForConfig() {
@@ -3665,7 +4235,7 @@
                     $('sellerBanner').classList.remove('show');
                 }
 
-                if (data.nam) {
+                if (data.nam && String(data.nam).trim().toLowerCase() !== 'nombre') {
                     $('clientNameLabel').textContent = data.nam;
                 }
 
@@ -3955,6 +4525,9 @@
                 rebuildLookups();
                 ensureSellers();
                 detectActiveSeller();
+                detectSharedCatalogScope();
+                loadShareSelectionPrefs();
+                syncCloudVisibilityForPublicClient();
                 trackStoreViewLog();
 
                 if (!data.lg) {
@@ -4012,6 +4585,25 @@
                     if (Array.isArray(msg.sellersList)) {
                         data.sellers = msg.sellersList.filter(function (s) { return s && s.name && s.phone; });
                     }
+                    // Si el usuario NO es Admin/Supervisor, imponer las reglas de visibilidad configuradas en Supabase para su tienda
+                    if (!hostAuthContext.allowAdmin && msg.enforcedVisibility) {
+                        applyEnforcedVisibility(
+                            msg.enforcedVisibility.excludedIds || [],
+                            Boolean(msg.enforcedVisibility.hideZeroPrice)
+                        );
+                    } else if (hostAuthContext.allowAdmin && msg.shareFilterPrefs) {
+                        // Para Admin/Supervisor: mantener su vista administrativa completa pero sincronizar la preferencia del enlace a compartir
+                        shareSelection.excludedSet = new Set(
+                            Array.isArray(msg.shareFilterPrefs.excludedIds)
+                                ? msg.shareFilterPrefs.excludedIds.map(function (id) { return String(id); })
+                                : []
+                        );
+                        shareSelection.hideZeroPrice = Boolean(msg.shareFilterPrefs.hideZeroPrice);
+                        if ($('modShare') && $('modShare').classList.contains('open')) {
+                            renderShareLabsList();
+                            updateShareModalLink();
+                        }
+                    }
                     syncAdminButtonVisibility();
                     applyStoreBranding();
                     if ($('modConfig') && $('modConfig').classList.contains('open')) {
@@ -4032,10 +4624,16 @@
 
                 bindEvents();
 
-                // Notificar a la app padre (Droguería El Olam) que el catálogo ya está listo para recibir credenciales RBAC y vendedores
+                // Notificar a la app padre (Droguería El Olam) que el catálogo ya está listo y enviar los laboratorios disponibles
                 try {
                     if (window.parent && window.parent !== window) {
-                        window.parent.postMessage({ type: 'OLAM_CATALOG_READY' }, window.location.origin);
+                        var labsPayload = getSortedLabsList().map(function (c) {
+                            return { id: String(c.i), name: String(c.n || '') };
+                        });
+                        window.parent.postMessage({
+                            type: 'OLAM_CATALOG_READY',
+                            labs: labsPayload
+                        }, window.location.origin);
                     }
                 } catch (e) {}
             }
@@ -4202,12 +4800,81 @@
                         wrap.style.display = 'none';
                         sel.innerHTML = '';
                     }
+                    if ($('shareLabsSearch')) $('shareLabsSearch').value = '';
+                    loadShareSelectionPrefs();
+                    renderShareLabsList();
                     updateShareModalLink();
                     $('btnNativeShare').style.display = (navigator.share) ? 'inline-flex' : 'none';
                     openModal('modShare');
                 });
 
                 $('shareSellerSelect').addEventListener('change', updateShareModalLink);
+
+                if ($('shareLabsSearch')) {
+                    $('shareLabsSearch').addEventListener('input', renderShareLabsList);
+                }
+
+                if ($('shareLabsList')) {
+                    $('shareLabsList').addEventListener('change', function (ev) {
+                        var cb = ev.target;
+                        if (!cb || !cb.dataset || !cb.dataset.shareLabId) return;
+                        var idStr = String(cb.dataset.shareLabId);
+                        if (cb.checked) {
+                            shareSelection.excludedSet.delete(idStr);
+                        } else {
+                            shareSelection.excludedSet.add(idStr);
+                        }
+                        var row = cb.closest('.share-lab-item');
+                        if (row) row.classList.toggle('unchecked', !cb.checked);
+                        persistShareSelectionPrefs();
+                        updateShareModalLink();
+                    });
+                }
+
+                if ($('btnShareLabsAll')) {
+                    $('btnShareLabsAll').addEventListener('click', function () {
+                        shareSelection.excludedSet.clear();
+                        persistShareSelectionPrefs();
+                        renderShareLabsList();
+                        updateShareModalLink();
+                    });
+                }
+
+                if ($('btnShareLabsNone')) {
+                    $('btnShareLabsNone').addEventListener('click', function () {
+                        shareSelection.excludedSet.clear();
+                        getSortedLabsList().forEach(function (c) {
+                            shareSelection.excludedSet.add(String(c.i));
+                        });
+                        persistShareSelectionPrefs();
+                        renderShareLabsList();
+                        updateShareModalLink();
+                    });
+                }
+
+                if ($('btnShareLabsClean')) {
+                    $('btnShareLabsClean').addEventListener('click', function () {
+                        shareSelection.excludedSet.clear();
+                        getSortedLabsList().forEach(function (c) {
+                            var nm = normalizeText(c.n).trim();
+                            if (nm === 'disponible' || nm === 'especiales' || nm.indexOf('disponible') === 0) {
+                                shareSelection.excludedSet.add(String(c.i));
+                            }
+                        });
+                        persistShareSelectionPrefs();
+                        renderShareLabsList();
+                        updateShareModalLink();
+                        showToast('Se ocultaron Disponible y Especiales del enlace compartido.', 'success');
+                    });
+                }
+
+                if ($('shareHideZeroPrice')) {
+                    $('shareHideZeroPrice').addEventListener('change', function () {
+                        shareSelection.hideZeroPrice = !!this.checked;
+                        persistShareSelectionPrefs();
+                        updateShareModalLink();
+                    });
+                }
 
                 $('btnCopyShareLink').addEventListener('click', function () {
                     copyTextToClipboard($('shareLinkInput').value, 'Enlace del catálogo copiado al portapapeles.');

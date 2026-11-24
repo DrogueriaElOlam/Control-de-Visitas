@@ -24,7 +24,9 @@ import {
   ChevronDown,
   ChevronUp,
   Package,
-  MessageCircle
+  MessageCircle,
+  Filter,
+  EyeOff
 } from 'lucide-react';
 import { DEFAULT_VENDORS, normalizeVendorName } from '../lib/db';
 import {
@@ -36,7 +38,12 @@ import {
   buildPublicCatalogUrl,
   buildVendorSellersPayload,
   buildAllVendorsPayload,
-  sanitizeWhatsAppPhone
+  sanitizeWhatsAppPhone,
+  getCanonicalPhoneKey,
+  getStoredVisibilityConfig,
+  syncVisibilityConfigFromCloud,
+  saveVisibilityConfigToCloud,
+  resolveVisibilityForVendor
 } from '../lib/tiendaVendors';
 import {
   fetchTiendaViewLogs,
@@ -83,6 +90,14 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
   const [iframeReady, setIframeReady] = useState(false);
   const [phonesVersion, setPhonesVersion] = useState(0);
   const iframeRef = useRef(null);
+
+  // Control centralizado de visibilidad (Solo Admin / Supervisor -> Supabase -> Vendedores y Clientes)
+  const [catalogLabs, setCatalogLabs] = useState([]);
+  const [visibilityConfig, setVisibilityConfig] = useState(() => getStoredVisibilityConfig());
+  const [savingVisibility, setSavingVisibility] = useState(false);
+  const [showShareFilterModal, setShowShareFilterModal] = useState(false);
+  const [visibilityEditTarget, setVisibilityEditTarget] = useState('__global__'); // '__global__' | nombre del vendedor
+  const [labFilterSearch, setLabFilterSearch] = useState('');
 
   // Panel activo (solo Admin / Supervisor pueden cambiar a 'orders' o 'logs')
   const [activePanel, setActivePanel] = useState('catalog'); // 'catalog' | 'orders' | 'logs'
@@ -176,6 +191,10 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
       loadOrdersHistory();
     }
 
+    syncVisibilityConfigFromCloud().then((cloudVis) => {
+      if (cloudVis) setVisibilityConfig(cloudVis);
+    });
+
     syncVendorPhonesFromCloud(availableVendors).then(() => {
       const targetName = defaultSelectedVendor;
       if (targetName) {
@@ -203,6 +222,12 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
     setErrorMsg('');
   }, [activeProfileName, isOpen, availableVendors]);
 
+  // Visibilidad efectiva para el perfil activo (vendedor actual o seleccionado por Admin)
+  const activeEffectiveVisibility = useMemo(
+    () => resolveVisibilityForVendor(visibilityConfig, activeProfileName || ''),
+    [visibilityConfig, activeProfileName]
+  );
+
   const sendAuthContextToIframe = () => {
     const win = iframeRef.current?.contentWindow;
     if (!win) return;
@@ -216,13 +241,27 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
     win.postMessage(
       {
         type: 'OLAM_CATALOG_AUTH',
-        // REGLA ESTRICTA: solo Administrador y Supervisor (Antonio Celada) tienen acceso al botón Administrar (sin contraseña extra)
+        // REGLA ESTRICTA: solo Administrador y Supervisor (Antonio Celada) tienen acceso al botón Administrar y a controlar visibilidad
         allowAdmin: canAdmin,
         vendorName: activeProfileName || '',
         vendorPhone: activePhone || '',
         lockVendor: !canAdmin,
         sellersList: sellersPayload,
-        allVendorsList: allVendorsPayload
+        allVendorsList: allVendorsPayload,
+        // Para vendedores regulares: impone las reglas de visibilidad en su propia tienda y en los enlaces que compartan
+        enforcedVisibility: !canAdmin
+          ? {
+              excludedIds: activeEffectiveVisibility.excludedIds,
+              hideZeroPrice: activeEffectiveVisibility.hideZeroPrice
+            }
+          : null,
+        // Para Admin/Supervisor: sincroniza la preferencia del enlace que genere desde dentro de la tienda
+        shareFilterPrefs: canAdmin
+          ? {
+              excludedIds: activeEffectiveVisibility.excludedIds,
+              hideZeroPrice: activeEffectiveVisibility.hideZeroPrice
+            }
+          : null
       },
       window.location.origin
     );
@@ -232,7 +271,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
     if (isOpen && iframeReady) {
       sendAuthContextToIframe();
     }
-  }, [isOpen, iframeReady, canAdmin, activeProfileName, savedPhone, availableVendors, phonesVersion]);
+  }, [isOpen, iframeReady, canAdmin, activeProfileName, savedPhone, availableVendors, phonesVersion, activeEffectiveVisibility]);
 
   // Escuchar mensajes del iframe: handshake READY y guardado de teléfonos (SOLO Admin/Supervisor)
   useEffect(() => {
@@ -243,8 +282,29 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
       if (!msg || !msg.type) return;
 
       if (msg.type === 'OLAM_CATALOG_READY') {
+        if (Array.isArray(msg.labs) && msg.labs.length > 0) {
+          setCatalogLabs(msg.labs.map((l) => ({ id: String(l.id), name: String(l.name || '') })));
+        }
         setIframeReady(true);
         sendAuthContextToIframe();
+        return;
+      }
+
+      if (msg.type === 'OLAM_CATALOG_SHARE_PREFS_CHANGED') {
+        if (!canAdmin) return; // Bloqueo estricto: vendedores nunca modifican visibilidad
+        const nextEx = Array.isArray(msg.excludedIds) ? msg.excludedIds.map((x) => String(x)) : [];
+        const nextNz = Boolean(msg.hideZeroPrice);
+        setVisibilityConfig((prev) => {
+          const nextCfg = {
+            ...prev,
+            global: {
+              excludedIds: nextEx,
+              hideZeroPrice: nextNz
+            }
+          };
+          saveVisibilityConfigToCloud(nextCfg).catch(() => {});
+          return nextCfg;
+        });
         return;
       }
 
@@ -294,11 +354,168 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
     return () => window.removeEventListener('message', handleIframeMessage);
   }, [isOpen, canAdmin, availableVendors, activeProfileName]);
 
+  const allLabIds = useMemo(() => catalogLabs.map((l) => l.id), [catalogLabs]);
+
+  // Datos del objetivo actualmente seleccionado dentro del modal "Controlar qué ven" (solo Admin/Supervisor)
+  const isEditingGlobalTarget = visibilityEditTarget === '__global__';
+  const editVendorKey = isEditingGlobalTarget ? '' : getCanonicalPhoneKey(visibilityEditTarget);
+  const editVendorEntry = !isEditingGlobalTarget && editVendorKey ? visibilityConfig.perVendor?.[editVendorKey] : null;
+  const editUsesCustomRule = isEditingGlobalTarget ? true : Boolean(editVendorEntry?.useCustom);
+
+  const editExcludedIds = useMemo(() => {
+    if (isEditingGlobalTarget) return visibilityConfig.global?.excludedIds || [];
+    if (editUsesCustomRule) return editVendorEntry?.excludedIds || [];
+    return visibilityConfig.global?.excludedIds || [];
+  }, [isEditingGlobalTarget, editUsesCustomRule, editVendorEntry, visibilityConfig]);
+
+  const editHideZeroPrice = isEditingGlobalTarget
+    ? Boolean(visibilityConfig.global?.hideZeroPrice)
+    : (editUsesCustomRule ? Boolean(editVendorEntry?.hideZeroPrice) : Boolean(visibilityConfig.global?.hideZeroPrice));
+
+  const editExcludedSet = useMemo(() => new Set(editExcludedIds), [editExcludedIds]);
+  const editIncludedCount = useMemo(() => {
+    if (!catalogLabs.length) return 1;
+    return catalogLabs.filter((l) => !editExcludedSet.has(l.id)).length;
+  }, [catalogLabs, editExcludedSet]);
+  const editExcludedValidCount = useMemo(() => {
+    if (!catalogLabs.length) return editExcludedIds.length;
+    return catalogLabs.filter((l) => editExcludedSet.has(l.id)).length;
+  }, [catalogLabs, editExcludedSet, editExcludedIds]);
+
+  const activeExcludedSet = useMemo(() => new Set(activeEffectiveVisibility.excludedIds || []), [activeEffectiveVisibility]);
+  const activeIncludedCount = useMemo(() => {
+    if (!catalogLabs.length) return 1;
+    return catalogLabs.filter((l) => !activeExcludedSet.has(l.id)).length;
+  }, [catalogLabs, activeExcludedSet]);
+  const activeExcludedValidCount = useMemo(() => {
+    if (!catalogLabs.length) return (activeEffectiveVisibility.excludedIds || []).length;
+    return catalogLabs.filter((l) => activeExcludedSet.has(l.id)).length;
+  }, [catalogLabs, activeExcludedSet, activeEffectiveVisibility]);
+
+  const customVendorsCount = useMemo(() => {
+    return Object.values(visibilityConfig.perVendor || {}).filter((v) => v?.useCustom).length;
+  }, [visibilityConfig]);
+
+  const filteredLabsForPicker = useMemo(() => {
+    const q = labFilterSearch.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (!q) return catalogLabs;
+    return catalogLabs.filter((l) =>
+      l.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q)
+    );
+  }, [catalogLabs, labFilterSearch]);
+
+  const applyDraftVisibilityRule = (nextExcluded, nextHideZero, forceUseCustom = true) => {
+    const cleanEx = Array.from(new Set((nextExcluded || []).map((x) => String(x)).filter(Boolean)));
+    const cleanNz = Boolean(nextHideZero);
+    setVisibilityConfig((prev) => {
+      if (isEditingGlobalTarget) {
+        return {
+          ...prev,
+          global: { excludedIds: cleanEx, hideZeroPrice: cleanNz }
+        };
+      }
+      if (!editVendorKey) return prev;
+      return {
+        ...prev,
+        perVendor: {
+          ...(prev.perVendor || {}),
+          [editVendorKey]: {
+            useCustom: Boolean(forceUseCustom),
+            excludedIds: cleanEx,
+            hideZeroPrice: cleanNz
+          }
+        }
+      };
+    });
+  };
+
+  const handleToggleVendorCustomMode = (enableCustom) => {
+    if (isEditingGlobalTarget || !editVendorKey) return;
+    setVisibilityConfig((prev) => {
+      const existing = prev.perVendor?.[editVendorKey];
+      return {
+        ...prev,
+        perVendor: {
+          ...(prev.perVendor || {}),
+          [editVendorKey]: {
+            useCustom: Boolean(enableCustom),
+            excludedIds: existing?.excludedIds || prev.global?.excludedIds || [],
+            hideZeroPrice: existing?.hideZeroPrice != null ? Boolean(existing.hideZeroPrice) : Boolean(prev.global?.hideZeroPrice)
+          }
+        }
+      };
+    });
+  };
+
+  const toggleLabExcluded = (labId) => {
+    if (!isEditingGlobalTarget && !editUsesCustomRule) return;
+    const next = new Set(editExcludedIds);
+    if (next.has(labId)) next.delete(labId);
+    else next.add(labId);
+    applyDraftVisibilityRule(Array.from(next), editHideZeroPrice, true);
+  };
+
+  const handleHideInternalLabsQuick = () => {
+    if (!isEditingGlobalTarget && !editUsesCustomRule) return;
+    const internalIds = catalogLabs
+      .filter((l) => {
+        const nm = l.name.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return nm === 'disponible' || nm === 'especiales' || nm.startsWith('disponible');
+      })
+      .map((l) => l.id);
+    applyDraftVisibilityRule(internalIds, editHideZeroPrice, true);
+  };
+
+  const handleSaveVisibilityToCloud = async () => {
+    if (!canAdmin) return;
+    if (catalogLabs.length > 0 && editIncludedCount === 0 && (isEditingGlobalTarget || editUsesCustomRule)) {
+      setErrorMsg('Deja al menos 1 laboratorio visible antes de guardar.');
+      return;
+    }
+    setSavingVisibility(true);
+    setErrorMsg('');
+    try {
+      const saved = await saveVisibilityConfigToCloud(visibilityConfig);
+      setVisibilityConfig(saved);
+      setStatusMsg('¡Control de visibilidad guardado en la nube! Ya aplica automáticamente a tus vendedores y enlaces.');
+      setTimeout(() => setStatusMsg(''), 4500);
+      setShowShareFilterModal(false);
+    } catch (err) {
+      setErrorMsg(err?.message || 'Error al guardar la configuración de visibilidad en la nube.');
+    } finally {
+      setSavingVisibility(false);
+    }
+  };
+
+  const shareFilterBadgeText = useMemo(() => {
+    const globalExCount = (visibilityConfig.global?.excludedIds || []).length;
+    const globalNz = Boolean(visibilityConfig.global?.hideZeroPrice);
+    if (activeExcludedValidCount > 0 || activeEffectiveVisibility.hideZeroPrice) {
+      const parts = [];
+      if (activeExcludedValidCount > 0) {
+        parts.push(
+          catalogLabs.length > 0 && activeIncludedCount <= catalogLabs.length / 2
+            ? `Solo ${activeIncludedCount}`
+            : `${activeExcludedValidCount} ${activeExcludedValidCount === 1 ? 'oculto' : 'ocultos'}`
+        );
+      }
+      if (activeEffectiveVisibility.hideZeroPrice) parts.push('sin Q0');
+      if (customVendorsCount > 0 && !activeProfileName) parts.push(`${customVendorsCount} pers.`);
+      return parts.join(' · ');
+    }
+    if (customVendorsCount > 0) return `${customVendorsCount} ${customVendorsCount === 1 ? 'vendedor' : 'vendedores'}`;
+    if (globalExCount > 0 || globalNz) return `${globalExCount} ocultos`;
+    return 'Todos';
+  }, [visibilityConfig, activeExcludedValidCount, activeIncludedCount, activeEffectiveVisibility, catalogLabs.length, customVendorsCount, activeProfileName]);
+
   if (!isOpen) return null;
 
   const shareUrl = buildPublicCatalogUrl({
     vendorName: activeProfileName,
-    vendorPhone: savedPhone
+    vendorPhone: savedPhone,
+    allLabIds,
+    excludedLabIds: activeEffectiveVisibility.excludedIds || [],
+    hideZeroPrice: Boolean(activeEffectiveVisibility.hideZeroPrice)
   });
 
   const handleSavePhone = async (e) => {
@@ -326,6 +543,10 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
   };
 
   const handleCopyShareLink = async () => {
+    if (catalogLabs.length > 0 && activeIncludedCount === 0) {
+      setErrorMsg('Todos los laboratorios están ocultos para este perfil. Habilita al menos 1 en "Controlar qué ven".');
+      return;
+    }
     if (activeProfileName && !savedPhone) {
       setErrorMsg(canAdmin
         ? 'Primero asigna y guarda el número de WhatsApp de este vendedor en Configuración.'
@@ -353,6 +574,10 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
   };
 
   const handleShareWhatsApp = () => {
+    if (catalogLabs.length > 0 && activeIncludedCount === 0) {
+      setErrorMsg('Todos los laboratorios están ocultos para este perfil. Habilita al menos 1 en "Controlar qué ven".');
+      return;
+    }
     if (activeProfileName && !savedPhone) {
       setErrorMsg(canAdmin
         ? 'Primero asigna el número de WhatsApp de este vendedor antes de compartir su enlace.'
@@ -539,6 +764,33 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
 
             {/* ACCIONES DE COMPARTIR LINK PÚBLICO (SIN BOTÓN ADMIN) */}
             <div className="flex items-center gap-1.5 flex-wrap">
+              {canAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLabFilterSearch('');
+                    setVisibilityEditTarget(selectedVendorName || '__global__');
+                    setShowShareFilterModal(true);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border shadow-sm ${
+                    activeExcludedValidCount > 0 || activeEffectiveVisibility.hideZeroPrice || customVendorsCount > 0
+                      ? 'bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-200 dark:border-amber-700'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600'
+                  }`}
+                  title="Control exclusivo Admin/Supervisor: elige qué pueden ver tus vendedores en sus tiendas y enlaces compartidos"
+                >
+                  <Filter size={13} />
+                  <span>Controlar qué ven</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                    activeExcludedValidCount > 0 || activeEffectiveVisibility.hideZeroPrice || customVendorsCount > 0
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200'
+                  }`}>
+                    {shareFilterBadgeText}
+                  </span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={handleCopyShareLink}
@@ -1238,6 +1490,221 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                 sendAuthContextToIframe();
               }}
             />
+          </div>
+        )}
+
+        {/* SUB-MODAL EXCLUSIVO ADMIN / SUPERVISOR: CONTROL DE VISIBILIDAD POR VENDEDOR */}
+        {canAdmin && showShareFilterModal && (
+          <div
+            className="fixed inset-0 z-[9999] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowShareFilterModal(false); }}
+          >
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="bg-gradient-to-r from-indigo-900 to-blue-900 text-white px-4 py-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <ShieldCheck size={18} className="text-amber-300 shrink-0" />
+                  <h3 className="text-sm sm:text-base font-black truncate">
+                    Control de Visibilidad de Tiendas (Solo Admin / Supervisor)
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowShareFilterModal(false)}
+                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="p-4 overflow-y-auto flex-1 space-y-3">
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  Define qué laboratorios pueden y cuáles <strong>no</strong> pueden ver tus vendedores en sus tiendas y en los enlaces que comparten a sus clientes. <strong>Ningún vendedor tiene acceso para cambiar estas reglas.</strong>
+                </p>
+
+                {/* SELECTOR DE ALCANCE: REGLA GENERAL VS VENDEDOR INDIVIDUAL */}
+                <div className="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 space-y-2">
+                  <label className="block text-xs font-black text-indigo-950 dark:text-indigo-200">
+                    ¿Para quién deseas configurar la visibilidad?
+                  </label>
+                  <select
+                    value={visibilityEditTarget}
+                    onChange={(e) => setVisibilityEditTarget(e.target.value)}
+                    className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="__global__">
+                      🌐 Regla General — Todos los vendedores por defecto ({(visibilityConfig.global?.excludedIds || []).length} ocultos)
+                    </option>
+                    {availableVendors.map((v) => {
+                      const vk = getCanonicalPhoneKey(v.name);
+                      const custom = visibilityConfig.perVendor?.[vk];
+                      const tag = custom?.useCustom
+                        ? `Personalizado (${(custom.excludedIds || []).length} ocultos)`
+                        : 'Usa Regla General';
+                      return (
+                        <option key={v.name} value={v.name}>
+                          👤 {v.name} — {tag}
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  {!isEditingGlobalTarget && (
+                    <div className="flex items-center gap-2 pt-1 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleVendorCustomMode(false)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border cursor-pointer transition-all ${
+                          !editUsesCustomRule
+                            ? 'bg-indigo-700 text-white border-indigo-700 shadow-sm'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600'
+                        }`}
+                      >
+                        Usar Regla General
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleVendorCustomMode(true)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border cursor-pointer transition-all ${
+                          editUsesCustomRule
+                            ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600'
+                        }`}
+                      >
+                        Personalizar solo para {visibilityEditTarget}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {!isEditingGlobalTarget && !editUsesCustomRule ? (
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                    <div className="font-bold text-slate-900 dark:text-white">
+                      {visibilityEditTarget} hereda automáticamente la Regla General.
+                    </div>
+                    <div>
+                      Actualmente tiene <strong>{editIncludedCount}</strong> de <strong>{catalogLabs.length}</strong> laboratorios visibles
+                      {editExcludedValidCount > 0 ? ` (${editExcludedValidCount} ocultos)` : ' (todos visibles)'}
+                      {editHideZeroPrice ? ' · sin productos Q0' : ''}.
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Si quieres darle un catálogo diferente solo a este vendedor, presiona <strong>&ldquo;Personalizar solo para {visibilityEditTarget}&rdquo;</strong> arriba.
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => applyDraftVisibilityRule([], editHideZeroPrice, true)}
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-indigo-100 text-slate-800 hover:text-indigo-800 border border-slate-300 cursor-pointer"
+                      >
+                        Marcar todos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyDraftVisibilityRule(allLabIds, editHideZeroPrice, true)}
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 cursor-pointer"
+                      >
+                        Desmarcar todos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleHideInternalLabsQuick}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 cursor-pointer"
+                      >
+                        <EyeOff size={13} />
+                        <span>Ocultar Disponible y Especiales</span>
+                      </button>
+                    </div>
+
+                    <input
+                      type="text"
+                      value={labFilterSearch}
+                      onChange={(e) => setLabFilterSearch(e.target.value)}
+                      placeholder="Buscar laboratorio para permitir u ocultar..."
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+
+                    {catalogLabs.length === 0 ? (
+                      <div className="text-center py-6 text-xs text-slate-500">
+                        Cargando lista de laboratorios del catálogo...
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-60 overflow-y-auto p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60">
+                        {filteredLabsForPicker.map((lab) => {
+                          const checked = !editExcludedSet.has(lab.id);
+                          return (
+                            <label
+                              key={lab.id}
+                              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-all select-none ${
+                                checked
+                                  ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:border-indigo-400'
+                                  : 'bg-slate-100/80 dark:bg-slate-900/50 border-transparent text-slate-400 line-through'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleLabExcluded(lab.id)}
+                                className="w-4 h-4 accent-indigo-700 rounded cursor-pointer shrink-0"
+                              />
+                              <span className="truncate" title={lab.name}>{lab.name}</span>
+                            </label>
+                          );
+                        })}
+                        {filteredLabsForPicker.length === 0 && (
+                          <div className="col-span-full text-center py-4 text-xs text-slate-500">
+                            No se encontró ningún laboratorio con ese nombre.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <label className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={editHideZeroPrice}
+                        onChange={(e) => applyDraftVisibilityRule(editExcludedIds, e.target.checked, true)}
+                        className="w-4 h-4 accent-indigo-700 rounded cursor-pointer shrink-0"
+                      />
+                      <span>Ocultar también productos con precio Q0 (ej. códigos reservados &ldquo;DISPONIBLE&rdquo;)</span>
+                    </label>
+
+                    {catalogLabs.length > 0 && editIncludedCount === 0 && (
+                      <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-bold">
+                        Deja al menos 1 laboratorio visible antes de guardar.
+                      </div>
+                    )}
+
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Vista para <strong>{isEditingGlobalTarget ? 'todos los vendedores (Regla General)' : visibilityEditTarget}</strong>:{' '}
+                      <strong className="text-slate-800 dark:text-slate-200">{editIncludedCount}</strong> de <strong>{catalogLabs.length}</strong> laboratorios visibles
+                      {editExcludedValidCount > 0 && ` (${editExcludedValidCount} ${editExcludedValidCount === 1 ? 'oculto' : 'ocultos'})`}
+                      {editHideZeroPrice && ' · sin productos Q0'}.
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setShowShareFilterModal(false)}
+                  className="px-3.5 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white text-xs font-bold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveVisibilityToCloud}
+                  disabled={savingVisibility || (catalogLabs.length > 0 && editIncludedCount === 0 && (isEditingGlobalTarget || editUsesCustomRule))}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-black shadow-sm cursor-pointer"
+                >
+                  <Save size={14} />
+                  <span>{savingVisibility ? 'Guardando en la nube...' : 'Guardar Cambios en la Nube'}</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

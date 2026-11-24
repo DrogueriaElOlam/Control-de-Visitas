@@ -4,7 +4,11 @@ import { isSuperUser, normalizeText } from './formsPermissions';
 
 const STORAGE_KEY_PHONES = 'olam_tienda_vendor_phones_v1';
 const STORAGE_KEY_SHARE_BASE = 'olam_tienda_share_base_v1';
+const STORAGE_KEY_SHARE_LABS_PREF = 'olam_tienda_share_labs_pref_v1';
+const STORAGE_KEY_VISIBILITY_CONFIG = 'olam_tienda_visibility_config_v1';
 const CLOUD_PHONES_DATE_KEY = '2099-12-22';
+const CLOUD_VISIBILITY_DATE_KEY = '2099-12-21';
+const CLOUD_VISIBILITY_VENDOR_KEY = 'TIENDA_VISIBILITY_CONFIG';
 
 /**
  * Regla estricta de acceso al botón "Administrar" de la Tienda Virtual:
@@ -243,21 +247,202 @@ export function getCatalogBaseUrl() {
   return `${window.location.origin}/tienda/index.html`;
 }
 
+export function getSavedShareFilterPrefs() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_SHARE_LABS_PREF);
+    if (!raw) return { excludedIds: [], hideZeroPrice: false };
+    const parsed = JSON.parse(raw);
+    return {
+      excludedIds: Array.isArray(parsed?.excludedIds) ? parsed.excludedIds.map((x) => String(x)) : [],
+      hideZeroPrice: Boolean(parsed?.hideZeroPrice)
+    };
+  } catch (_) {
+    return { excludedIds: [], hideZeroPrice: false };
+  }
+}
+
+export function saveShareFilterPrefs({ excludedIds = [], hideZeroPrice = false } = {}) {
+  try {
+    const clean = {
+      excludedIds: Array.from(new Set((excludedIds || []).map((x) => String(x)).filter(Boolean))),
+      hideZeroPrice: Boolean(hideZeroPrice)
+    };
+    localStorage.setItem(STORAGE_KEY_SHARE_LABS_PREF, JSON.stringify(clean));
+    return clean;
+  } catch (_) {
+    return { excludedIds: [], hideZeroPrice: false };
+  }
+}
+
+function normalizeVisibilityConfig(raw) {
+  const globalRaw = raw?.global && typeof raw.global === 'object' ? raw.global : {};
+  const perVendorRaw = raw?.perVendor && typeof raw.perVendor === 'object' ? raw.perVendor : {};
+  const perVendor = {};
+
+  Object.entries(perVendorRaw).forEach(([k, val]) => {
+    const cleanKey = normalizeText(k);
+    if (!cleanKey || !val || typeof val !== 'object') return;
+    perVendor[cleanKey] = {
+      useCustom: Boolean(val.useCustom),
+      excludedIds: Array.from(new Set((Array.isArray(val.excludedIds) ? val.excludedIds : []).map((x) => String(x)).filter(Boolean))),
+      hideZeroPrice: Boolean(val.hideZeroPrice)
+    };
+  });
+
+  return {
+    tipo: 'tienda_visibility_config',
+    global: {
+      excludedIds: Array.from(new Set((Array.isArray(globalRaw.excludedIds) ? globalRaw.excludedIds : []).map((x) => String(x)).filter(Boolean))),
+      hideZeroPrice: Boolean(globalRaw.hideZeroPrice)
+    },
+    perVendor,
+    updatedAt: raw?.updatedAt || ''
+  };
+}
+
+export function getStoredVisibilityConfig() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_VISIBILITY_CONFIG);
+    if (!raw) return normalizeVisibilityConfig({});
+    return normalizeVisibilityConfig(JSON.parse(raw));
+  } catch (_) {
+    return normalizeVisibilityConfig({});
+  }
+}
+
+export function resolveVisibilityForVendor(config, vendorName = '') {
+  const normalized = normalizeVisibilityConfig(config || {});
+  const key = getCanonicalPhoneKey(vendorName || '');
+  if (key && normalized.perVendor[key] && normalized.perVendor[key].useCustom) {
+    return {
+      excludedIds: normalized.perVendor[key].excludedIds,
+      hideZeroPrice: normalized.perVendor[key].hideZeroPrice,
+      isCustom: true
+    };
+  }
+  return {
+    excludedIds: normalized.global.excludedIds,
+    hideZeroPrice: normalized.global.hideZeroPrice,
+    isCustom: false
+  };
+}
+
+export async function syncVisibilityConfigFromCloud() {
+  let localCfg = getStoredVisibilityConfig();
+  try {
+    const { data: rows, error } = await supabase
+      .from('daily_supervision_history')
+      .select('id, supervision_data')
+      .eq('date', CLOUD_VISIBILITY_DATE_KEY)
+      .eq('vendor_name', CLOUD_VISIBILITY_VENDOR_KEY)
+      .order('id', { ascending: false })
+      .limit(1);
+
+    if (!error && Array.isArray(rows) && rows.length > 0 && rows[0]?.supervision_data) {
+      const cloudCfg = normalizeVisibilityConfig(rows[0].supervision_data);
+      localCfg = cloudCfg;
+      try {
+        localStorage.setItem(STORAGE_KEY_VISIBILITY_CONFIG, JSON.stringify(cloudCfg));
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return localCfg;
+}
+
+export async function saveVisibilityConfigToCloud(config) {
+  const clean = normalizeVisibilityConfig({
+    ...config,
+    updatedAt: new Date().toISOString()
+  });
+
+  try {
+    localStorage.setItem(STORAGE_KEY_VISIBILITY_CONFIG, JSON.stringify(clean));
+  } catch (_) {}
+
+  const { data: existing, error: selErr } = await supabase
+    .from('daily_supervision_history')
+    .select('id')
+    .eq('date', CLOUD_VISIBILITY_DATE_KEY)
+    .eq('vendor_name', CLOUD_VISIBILITY_VENDOR_KEY)
+    .order('id', { ascending: false })
+    .limit(1);
+
+  if (selErr) {
+    throw new Error(`No se pudo consultar la nube: ${selErr.message}`);
+  }
+
+  if (Array.isArray(existing) && existing.length > 0 && existing[0]?.id) {
+    const { error: updErr } = await supabase
+      .from('daily_supervision_history')
+      .update({ supervision_data: clean })
+      .eq('id', existing[0].id);
+    if (updErr) {
+      throw new Error(`No se pudo actualizar la configuración en Supabase: ${updErr.message}`);
+    }
+  } else {
+    const { error: insErr } = await supabase
+      .from('daily_supervision_history')
+      .insert([{
+        date: CLOUD_VISIBILITY_DATE_KEY,
+        vendor_name: CLOUD_VISIBILITY_VENDOR_KEY,
+        supervision_data: clean
+      }]);
+    if (insErr) {
+      throw new Error(`No se pudo guardar la configuración en Supabase: ${insErr.message}`);
+    }
+  }
+
+  return clean;
+}
+
 /**
  * Genera el enlace público para compartir con clientes.
  * IMPORTANTE: Jamás incluye permisos de administrador.
  * Al abrir este enlace, el botón "Administrar" permanece completamente oculto.
+ * Soporta filtrado opcional de laboratorios (in/ex) y ocultamiento de productos Q0 (nz=1).
  */
-export function buildPublicCatalogUrl({ vendorName = '', vendorPhone = '' } = {}) {
+export function buildPublicCatalogUrl({
+  vendorName = '',
+  vendorPhone = '',
+  allLabIds = [],
+  excludedLabIds = [],
+  hideZeroPrice = false
+} = {}) {
   const base = getCatalogBaseUrl();
   const sep = base.includes('?') ? '&' : '?';
   const cleanName = normalizeVendorName(vendorName || '');
   const cleanPhone = sanitizeWhatsAppPhone(vendorPhone);
+  const parts = [];
 
   if (cleanName && cleanPhone) {
-    return `${base}${sep}vn=${encodeURIComponent(cleanName)}&vp=${encodeURIComponent(cleanPhone)}&cliente=1`;
+    parts.push(`vn=${encodeURIComponent(cleanName)}`);
+    parts.push(`vp=${encodeURIComponent(cleanPhone)}`);
   }
-  return `${base}${sep}cliente=1`;
+  parts.push('cliente=1');
+
+  const allIds = Array.isArray(allLabIds) ? allLabIds.map((id) => String(id)).filter(Boolean) : [];
+  const exSet = new Set((Array.isArray(excludedLabIds) ? excludedLabIds : []).map((id) => String(id)).filter(Boolean));
+  if (allIds.length > 0 && exSet.size > 0) {
+    const includedIds = allIds.filter((id) => !exSet.has(id));
+    if (includedIds.length > 0 && includedIds.length < allIds.length) {
+      if (includedIds.length <= allIds.length / 2) {
+        parts.push(`in=${encodeURIComponent(includedIds.join(','))}`);
+      } else {
+        const excludedValid = allIds.filter((id) => exSet.has(id));
+        if (excludedValid.length > 0) {
+          parts.push(`ex=${encodeURIComponent(excludedValid.join(','))}`);
+        }
+      }
+    }
+  } else if (allIds.length === 0 && exSet.size > 0) {
+    parts.push(`ex=${encodeURIComponent(Array.from(exSet).join(','))}`);
+  }
+
+  if (hideZeroPrice) {
+    parts.push('nz=1');
+  }
+
+  return `${base}${sep}${parts.join('&')}`;
 }
 
 export function buildAllVendorsPayload(vendorsList = []) {
