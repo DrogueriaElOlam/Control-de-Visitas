@@ -1,5 +1,42 @@
 import { supabase } from './supabase';
 
+// Helper de paginación ilimitada para superar el tope por defecto de 1,000 filas de Supabase
+async function fetchAllHistoryRows(tableName, filters = {}) {
+  const allRows = [];
+  const pageSize = 1000;
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase
+      .from(tableName)
+      .select('*')
+      .order('fecha_creacion', { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (filters.fechaInicio) {
+      query = query.gte('fecha_creacion', filters.fechaInicio);
+    }
+    if (filters.fechaFin) {
+      query = query.lte('fecha_creacion', filters.fechaFin);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!Array.isArray(data) || data.length === 0) {
+      hasMore = false;
+      break;
+    }
+    allRows.push(...data);
+    if (data.length < pageSize) {
+      hasMore = false;
+    } else {
+      from += pageSize;
+    }
+  }
+  return allRows;
+}
+
 /**
  * Save Viaticos to history
  */
@@ -175,89 +212,18 @@ export async function getAllHistory(filters = {}) {
       visitas: []
     };
 
-    // Get viaticos history
-    let viaticosQuery = supabase
-      .from('supervision_viaticos_history')
-      .select('*')
-      .order('fecha_creacion', { ascending: false });
+    const [viaticosData, comisionesData, recibosData, evaluacionesData, visitasData] = await Promise.all([
+      fetchAllHistoryRows('supervision_viaticos_history', filters),
+      fetchAllHistoryRows('supervision_comisiones_history', filters),
+      fetchAllHistoryRows('supervision_recibos_history', filters),
+      fetchAllHistoryRows('supervision_evaluaciones_history', filters),
+      fetchAllHistoryRows('supervision_visitas_history', filters)
+    ]);
 
-    if (filters.fechaInicio) {
-      viaticosQuery = viaticosQuery.gte('fecha_creacion', filters.fechaInicio);
-    }
-    if (filters.fechaFin) {
-      viaticosQuery = viaticosQuery.lte('fecha_creacion', filters.fechaFin);
-    }
-
-    const { data: viaticosData, error: viaticosError } = await viaticosQuery;
-    if (viaticosError) throw viaticosError;
     results.viaticos = viaticosData || [];
-
-    // Get comisiones history
-    let comisionesQuery = supabase
-      .from('supervision_comisiones_history')
-      .select('*')
-      .order('fecha_creacion', { ascending: false });
-
-    if (filters.fechaInicio) {
-      comisionesQuery = comisionesQuery.gte('fecha_creacion', filters.fechaInicio);
-    }
-    if (filters.fechaFin) {
-      comisionesQuery = comisionesQuery.lte('fecha_creacion', filters.fechaFin);
-    }
-
-    const { data: comisionesData, error: comisionesError } = await comisionesQuery;
-    if (comisionesError) throw comisionesError;
     results.comisiones = comisionesData || [];
-
-    // Get recibos history
-    let recibosQuery = supabase
-      .from('supervision_recibos_history')
-      .select('*')
-      .order('fecha_creacion', { ascending: false });
-
-    if (filters.fechaInicio) {
-      recibosQuery = recibosQuery.gte('fecha_creacion', filters.fechaInicio);
-    }
-    if (filters.fechaFin) {
-      recibosQuery = recibosQuery.lte('fecha_creacion', filters.fechaFin);
-    }
-
-    const { data: recibosData, error: recibosError } = await recibosQuery;
-    if (recibosError) throw recibosError;
     results.recibos = recibosData || [];
-
-    // Get evaluaciones history
-    let evaluacionesQuery = supabase
-      .from('supervision_evaluaciones_history')
-      .select('*')
-      .order('fecha_creacion', { ascending: false });
-
-    if (filters.fechaInicio) {
-      evaluacionesQuery = evaluacionesQuery.gte('fecha_creacion', filters.fechaInicio);
-    }
-    if (filters.fechaFin) {
-      evaluacionesQuery = evaluacionesQuery.lte('fecha_creacion', filters.fechaFin);
-    }
-
-    const { data: evaluacionesData, error: evaluacionesError } = await evaluacionesQuery;
-    if (evaluacionesError) throw evaluacionesError;
     results.evaluaciones = evaluacionesData || [];
-
-    // Get visitas history
-    let visitasQuery = supabase
-      .from('supervision_visitas_history')
-      .select('*')
-      .order('fecha_creacion', { ascending: false });
-
-    if (filters.fechaInicio) {
-      visitasQuery = visitasQuery.gte('fecha_creacion', filters.fechaInicio);
-    }
-    if (filters.fechaFin) {
-      visitasQuery = visitasQuery.lte('fecha_creacion', filters.fechaFin);
-    }
-
-    const { data: visitasData, error: visitasError } = await visitasQuery;
-    if (visitasError) throw visitasError;
     results.visitas = visitasData || [];
 
     console.log('Historial obtenido:', {

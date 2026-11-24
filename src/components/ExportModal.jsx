@@ -30,17 +30,19 @@ export default function ExportModal({ visits = [], vendors = [] }) {
 
   // Filtered dataset for export
   const getExportData = () => {
+    const normVendor = (str) => String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
     return visits.filter(v => {
-      if (vendorFilter !== 'all' && v.vendorName !== vendorFilter) return false;
+      const vDate = String(v.visitDate || '').trim().slice(0, 10);
+      if (vendorFilter !== 'all' && normVendor(v.vendorName) !== normVendor(vendorFilter)) return false;
 
-      if (dateFilter === 'today' && v.visitDate !== todayStr) return false;
+      if (dateFilter === 'today' && vDate !== todayStr) return false;
       if (dateFilter === 'this_month') {
-        const vDate = new Date(v.visitDate);
-        const now = new Date();
-        if (vDate.getMonth() !== now.getMonth() || vDate.getFullYear() !== now.getFullYear()) return false;
+        if (!vDate || vDate.slice(0, 7) !== todayStr.slice(0, 7)) return false;
       }
-      if (dateFilter === 'custom' && startDate && endDate) {
-        if (v.visitDate < startDate || v.visitDate > endDate) return false;
+      if (dateFilter === 'custom' && (startDate || endDate)) {
+        if (!vDate) return false;
+        if (startDate && vDate < startDate) return false;
+        if (endDate && vDate > endDate) return false;
       }
       return true;
     });

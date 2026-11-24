@@ -119,11 +119,38 @@ export default function VisitsListAndFilters({
   const [editSecondaryPhone, setEditSecondaryPhone] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const [statusNotification, setStatusNotification] = useState('');
+  const [visibleLimit, setVisibleLimit] = useState(150);
+
+  // Reiniciar límite visual al cambiar cualquier filtro (las estadísticas y exportaciones SIEMPRE usan el 100%)
+  useEffect(() => {
+    setVisibleLimit(150);
+  }, [searchTerm, vendorFilter, dateFilter, startDate, endDate, typeFilter, onlyLateFilter, viewMode]);
 
   // Always deduplicate visits strictly to prevent duplicate records
   const cleanVisits = useMemo(() => {
     return deduplicateVisitsList(visits);
   }, [visits]);
+
+  // Fecha más antigua disponible en el historial cargado (para confirmar alcance total)
+  const oldestVisitDate = useMemo(() => {
+    let minDate = '';
+    for (const v of cleanVisits) {
+      const d = String(v.visitDate || '').trim().slice(0, 10);
+      if (d && d.length === 10 && (!minDate || d < minDate)) {
+        minDate = d;
+      }
+    }
+    return minDate;
+  }, [cleanVisits]);
+
+  // Helper uniforme para evaluar filtro de fecha personalizado (soporta Desde, Hasta o ambos)
+  const matchesCustomRange = (visitDateRaw, sDate, eDate) => {
+    const vDate = String(visitDateRaw || '').trim().slice(0, 10);
+    if (!vDate) return false;
+    if (sDate && vDate < sDate) return false;
+    if (eDate && vDate > eDate) return false;
+    return true;
+  };
 
   // List of unique vendors in visits
   const uniqueVendors = useMemo(() => {
@@ -147,17 +174,17 @@ export default function VisitsListAndFilters({
   const newClientsInScopeCount = useMemo(() => {
     let list = cleanVisits;
     if (isSuper && vendorFilter !== 'all') {
-      list = list.filter(v => v.vendorName === vendorFilter);
+      list = list.filter(v => normalizeText(v.vendorName) === normalizeText(vendorFilter));
     } else if (!isSuper && currentUser?.name) {
-      list = list.filter(v => v.vendorName === currentUser.name);
+      list = list.filter(v => normalizeText(v.vendorName) === normalizeText(currentUser.name));
     }
     if (viewMode === 'today') {
-      list = list.filter(v => v.visitDate === todayStr);
+      list = list.filter(v => String(v.visitDate || '').trim().slice(0, 10) === todayStr);
     } else {
       if (dateFilter === 'yesterday') {
-        list = list.filter(v => v.visitDate === yesterdayStr);
-      } else if (dateFilter === 'custom' && startDate && endDate) {
-        list = list.filter(v => v.visitDate >= startDate && v.visitDate <= endDate);
+        list = list.filter(v => String(v.visitDate || '').trim().slice(0, 10) === yesterdayStr);
+      } else if (dateFilter === 'custom' && (startDate || endDate)) {
+        list = list.filter(v => matchesCustomRange(v.visitDate, startDate, endDate));
       }
     }
     return list.filter(v => {
@@ -172,9 +199,9 @@ export default function VisitsListAndFilters({
 
     // Filtro por Vendedor
     if (isSuper && vendorFilter !== 'all') {
-      targetVisits = targetVisits.filter(v => v.vendorName === vendorFilter);
+      targetVisits = targetVisits.filter(v => normalizeText(v.vendorName) === normalizeText(vendorFilter));
     } else if (!isSuper && currentUser?.name) {
-      targetVisits = targetVisits.filter(v => v.vendorName === currentUser.name);
+      targetVisits = targetVisits.filter(v => normalizeText(v.vendorName) === normalizeText(currentUser.name));
     }
 
     // Filtro por Fechas
@@ -182,18 +209,18 @@ export default function VisitsListAndFilters({
     let fileSuffix = null;
 
     if (viewMode === 'today') {
-      targetVisits = targetVisits.filter(v => v.visitDate === todayStr);
+      targetVisits = targetVisits.filter(v => String(v.visitDate || '').trim().slice(0, 10) === todayStr);
       dateRangeText = `Hoy (${todayStr})`;
       fileSuffix = `Hoy_${todayStr}`;
     } else {
       if (dateFilter === 'yesterday') {
-        targetVisits = targetVisits.filter(v => v.visitDate === yesterdayStr);
+        targetVisits = targetVisits.filter(v => String(v.visitDate || '').trim().slice(0, 10) === yesterdayStr);
         dateRangeText = `Ayer (${yesterdayStr})`;
         fileSuffix = `Ayer_${yesterdayStr}`;
-      } else if (dateFilter === 'custom' && startDate && endDate) {
-        targetVisits = targetVisits.filter(v => v.visitDate >= startDate && v.visitDate <= endDate);
-        dateRangeText = `${startDate}_al_${endDate}`;
-        fileSuffix = `${startDate}_al_${endDate}`;
+      } else if (dateFilter === 'custom' && (startDate || endDate)) {
+        targetVisits = targetVisits.filter(v => matchesCustomRange(v.visitDate, startDate, endDate));
+        dateRangeText = `${startDate || 'Inicio'}_al_${endDate || 'Hoy'}`;
+        fileSuffix = `${startDate || 'Inicio'}_al_${endDate || 'Hoy'}`;
       }
     }
 
@@ -277,11 +304,13 @@ export default function VisitsListAndFilters({
   // Filtered visits
   const filtered = useMemo(() => {
     return cleanVisits.filter(v => {
+      const vDate = String(v.visitDate || '').trim().slice(0, 10);
+
       // Vendor filter: Administradores y Supervisor (Antonio Celada) pueden ver todos o filtrar por vendedor
-      if (isSuper && vendorFilter !== 'all' && v.vendorName !== vendorFilter) {
+      if (isSuper && vendorFilter !== 'all' && normalizeText(v.vendorName) !== normalizeText(vendorFilter)) {
         return false;
       }
-      if (!isSuper && v.vendorName !== currentUser?.name) {
+      if (!isSuper && normalizeText(v.vendorName) !== normalizeText(currentUser?.name)) {
         return false;
       }
 
@@ -294,12 +323,12 @@ export default function VisitsListAndFilters({
       // View mode filter:
       if (viewMode === 'today') {
         // Today view strictly shows today's records
-        if (v.visitDate !== todayStr) return false;
+        if (vDate !== todayStr) return false;
       } else {
         // History view applies selected date filters
-        if (dateFilter === 'yesterday' && v.visitDate !== yesterdayStr) return false;
-        if (dateFilter === 'custom' && startDate && endDate) {
-          if (v.visitDate < startDate || v.visitDate > endDate) return false;
+        if (dateFilter === 'yesterday' && vDate !== yesterdayStr) return false;
+        if (dateFilter === 'custom' && (startDate || endDate)) {
+          if (!matchesCustomRange(vDate, startDate, endDate)) return false;
         }
       }
 
@@ -790,16 +819,36 @@ export default function VisitsListAndFilters({
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
           
           {/* Header of the table card */}
-          <div className="p-4 sm:p-5 bg-slate-50/70 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-            <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
-              <Database size={16} className="text-blue-600 dark:text-blue-400" />
-              <span>
-                {viewMode === 'today' ? 'Visitas Registradas Hoy (Día en Curso)' : 'Registros del Historial'} ({filtered.length})
+          <div className="p-4 sm:p-5 bg-slate-50/70 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                <Database size={16} className="text-blue-600 dark:text-blue-400" />
+                <span>
+                  {viewMode === 'today' ? 'Visitas Registradas Hoy (Día en Curso)' : 'Registros del Historial'} ({filtered.length.toLocaleString('es-GT')})
+                </span>
+              </h3>
+              {viewMode !== 'today' && oldestVisitDate && (
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold mt-0.5">
+                  Historial completo sincronizado: {cleanVisits.length.toLocaleString('es-GT')} visitas disponibles desde {oldestVisitDate}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {onVisitsChange && (
+                <button
+                  type="button"
+                  onClick={() => onVisitsChange()}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[11px] font-bold transition-all cursor-pointer"
+                  title="Sincronizar nuevamente el historial completo desde Supabase"
+                >
+                  <RotateCcw size={12} />
+                  <span>Recargar Nube</span>
+                </button>
+              )}
+              <span className="text-[11px] text-slate-400 italic hidden lg:inline">
+                * Presiona "Modificar" en cualquier registro para corregir Venta, Cobro u Observaciones.
               </span>
-            </h3>
-            <span className="text-[11px] text-slate-400 italic hidden sm:inline">
-              * Presiona "Modificar" en cualquier registro para corregir Venta, Cobro u Observaciones.
-            </span>
+            </div>
           </div>
 
           {/* MOBILE CARD VIEW (< md) */}
@@ -809,7 +858,7 @@ export default function VisitsListAndFilters({
                 No hay visitas que coincidan con la búsqueda.
               </div>
             ) : (
-              filtered.map(visit => {
+              filtered.slice(0, visibleLimit).map(visit => {
                 const hasGps = visit.location && visit.location.lat && visit.location.lng;
                 const hasSaleVal = visit.hasSale || Number(visit.saleAmount) > 0;
                 const hasCollVal = visit.hasCollection || Number(visit.collectionAmount) > 0;
@@ -1024,7 +1073,7 @@ export default function VisitsListAndFilters({
                     </td>
                   </tr>
                 ) : (
-                  filtered.map(visit => {
+                  filtered.slice(0, visibleLimit).map(visit => {
                     const hasGps = visit.location && visit.location.lat && visit.location.lng;
                     const lateInfo = getVisitLateStatus(visit);
 
@@ -1195,6 +1244,29 @@ export default function VisitsListAndFilters({
               </tbody>
             </table>
           </div>
+
+          {/* Barra de carga progresiva cuando hay muchos registros (mantiene la app ultrarrápida; totales y Excel siempre usan el 100%) */}
+          {filtered.length > visibleLimit && (
+            <div className="p-4 bg-slate-50/90 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-center gap-3">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Mostrando {visibleLimit.toLocaleString('es-GT')} de {filtered.length.toLocaleString('es-GT')} registros filtrados
+              </span>
+              <button
+                type="button"
+                onClick={() => setVisibleLimit(prev => prev + 200)}
+                className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+              >
+                Cargar 200 más
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisibleLimit(filtered.length)}
+                className="px-4 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-xs font-bold transition-all cursor-pointer"
+              >
+                Ver todos ({filtered.length.toLocaleString('es-GT')})
+              </button>
+            </div>
+          )}
 
         </div>
       )}
