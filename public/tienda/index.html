@@ -1,10 +1,26 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>DROGUERÍA EL OLAM</title>
+    <title>DROGUERÍA EL OLAM — Tienda Virtual y Catálogo</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" type="image/jpeg" href="logo.jpg">
+    <meta name="description" content="Tienda Virtual y Catálogo oficial de Droguería El Olam. 7ma Avenida &quot;A&quot; 17-67 Zona 13, Colonia Aurora 1, Ciudad de Guatemala.">
+    <meta property="og:site_name" content="Droguería El Olam">
+    <meta property="og:title" content="DROGUERÍA EL OLAM — Tienda Virtual y Catálogo">
+    <meta property="og:description" content="Consulta nuestro catálogo virtual de productos y realiza tus pedidos en línea fácilmente. 7ma Avenida &quot;A&quot; 17-67 Zona 13, Colonia Aurora 1, Ciudad de Guatemala.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://control-de-visitas-pi.vercel.app/tienda/index.html">
+    <meta property="og:image" content="https://control-de-visitas-pi.vercel.app/tienda/og-logo.jpg">
+    <meta property="og:image:secure_url" content="https://control-de-visitas-pi.vercel.app/tienda/og-logo.jpg">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Logotipo oficial Droguería El Olam">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="DROGUERÍA EL OLAM — Tienda Virtual y Catálogo">
+    <meta name="twitter:description" content="Consulta nuestro catálogo virtual de productos y realiza tus pedidos en línea fácilmente.">
+    <meta name="twitter:image" content="https://control-de-visitas-pi.vercel.app/tienda/og-logo.jpg">
+    <link rel="icon" type="image/jpeg" href="logo-completo.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
@@ -66,12 +82,24 @@
         }
 
         .brand img {
-            width: 44px;
-            height: 44px;
-            border-radius: 8px;
-            object-fit: cover;
-            background: #fff;
-            border: 1px solid rgba(255,255,255,0.25);
+            height: 52px;
+            width: auto;
+            max-width: 195px;
+            border-radius: 10px;
+            object-fit: contain;
+            background: #000000;
+            padding: 3px 8px;
+            border: 1px solid rgba(255,255,255,0.28);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            display: block;
+        }
+
+        @media (max-width: 600px) {
+            .brand img {
+                height: 42px;
+                max-width: 155px;
+                padding: 2px 6px;
+            }
         }
 
         .brand-title {
@@ -1243,6 +1271,74 @@
 
         .footer-contact a:hover { color: #fff; text-decoration: underline; }
 
+        .footer-address {
+            font-size: 13px;
+            color: #dbeafe;
+            margin: 2px 0 10px;
+            line-height: 1.45;
+        }
+
+        .footer-visit-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 0 0 16px;
+        }
+
+        .footer-visit-label {
+            font-size: 13px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-waze {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 14px;
+            border-radius: 999px;
+            background: #33ccff;
+            color: #0f172a !important;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none !important;
+            box-shadow: 0 3px 10px rgba(51, 204, 255, 0.35);
+            transition: transform 0.15s, background 0.15s;
+        }
+
+        .btn-waze:hover {
+            background: #5ce1ff;
+            transform: translateY(-1px);
+        }
+
+        .btn-waze svg {
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        .seller-banner-wa {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #ffffff !important;
+            background: #16a34a;
+            padding: 5px 12px;
+            border-radius: 999px;
+            text-decoration: none !important;
+            font-size: 12px;
+            font-weight: 600;
+            box-shadow: 0 1px 4px rgba(22, 163, 74, 0.25);
+            transition: background 0.15s;
+        }
+
+        .seller-banner-wa:hover {
+            background: #15803d;
+        }
+
         .footer-copy {
             border-top: 1px solid rgba(255, 255, 255, 0.14);
             padding-top: 14px;
@@ -1266,7 +1362,7 @@
     <header class="topbar">
         <div class="topbar-inner">
             <div class="brand">
-                <img id="hdrLogo" src="logo.jpg" alt="Logo" onerror="this.style.display='none'">
+                <img id="hdrLogo" src="logo-completo.jpg" alt="Droguería El Olam" onerror="this.onerror=null;this.src='logo.jpg'">
                 <h1 id="hdrTitle" class="brand-title">DROGUERÍA EL OLAM</h1>
             </div>
 
@@ -1333,8 +1429,8 @@
     <div id="sellerBanner" class="seller-banner">
         <div class="seller-banner-inner">
             <span><i class="fa fa-user-circle"></i> <span id="sellerBannerText">Atendido por: —</span></span>
-            <a id="sellerBannerWa" href="#" target="_blank" rel="noopener" style="color:#047857;text-decoration:none;font-size:12px;">
-                <i class="fa fa-whatsapp"></i> Contactar a tu asesor
+            <a id="sellerBannerWa" href="#" target="_blank" rel="noopener" class="seller-banner-wa">
+                <i class="fa fa-whatsapp" style="font-size:15px;"></i> Si tienes dudas o necesitas apoyo para realizar tu pedido, contacta a tu asesor
             </a>
         </div>
     </div>
@@ -1343,7 +1439,7 @@
     <section class="toolbar">
         <div class="toolbar-group">
             <label class="ctrl-label">
-                Categoría:
+                Laboratorio:
                 <select id="catSelect" class="ctrl-select"></select>
             </label>
             <label class="ctrl-label">
@@ -1374,6 +1470,29 @@
     <footer class="site-footer">
         <div class="footer-inner">
             <p id="footerBrand" class="footer-brand">DROGUERÍA EL OLAM</p>
+            <p class="footer-address">
+                <i class="fa fa-map-marker"></i> 7ma Avenida &ldquo;A&rdquo; 17-67 Zona 13, Colonia Aurora 1, Ciudad de Guatemala
+            </p>
+            <div class="footer-visit-row">
+                <span class="footer-visit-label">Visítanos</span>
+                <a
+                    class="btn-waze"
+                    href="https://waze.com/ul?q=7a%20Avenida%20A%2017-67%20Zona%2013%20Colonia%20Aurora%201%20Ciudad%20de%20Guatemala&ll=14.582259,-90.533955&navigate=yes"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Abrir ruta hacia Droguería El Olam en Waze"
+                >
+                    <svg viewBox="0 0 64 64" aria-hidden="true">
+                        <path fill="#ffffff" stroke="#0f172a" stroke-width="3.2" stroke-linejoin="round" d="M33.5 11C19.5 11 10 20.5 10 32.5c0 4.8 1.5 9.2 4.1 12.6-.3 1.7-1.6 3.5-3.4 4.1-1 .3-.9 1.8.2 2 4.3.9 8.1.3 11.4-1.3 3.2 1.2 6.8 1.8 10.7 1.8 14.3 0 24.5-9.5 24.5-21.5C57.5 19.3 47.4 11 33.5 11z"/>
+                        <circle cx="23.5" cy="51.5" r="5.2" fill="#0f172a"/>
+                        <circle cx="43.5" cy="51.5" r="5.2" fill="#0f172a"/>
+                        <circle cx="27" cy="28" r="2.7" fill="#0f172a"/>
+                        <circle cx="40.5" cy="28" r="2.7" fill="#0f172a"/>
+                        <path fill="none" stroke="#0f172a" stroke-width="3" stroke-linecap="round" d="M26 36.2c2.2 3.3 5.2 4.8 8.3 4.8 3.2 0 6-1.5 8-4.8"/>
+                    </svg>
+                    <span>Llegar con Waze</span>
+                </a>
+            </div>
             <div id="footerContact" class="footer-contact"></div>
             <div id="footerCopy" class="footer-copy">
                 &copy; 2026 DROGUERÍA EL OLAM. Todos los derechos reservados.
@@ -1955,7 +2074,7 @@
                 sel.innerHTML = '';
                 var allOpt = document.createElement('option');
                 allOpt.value = '';
-                allOpt.textContent = 'Todas las categorías (' + (data.itm || []).length + ')';
+                allOpt.textContent = 'Todos los laboratorios';
                 sel.appendChild(allOpt);
 
                 var editSel = $('fCategoria');
@@ -1964,7 +2083,7 @@
                 sortedCtgs.forEach(function (c) {
                     var opt = document.createElement('option');
                     opt.value = String(c.i);
-                    opt.textContent = c.n + ' (' + (counts[String(c.i)] || 0) + ')';
+                    opt.textContent = c.n;
                     sel.appendChild(opt);
 
                     var opt2 = document.createElement('option');
@@ -2069,8 +2188,8 @@
                 var token = ++state.renderToken;
 
                 $('resultsInfo').textContent = items.length === total
-                    ? 'Mostrando ' + items.length.toLocaleString('es-GT') + ' productos (todos en una sola vista)'
-                    : 'Mostrando ' + items.length.toLocaleString('es-GT') + ' de ' + total.toLocaleString('es-GT') + ' productos';
+                    ? 'Mostrando todos los productos'
+                    : 'Mostrando productos filtrados';
 
                 grid.innerHTML = '';
 
@@ -2079,7 +2198,7 @@
                         '<div class="empty-state">' +
                             '<i class="fa fa-search"></i>' +
                             '<h3>No se encontraron productos</h3>' +
-                            '<p>Intenta con otro término de búsqueda o cambia la categoría.</p>' +
+                            '<p>Intenta con otro término de búsqueda o cambia el laboratorio.</p>' +
                         '</div>';
                     return;
                 }

@@ -788,6 +788,12 @@
       - **Limpieza Automática al Exportar (`sanitizeForMiNegocio`):** Al generar el pedido en el carrito y al copiar/reenviar desde el Historial, se limpian automáticamente cualquier `*`, `**`, `->` o `:` dentro del nombre del cliente y de las descripciones de productos, conservando intactos el `*` inicial de cada línea, el ` -> `, la `:clave` final y el cierre `\nTotal estimado: Q...`.
   101. **Etiqueta "Código" Sobre el Número en Tarjetas de Producto de la Tienda Virtual (`public/tienda/index.html`):**
       - Actualizada la insignia `.card-code-badge` en la esquina superior izquierda de cada producto para mostrar en dos líneas limpias la etiqueta **`Código`** arriba (`.card-code-label`) y el número de código justo debajo (`.card-code-num`).
+  102. **Identidad Visual Completa, Open Graph WhatsApp, Laboratorio, Apoyo de Asesor y Ruta Waze en Tienda Virtual (`public/tienda/index.html`, `public/tienda/logo-completo.jpg`, `public/tienda/og-logo.jpg`):**
+      - **Vista Previa WhatsApp (Open Graph):** Generada imagen optimizada `1200×630` (`og-logo.jpg`) y agregadas etiquetas `og:image`, `og:title`, `og:description` y `twitter:card` para que al compartir el link por WhatsApp aparezca el logotipo oficial de Droguería El Olam.
+      - **Logotipo Completo en Cabecera Superior Izquierda:** Integrado `logo-completo.jpg` con `object-fit: contain` y proporción íntegra (`height: 52px`, sin recortar a cuadrado).
+      - **Ocultamiento de Cantidad de Productos y Cambio a "Laboratorio":** Retirados los conteos numéricos de productos tanto en la barra superior (`Mostrando todos los productos` / `Mostrando productos filtrados`) como en el desplegable (`Laboratorio:` -> `Todos los laboratorios`).
+      - **Mensaje de Apoyo del Asesor:** Actualizado el banner de asesor a **`Si tienes dudas o necesitas apoyo para realizar tu pedido, contacta a tu asesor`** en botón verde destacado de WhatsApp.
+      - **Dirección Oficial y Ruta Waze en Pie de Página:** Debajo de **DROGUERÍA EL OLAM** se agregó `7ma Avenida "A" 17-67 Zona 13, Colonia Aurora 1, Ciudad de Guatemala`, seguido de la línea **`Visítanos`** con ícono oficial SVG de **Waze** y enlace directo de navegación (`waze.com/ul?...&navigate=yes`).
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
