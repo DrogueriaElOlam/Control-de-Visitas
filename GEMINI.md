@@ -786,6 +786,8 @@
   100. **Saneamiento Automático de Asteriscos (`*` / `**`) para Compatibilidad con MiNegocio (`public/tienda/index.html`, `TiendaVirtualModal.jsx`):**
       - **Problema Resuelto sin Tocar SAE ni Desarmar MiNegocio:** 8 productos del catálogo de SAE contienen `*` o `**` en su descripción (`1946`, `1214`, `1553`, `2799`, `853`, `1059`, `2046`, `1075`), lo que rompía el separador `*` de la app **MiNegocio**.
       - **Limpieza Automática al Exportar (`sanitizeForMiNegocio`):** Al generar el pedido en el carrito y al copiar/reenviar desde el Historial, se limpian automáticamente cualquier `*`, `**`, `->` o `:` dentro del nombre del cliente y de las descripciones de productos, conservando intactos el `*` inicial de cada línea, el ` -> `, la `:clave` final y el cierre `\nTotal estimado: Q...`.
+  101. **Etiqueta "Código" Sobre el Número en Tarjetas de Producto de la Tienda Virtual (`public/tienda/index.html`):**
+      - Actualizada la insignia `.card-code-badge` en la esquina superior izquierda de cada producto para mostrar en dos líneas limpias la etiqueta **`Código`** arriba (`.card-code-label`) y el número de código justo debajo (`.card-code-num`).
 
 ## 5. Regla Fundamental de Separación de Proyectos
 - **Droguería El Olam** es un proyecto empresarial e institucional completamente independiente.
