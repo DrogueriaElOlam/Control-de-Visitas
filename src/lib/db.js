@@ -1352,10 +1352,7 @@ export function saveSession(session) {
   };
   localStorage.setItem(STORAGE_KEYS.AUTH, JSON.stringify(secureSession));
 
-  // Registrar sesión activa en la nube para continuidad multi-dispositivo
-  registerCloudActiveSession(secureSession).catch(() => {});
-
-  // Registrar conexión oficial del vendedor en Supabase
+  // Registrar conexión oficial del vendedor en Supabase (sin exponer sesiones abiertas sin clave)
   if (secureSession.role === 'vendor' || (secureSession.name && secureSession.name !== 'Administrador')) {
     recordVendorLoginSession(secureSession, { force: true }).catch(() => {});
   }
