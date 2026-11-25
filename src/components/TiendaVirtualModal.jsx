@@ -26,7 +26,8 @@ import {
   Package,
   MessageCircle,
   Filter,
-  EyeOff
+  EyeOff,
+  DollarSign
 } from 'lucide-react';
 import { DEFAULT_VENDORS, normalizeVendorName } from '../lib/db';
 import {
@@ -96,6 +97,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
   const [visibilityConfig, setVisibilityConfig] = useState(() => getStoredVisibilityConfig());
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [showShareFilterModal, setShowShareFilterModal] = useState(false);
+  const [visibilityModalTab, setVisibilityModalTab] = useState('prices'); // 'prices' | 'labs'
   const [visibilityEditTarget, setVisibilityEditTarget] = useState('__global__'); // '__global__' | nombre del vendedor
   const [labFilterSearch, setLabFilterSearch] = useState('');
 
@@ -253,7 +255,8 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
           ? {
               excludedIds: activeEffectiveVisibility.excludedIds,
               hideZeroPrice: activeEffectiveVisibility.hideZeroPrice,
-              hideDisponibleCodes: activeEffectiveVisibility.hideDisponibleCodes
+              hideDisponibleCodes: activeEffectiveVisibility.hideDisponibleCodes,
+              hidePrices: activeEffectiveVisibility.hidePrices
             }
           : null,
         // Para Admin/Supervisor: sincroniza la preferencia del enlace que genere desde dentro de la tienda
@@ -261,7 +264,8 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
           ? {
               excludedIds: activeEffectiveVisibility.excludedIds,
               hideZeroPrice: activeEffectiveVisibility.hideZeroPrice,
-              hideDisponibleCodes: activeEffectiveVisibility.hideDisponibleCodes
+              hideDisponibleCodes: activeEffectiveVisibility.hideDisponibleCodes,
+              hidePrices: activeEffectiveVisibility.hidePrices
             }
           : null
       },
@@ -304,13 +308,15 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
         const nextEx = Array.isArray(msg.excludedIds) ? msg.excludedIds.map((x) => String(x)) : [];
         const nextNz = Boolean(msg.hideZeroPrice);
         const nextNd = Boolean(msg.hideDisponibleCodes);
+        const nextNp = Boolean(msg.hidePrices);
         setVisibilityConfig((prev) => {
           const nextCfg = {
             ...prev,
             global: {
               excludedIds: nextEx,
               hideZeroPrice: nextNz,
-              hideDisponibleCodes: nextNd
+              hideDisponibleCodes: nextNd,
+              hidePrices: nextNp
             }
           };
           saveVisibilityConfigToCloud(nextCfg).catch(() => {});
@@ -427,15 +433,22 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
       if (isEditingGlobalTarget) {
         return {
           ...prev,
-          global: { excludedIds: cleanEx, hideZeroPrice: cleanNz, hideDisponibleCodes: cleanNd }
+          global: {
+            ...(prev.global || {}),
+            excludedIds: cleanEx,
+            hideZeroPrice: cleanNz,
+            hideDisponibleCodes: cleanNd
+          }
         };
       }
       if (!editVendorKey) return prev;
+      const existingVendor = prev.perVendor?.[editVendorKey] || {};
       return {
         ...prev,
         perVendor: {
           ...(prev.perVendor || {}),
           [editVendorKey]: {
+            ...existingVendor,
             useCustom: Boolean(forceUseCustom),
             excludedIds: cleanEx,
             hideZeroPrice: cleanNz,
@@ -449,12 +462,13 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
   const handleToggleVendorCustomMode = (enableCustom) => {
     if (isEditingGlobalTarget || !editVendorKey) return;
     setVisibilityConfig((prev) => {
-      const existing = prev.perVendor?.[editVendorKey];
+      const existing = prev.perVendor?.[editVendorKey] || {};
       return {
         ...prev,
         perVendor: {
           ...(prev.perVendor || {}),
           [editVendorKey]: {
+            ...existing,
             useCustom: Boolean(enableCustom),
             excludedIds: existing?.excludedIds || prev.global?.excludedIds || [],
             hideZeroPrice: existing?.hideZeroPrice != null ? Boolean(existing.hideZeroPrice) : Boolean(prev.global?.hideZeroPrice),
@@ -464,6 +478,78 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
       };
     });
   };
+
+  // Control rápido de precios: global (todos) o por vendedor individual
+  const handleSetAllPricesVisibility = (shouldHideAll) => {
+    setVisibilityConfig((prev) => {
+      const nextPerVendor = {};
+      Object.entries(prev.perVendor || {}).forEach(([k, val]) => {
+        nextPerVendor[k] = {
+          ...(val || {}),
+          priceMode: 'inherit'
+        };
+      });
+      return {
+        ...prev,
+        global: {
+          ...(prev.global || {}),
+          hidePrices: Boolean(shouldHideAll)
+        },
+        perVendor: nextPerVendor
+      };
+    });
+  };
+
+  const handleToggleGlobalCatalogPriceVisibility = (shouldHide) => {
+    setVisibilityConfig((prev) => ({
+      ...prev,
+      global: {
+        ...(prev.global || {}),
+        hidePrices: Boolean(shouldHide)
+      }
+    }));
+  };
+
+  const handleToggleSingleVendorPriceVisibility = (vendorName, shouldShowPrice) => {
+    const key = getCanonicalPhoneKey(vendorName || '');
+    if (!key) return;
+    setVisibilityConfig((prev) => {
+      const existing = prev.perVendor?.[key] || {};
+      return {
+        ...prev,
+        perVendor: {
+          ...(prev.perVendor || {}),
+          [key]: {
+            useCustom: Boolean(existing.useCustom),
+            excludedIds: Array.isArray(existing.excludedIds) ? existing.excludedIds : (prev.global?.excludedIds || []),
+            hideZeroPrice: existing.hideZeroPrice != null ? Boolean(existing.hideZeroPrice) : Boolean(prev.global?.hideZeroPrice),
+            hideDisponibleCodes: existing.hideDisponibleCodes != null ? Boolean(existing.hideDisponibleCodes) : Boolean(prev.global?.hideDisponibleCodes),
+            priceMode: shouldShowPrice ? 'show' : 'hide'
+          }
+        }
+      };
+    });
+  };
+
+  const pricesSummaryStats = useMemo(() => {
+    const total = availableVendors.length;
+    let visibleCount = 0;
+    let hiddenCount = 0;
+    availableVendors.forEach((v) => {
+      const resolved = resolveVisibilityForVendor(visibilityConfig, v.name);
+      if (resolved.hidePrices) hiddenCount++;
+      else visibleCount++;
+    });
+    const globalHidden = Boolean(visibilityConfig.global?.hidePrices);
+    return { total, visibleCount, hiddenCount, globalHidden };
+  }, [availableVendors, visibilityConfig]);
+
+  const pricesButtonBadgeText = useMemo(() => {
+    if (pricesSummaryStats.total === 0) return pricesSummaryStats.globalHidden ? 'Ocultos' : 'Visibles';
+    if (pricesSummaryStats.hiddenCount === pricesSummaryStats.total && pricesSummaryStats.globalHidden) return 'Ocultos';
+    if (pricesSummaryStats.hiddenCount === 0 && !pricesSummaryStats.globalHidden) return 'Visibles';
+    return `${pricesSummaryStats.visibleCount}/${pricesSummaryStats.total} ven`;
+  }, [pricesSummaryStats]);
 
   const toggleLabExcluded = (labId) => {
     if (!isEditingGlobalTarget && !editUsesCustomRule) return;
@@ -536,7 +622,8 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
     allLabIds,
     excludedLabIds: activeEffectiveVisibility.excludedIds || [],
     hideZeroPrice: Boolean(activeEffectiveVisibility.hideZeroPrice),
-    hideDisponibleCodes: Boolean(activeEffectiveVisibility.hideDisponibleCodes)
+    hideDisponibleCodes: Boolean(activeEffectiveVisibility.hideDisponibleCodes),
+    hidePrices: Boolean(activeEffectiveVisibility.hidePrices)
   });
 
   const handleSavePhone = async (e) => {
@@ -789,8 +876,35 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                 <button
                   type="button"
                   onClick={() => {
+                    setVisibilityModalTab('prices');
+                    setShowShareFilterModal(true);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border shadow-sm ${
+                    pricesSummaryStats.hiddenCount > 0 || pricesSummaryStats.globalHidden
+                      ? 'bg-rose-100 hover:bg-rose-200 text-rose-900 border-rose-300 dark:bg-rose-950/70 dark:text-rose-200 dark:border-rose-700'
+                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-700'
+                  }`}
+                  title="Control exclusivo Admin/Supervisor: decide qué vendedores muestran precios y cuáles los ocultan (manteniendo pedidos activos)"
+                >
+                  <DollarSign size={13} />
+                  <span>Precios</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                    pricesSummaryStats.hiddenCount > 0 || pricesSummaryStats.globalHidden
+                      ? 'bg-rose-600 text-white'
+                      : 'bg-emerald-600 text-white'
+                  }`}>
+                    {pricesButtonBadgeText}
+                  </span>
+                </button>
+              )}
+
+              {canAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
                     setLabFilterSearch('');
                     setVisibilityEditTarget(selectedVendorName || '__global__');
+                    setVisibilityModalTab('labs');
                     setShowShareFilterModal(true);
                   }}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border shadow-sm ${
@@ -1537,7 +1651,150 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                 </button>
               </div>
 
+              {/* PESTAÑAS DEL CONTROL DE VISIBILIDAD: PRECIOS VS LABORATORIOS */}
+              <div className="px-4 pt-2.5 bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-700 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setVisibilityModalTab('prices')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-t-lg border-b-2 transition-all cursor-pointer ${
+                    visibilityModalTab === 'prices'
+                      ? 'border-indigo-700 text-indigo-800 dark:text-indigo-300 bg-white dark:bg-slate-900'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                  }`}
+                >
+                  <DollarSign size={14} />
+                  <span>Precios por Vendedor</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                    pricesSummaryStats.hiddenCount > 0 || pricesSummaryStats.globalHidden
+                      ? 'bg-rose-100 text-rose-800'
+                      : 'bg-emerald-100 text-emerald-800'
+                  }`}>
+                    {pricesButtonBadgeText}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVisibilityModalTab('labs')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-t-lg border-b-2 transition-all cursor-pointer ${
+                    visibilityModalTab === 'labs'
+                      ? 'border-indigo-700 text-indigo-800 dark:text-indigo-300 bg-white dark:bg-slate-900'
+                      : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                  }`}
+                >
+                  <Filter size={14} />
+                  <span>Laboratorios y Códigos</span>
+                </button>
+              </div>
+
               <div className="p-4 overflow-y-auto flex-1 space-y-3">
+                {visibilityModalTab === 'prices' ? (
+                  <>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Elige exactamente qué vendedores pueden <strong>mostrar precios</strong> en sus tiendas (y en los enlaces a sus clientes), o bien oculta los precios para <strong>todos</strong>. Aunque los precios estén ocultos, <strong>los clientes sí pueden agregar productos al carrito y enviar su pedido</strong> para cotizar e interactuar con el vendedor.
+                    </p>
+
+                    {/* BOTONES RÁPIDOS DE 1 CLIC PARA TODOS */}
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                        Acciones rápidas para todos:
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSetAllPricesVisibility(true)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black bg-rose-600 hover:bg-rose-700 text-white shadow-sm cursor-pointer"
+                        >
+                          <EyeOff size={13} />
+                          <span>Ocultar precios a TODOS (nadie ve)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSetAllPricesVisibility(false)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm cursor-pointer"
+                        >
+                          <Eye size={13} />
+                          <span>Mostrar precios a TODOS</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* CATÁLOGO GENERAL */}
+                    <div className="p-3 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <div className="text-xs font-black text-indigo-950 dark:text-indigo-200">
+                          🌐 Catálogo General (enlace sin vendedor asignado)
+                        </div>
+                        <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                          {visibilityConfig.global?.hidePrices
+                            ? 'Precios ocultos por defecto — los clientes envían pedido para cotización.'
+                            : 'Precios visibles por defecto en el catálogo general.'}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleGlobalCatalogPriceVisibility(!visibilityConfig.global?.hidePrices)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black cursor-pointer transition-all border ${
+                          visibilityConfig.global?.hidePrices
+                            ? 'bg-rose-100 hover:bg-rose-200 text-rose-900 border-rose-300'
+                            : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border-emerald-300'
+                        }`}
+                      >
+                        {visibilityConfig.global?.hidePrices ? <EyeOff size={13} /> : <Eye size={13} />}
+                        <span>{visibilityConfig.global?.hidePrices ? 'Precios Ocultos' : 'Precios Visibles'}</span>
+                      </button>
+                    </div>
+
+                    {/* LISTA INDIVIDUAL DE VENDEDORES */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                          Control individual por vendedor ({pricesSummaryStats.visibleCount} visibles · {pricesSummaryStats.hiddenCount} ocultos)
+                        </span>
+                        <span className="text-[11px] text-slate-500">Haz clic para cambiar cada vendedor</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto p-1">
+                        {availableVendors.map((v) => {
+                          const resolved = resolveVisibilityForVendor(visibilityConfig, v.name);
+                          const isHidden = Boolean(resolved.hidePrices);
+                          return (
+                            <div
+                              key={v.name}
+                              className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-all ${
+                                isHidden
+                                  ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/70'
+                                  : 'bg-emerald-50/60 dark:bg-emerald-950/25 border-emerald-200 dark:border-emerald-800/70'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-slate-900 dark:text-white truncate" title={v.name}>
+                                  {v.name}
+                                </div>
+                                <div className={`text-[10px] font-bold ${isHidden ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                                  {isHidden ? 'Solo pedidos / cotización' : 'Ve y muestra precios'}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSingleVendorPriceVisibility(v.name, isHidden)}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black cursor-pointer shrink-0 transition-all shadow-sm ${
+                                  isHidden
+                                    ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                }`}
+                                title={isHidden ? `Clic para MOSTRAR precios a ${v.name}` : `Clic para OCULTAR precios a ${v.name}`}
+                              >
+                                {isHidden ? <EyeOff size={12} /> : <Eye size={12} />}
+                                <span>{isHidden ? 'Ocultos' : 'Visibles'}</span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
                 <p className="text-xs text-slate-600 dark:text-slate-300">
                   Define qué laboratorios pueden y cuáles <strong>no</strong> pueden ver tus vendedores en sus tiendas y en los enlaces que comparten a sus clientes. <strong>Ningún vendedor tiene acceso para cambiar estas reglas.</strong>
                 </p>
@@ -1719,6 +1976,8 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                     </div>
                   </>
                 )}
+                  </>
+                )}
               </div>
 
               <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 flex-wrap">
@@ -1732,7 +1991,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                 <button
                   type="button"
                   onClick={handleSaveVisibilityToCloud}
-                  disabled={savingVisibility || (catalogLabs.length > 0 && editIncludedCount === 0 && (isEditingGlobalTarget || editUsesCustomRule))}
+                  disabled={savingVisibility || (visibilityModalTab === 'labs' && catalogLabs.length > 0 && editIncludedCount === 0 && (isEditingGlobalTarget || editUsesCustomRule))}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-black shadow-sm cursor-pointer"
                 >
                   <Save size={14} />

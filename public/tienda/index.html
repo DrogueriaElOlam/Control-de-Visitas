@@ -667,6 +667,19 @@
             color: #0f172a;
         }
 
+        .card-price.card-price-consult {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--primary);
+            background: var(--primary-light);
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            line-height: 1.2;
+        }
+
         .btn-add-cart {
             border: none;
             background: var(--primary-light);
@@ -1970,7 +1983,7 @@
                         <div style="font-size:11px;color:var(--muted);" id="cartWaNumberLabel">WhatsApp: —</div>
                     </div>
                     <div style="text-align:right;">
-                        <div style="font-size:11px;color:var(--muted);font-weight:600;">Total del pedido</div>
+                        <div style="font-size:11px;color:var(--muted);font-weight:600;" id="cartTotalLabel">Total del pedido</div>
                         <div class="cart-summary-total" id="cartTotalValue">Q0.00</div>
                     </div>
                 </div>
@@ -2024,6 +2037,10 @@
                     <label class="share-opt-row" for="shareHideDisponibleCodes" style="margin-top:4px;padding-top:6px;border-top:none;">
                         <input id="shareHideDisponibleCodes" type="checkbox">
                         <span>Ocultar todos los códigos/productos que digan &ldquo;DISPONIBLE&rdquo; en cualquier laboratorio</span>
+                    </label>
+                    <label class="share-opt-row" for="shareHidePrices" style="margin-top:4px;padding-top:6px;border-top:none;">
+                        <input id="shareHidePrices" type="checkbox">
+                        <span>Ocultar precios (el cliente arma y envía su pedido para cotizar con el vendedor)</span>
                     </label>
                     <div id="shareLabsSummary" class="share-labs-summary"></div>
                     <div id="shareLabsWarn" class="share-labs-warn">
@@ -2299,13 +2316,35 @@
                 includeSet: null,
                 excludeSet: null,
                 hideZeroPrice: false,
-                hideDisponibleCodes: false
+                hideDisponibleCodes: false,
+                hidePrices: false
             };
             var shareSelection = {
                 excludedSet: new Set(),
                 hideZeroPrice: false,
-                hideDisponibleCodes: false
+                hideDisponibleCodes: false,
+                hidePrices: false
             };
+
+            function isPriceHidden() {
+                return !!sharedScope.hidePrices;
+            }
+
+            function syncSortOptionsForPriceVisibility() {
+                var sel = $('sortSelect');
+                if (!sel) return;
+                var hide = isPriceHidden();
+                Array.prototype.forEach.call(sel.options, function (opt) {
+                    if (opt.value === 'price-asc' || opt.value === 'price-desc') {
+                        opt.hidden = hide;
+                        opt.disabled = hide;
+                    }
+                });
+                if (hide && (state.sort === 'price-asc' || state.sort === 'price-desc')) {
+                    state.sort = 'alpha-asc';
+                    sel.value = 'alpha-asc';
+                }
+            }
 
             function isDisponibleCodeItem(itm) {
                 if (!itm) return false;
@@ -2319,7 +2358,8 @@
                     includeSet: null,
                     excludeSet: null,
                     hideZeroPrice: false,
-                    hideDisponibleCodes: false
+                    hideDisponibleCodes: false,
+                    hidePrices: false
                 };
                 try {
                     var params = new URLSearchParams(window.location.search || '');
@@ -2327,6 +2367,7 @@
                     var exParam = (params.get('ex') || params.get('exclude') || '').trim();
                     var nzParam = (params.get('nz') || '').trim();
                     var ndParam = (params.get('nd') || '').trim();
+                    var npParam = (params.get('np') || '').trim();
 
                     if (inParam) {
                         var inIds = inParam.split(',').map(function (x) { return String(x).trim(); }).filter(Boolean);
@@ -2349,6 +2390,11 @@
 
                     if (ndParam === '1' || ndParam === 'true') {
                         sharedScope.hideDisponibleCodes = true;
+                        sharedScope.active = true;
+                    }
+
+                    if (npParam === '1' || npParam === 'true') {
+                        sharedScope.hidePrices = true;
                         sharedScope.active = true;
                     }
                 } catch (e) {}
@@ -2381,6 +2427,7 @@
                 shareSelection.excludedSet = new Set();
                 shareSelection.hideZeroPrice = false;
                 shareSelection.hideDisponibleCodes = false;
+                shareSelection.hidePrices = false;
                 // Si el enlace o la sesión viene restringida por el Admin/Supervisor, respetar estrictamente esa regla
                 if (sharedScope.active || !canUseAdminButton()) {
                     if (sharedScope.active) {
@@ -2392,6 +2439,7 @@
                         });
                         shareSelection.hideZeroPrice = !!sharedScope.hideZeroPrice;
                         shareSelection.hideDisponibleCodes = !!sharedScope.hideDisponibleCodes;
+                        shareSelection.hidePrices = !!sharedScope.hidePrices;
                     }
                     return;
                 }
@@ -2408,6 +2456,7 @@
                     }
                     shareSelection.hideZeroPrice = Boolean(parsed && parsed.hideZeroPrice);
                     shareSelection.hideDisponibleCodes = Boolean(parsed && parsed.hideDisponibleCodes);
+                    shareSelection.hidePrices = Boolean(parsed && parsed.hidePrices);
                 } catch (e) {}
             }
 
@@ -2416,7 +2465,8 @@
                 var payload = {
                     excludedIds: Array.from(shareSelection.excludedSet),
                     hideZeroPrice: !!shareSelection.hideZeroPrice,
-                    hideDisponibleCodes: !!shareSelection.hideDisponibleCodes
+                    hideDisponibleCodes: !!shareSelection.hideDisponibleCodes,
+                    hidePrices: !!shareSelection.hidePrices
                 };
                 try {
                     localStorage.setItem(STORAGE_SHARE_LABS_PREF, JSON.stringify(payload));
@@ -2427,7 +2477,8 @@
                             type: 'OLAM_CATALOG_SHARE_PREFS_CHANGED',
                             excludedIds: payload.excludedIds,
                             hideZeroPrice: payload.hideZeroPrice,
-                            hideDisponibleCodes: payload.hideDisponibleCodes
+                            hideDisponibleCodes: payload.hideDisponibleCodes,
+                            hidePrices: payload.hidePrices
                         }, window.location.origin);
                     }
                 } catch (e) {}
@@ -3028,6 +3079,10 @@
                     ? '<button type="button" class="btn-add-cart" data-action="add-cart" data-key="' + escapeHtml(itm.k) + '" title="Agregar al carrito"><i class="fa fa-cart-plus"></i></button>'
                     : '';
 
+                var priceHtml = isPriceHidden()
+                    ? '<span class="card-price card-price-consult" title="Agrega al carrito y consulta el precio con tu asesor"><i class="fa fa-comments-o"></i> Consultar precio</span>'
+                    : '<span class="card-price">' + escapeHtml(itm.p || formatPrice(itm.v)) + '</span>';
+
                 card.innerHTML =
                     '<div class="card-img-box" data-action="detail" data-key="' + escapeHtml(itm.k) + '" title="Clic para ver detalles del producto">' +
                         '<span class="card-code-badge"><span class="card-code-label">Código</span><span class="card-code-num">' + escapeHtml(itm.k) + '</span></span>' +
@@ -3038,7 +3093,7 @@
                         '<div class="card-cat" title="' + escapeHtml(catName) + '">' + escapeHtml(catName) + '</div>' +
                         '<h2 class="card-title clickable" data-action="detail" data-key="' + escapeHtml(itm.k) + '" title="' + escapeHtml(itm.d) + '">' + escapeHtml(cleanName) + '</h2>' +
                         '<div class="card-footer">' +
-                            '<span class="card-price">' + escapeHtml(itm.p || formatPrice(itm.v)) + '</span>' +
+                            priceHtml +
                             cartBtnHtml +
                         '</div>' +
                     '</div>' +
@@ -3176,7 +3231,15 @@
                     ? (target.label + ': +' + String(target.phone).replace(/^\+/, ''))
                     : 'WhatsApp destino: sin configurar';
                 $('btnSendCart').disabled = !cart.itms.length || !target.phone;
-                $('cartTotalValue').textContent = 'Q' + total.toFixed(2);
+                if (isPriceHidden()) {
+                    if ($('cartTotalLabel')) $('cartTotalLabel').textContent = 'Cotización';
+                    $('cartTotalValue').textContent = 'Consultar con asesor';
+                    $('cartTotalValue').style.fontSize = '14px';
+                } else {
+                    if ($('cartTotalLabel')) $('cartTotalLabel').textContent = 'Total del pedido';
+                    $('cartTotalValue').textContent = 'Q' + total.toFixed(2);
+                    $('cartTotalValue').style.fontSize = '';
+                }
             }
 
             function renderCartModal() {
@@ -3193,6 +3256,7 @@
                     return;
                 }
 
+                var hidePricesNow = isPriceHidden();
                 var html = '';
                 cart.itms.forEach(function (it, idx) {
                     var qty = Number(it.q) || 1;
@@ -3204,8 +3268,10 @@
                             (imgSrc ? '<img src="' + escapeHtml(imgSrc) + '" alt="">' : '<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:6px;color:#cbd5e1;"><i class="fa fa-image"></i></div>') +
                             '<div class="cart-item-info">' +
                                 '<div class="cart-item-title">' + escapeHtml(getCleanName(it)) + '</div>' +
-                                '<div class="cart-item-meta">Clave: ' + escapeHtml(it.k) + ' &middot; Unitario: ' + escapeHtml(it.p || formatPrice(price)) + '</div>' +
-                                '<div class="cart-line-sub" data-cart-sub="' + idx + '">Subtotal: Q' + sub.toFixed(2) + '</div>' +
+                                (hidePricesNow
+                                    ? '<div class="cart-item-meta">Clave: ' + escapeHtml(it.k) + '</div>'
+                                    : '<div class="cart-item-meta">Clave: ' + escapeHtml(it.k) + ' &middot; Unitario: ' + escapeHtml(it.p || formatPrice(price)) + '</div>' +
+                                      '<div class="cart-line-sub" data-cart-sub="' + idx + '">Subtotal: Q' + sub.toFixed(2) + '</div>') +
                             '</div>' +
                             '<div class="qty-ctrl">' +
                                 '<button type="button" data-cart-dec="' + idx + '">-</button>' +
@@ -3907,7 +3973,15 @@
 
                 $('detailHeaderTitle').innerHTML = '<i class="fa fa-info-circle"></i> Ficha del Producto';
                 $('detailName').textContent = cleanName;
-                $('detailPrice').textContent = it.p || formatPrice(it.v);
+                if (isPriceHidden()) {
+                    $('detailPrice').textContent = 'Consultar precio con su asesor';
+                    $('detailPrice').style.fontSize = '15px';
+                    $('detailPrice').style.color = 'var(--primary)';
+                } else {
+                    $('detailPrice').textContent = it.p || formatPrice(it.v);
+                    $('detailPrice').style.fontSize = '';
+                    $('detailPrice').style.color = '';
+                }
 
                 var badgesHtml = '<span class="detail-chip code">Clave: ' + escapeHtml(it.k) + '</span>';
                 if (catName) badgesHtml += '<span class="detail-chip">' + escapeHtml(catName) + '</span>';
@@ -4161,6 +4235,9 @@
                 if (shareSelection.hideDisponibleCodes) {
                     parts.push('nd=1');
                 }
+                if (shareSelection.hidePrices) {
+                    parts.push('np=1');
+                }
                 return parts.join('&');
             }
 
@@ -4203,25 +4280,31 @@
                 return canUseAdminButton() && !sharedScope.active;
             }
 
-            function applyEnforcedVisibility(excludedIds, hideZeroPrice, hideDisponibleCodes) {
+            function applyEnforcedVisibility(excludedIds, hideZeroPrice, hideDisponibleCodes, hidePrices) {
                 var cleanEx = Array.isArray(excludedIds)
                     ? excludedIds.map(function (id) { return String(id).trim(); }).filter(Boolean)
                     : [];
-                var hasFilter = cleanEx.length > 0 || !!hideZeroPrice || !!hideDisponibleCodes;
+                var hasFilter = cleanEx.length > 0 || !!hideZeroPrice || !!hideDisponibleCodes || !!hidePrices;
 
                 sharedScope = {
                     active: hasFilter,
                     includeSet: null,
                     excludeSet: cleanEx.length > 0 ? new Set(cleanEx) : null,
                     hideZeroPrice: !!hideZeroPrice,
-                    hideDisponibleCodes: !!hideDisponibleCodes
+                    hideDisponibleCodes: !!hideDisponibleCodes,
+                    hidePrices: !!hidePrices
                 };
                 shareSelection.excludedSet = new Set(cleanEx);
                 shareSelection.hideZeroPrice = !!hideZeroPrice;
                 shareSelection.hideDisponibleCodes = !!hideDisponibleCodes;
+                shareSelection.hidePrices = !!hidePrices;
 
+                syncSortOptionsForPriceVisibility();
                 populateCategorySelects();
                 renderCatalog();
+                if ($('modCart') && $('modCart').classList.contains('open')) {
+                    renderCartModal();
+                }
                 if ($('modShare') && $('modShare').classList.contains('open')) {
                     renderShareLabsList();
                     updateShareModalLink();
@@ -4250,30 +4333,54 @@
                         var rawVendorName = (activeSeller && activeSeller.name) ? activeSeller.name : (params.get('vn') || '');
                         var vendorKey = normalizeText(rawVendorName).trim();
 
-                        var rule = (cfg.global && typeof cfg.global === 'object') ? cfg.global : { excludedIds: [], hideZeroPrice: false, hideDisponibleCodes: false };
-                        if (vendorKey && cfg.perVendor && cfg.perVendor[vendorKey] && cfg.perVendor[vendorKey].useCustom) {
-                            rule = cfg.perVendor[vendorKey];
-                        }
+                        var globalRule = (cfg.global && typeof cfg.global === 'object') ? cfg.global : { excludedIds: [], hideZeroPrice: false, hideDisponibleCodes: false, hidePrices: false };
+                        var vendorEntry = (vendorKey && cfg.perVendor && cfg.perVendor[vendorKey]) ? cfg.perVendor[vendorKey] : null;
+                        var rule = (vendorEntry && vendorEntry.useCustom) ? vendorEntry : globalRule;
+
+                        var priceMode = (vendorEntry && (vendorEntry.priceMode === 'show' || vendorEntry.priceMode === 'hide'))
+                            ? vendorEntry.priceMode
+                            : 'inherit';
+                        var cloudHidePrices = priceMode === 'hide'
+                            ? true
+                            : (priceMode === 'show' ? false : !!globalRule.hidePrices);
 
                         var cloudEx = Array.isArray(rule.excludedIds) ? rule.excludedIds.map(function (x) { return String(x).trim(); }).filter(Boolean) : [];
                         var cloudNz = !!rule.hideZeroPrice;
                         var cloudNd = !!rule.hideDisponibleCodes;
-                        if (cloudEx.length === 0 && !cloudNz && !cloudNd) return;
 
-                        // Si el enlace ya traía ?in=... respetar la intersección (quitar cualquier lab que la nube excluya)
-                        if (sharedScope.includeSet) {
-                            cloudEx.forEach(function (id) { sharedScope.includeSet.delete(id); });
-                        } else {
-                            if (!sharedScope.excludeSet) sharedScope.excludeSet = new Set();
-                            cloudEx.forEach(function (id) { sharedScope.excludeSet.add(id); });
+                        var urlHadNp = (params.get('np') === '1' || params.get('np') === 'true');
+                        // Respetar siempre la regla más reciente de precios configurada por el Admin/Supervisor en Supabase
+                        var nextHidePrices = cloudHidePrices;
+                        if (priceMode === 'inherit' && !globalRule.hidePrices && urlHadNp) {
+                            // Si el enlace venía con ?np=1 pero el Admin ya habilitó precios para todos, obedecer la nube (false)
+                            nextHidePrices = false;
                         }
-                        if (cloudNz) sharedScope.hideZeroPrice = true;
-                        if (cloudNd) sharedScope.hideDisponibleCodes = true;
-                        sharedScope.active = true;
 
+                        var changed = (sharedScope.hidePrices !== nextHidePrices);
+                        sharedScope.hidePrices = nextHidePrices;
+
+                        if (cloudEx.length > 0) {
+                            if (sharedScope.includeSet) {
+                                cloudEx.forEach(function (id) { sharedScope.includeSet.delete(id); });
+                            } else {
+                                if (!sharedScope.excludeSet) sharedScope.excludeSet = new Set();
+                                cloudEx.forEach(function (id) { sharedScope.excludeSet.add(id); });
+                            }
+                            changed = true;
+                        }
+                        if (cloudNz && !sharedScope.hideZeroPrice) { sharedScope.hideZeroPrice = true; changed = true; }
+                        if (cloudNd && !sharedScope.hideDisponibleCodes) { sharedScope.hideDisponibleCodes = true; changed = true; }
+
+                        sharedScope.active = !!(sharedScope.includeSet || (sharedScope.excludeSet && sharedScope.excludeSet.size > 0) || sharedScope.hideZeroPrice || sharedScope.hideDisponibleCodes || sharedScope.hidePrices);
+
+                        if (!changed) return;
                         loadShareSelectionPrefs();
+                        syncSortOptionsForPriceVisibility();
                         populateCategorySelects();
                         renderCatalog();
+                        if ($('modCart') && $('modCart').classList.contains('open')) {
+                            renderCartModal();
+                        }
                     }).catch(function () {});
                 } catch (e) {}
             }
@@ -4321,6 +4428,10 @@
                 if (hideDispEl) {
                     hideDispEl.checked = !!shareSelection.hideDisponibleCodes;
                 }
+                var hidePricesEl = $('shareHidePrices');
+                if (hidePricesEl) {
+                    hidePricesEl.checked = !!shareSelection.hidePrices;
+                }
                 updateShareLabsStatusUi();
             }
 
@@ -4356,6 +4467,7 @@
                 var extraTags = [];
                 if (shareSelection.hideZeroPrice) extraTags.push('sin Q0');
                 if (shareSelection.hideDisponibleCodes) extraTags.push('sin DISPONIBLE');
+                if (shareSelection.hidePrices) extraTags.push('sin precios');
                 var extraBadgeSuffix = extraTags.length ? (' + ' + extraTags.join(' + ')) : '';
                 var extraSummarySuffix = extraTags.length ? (' &middot; <em>' + extraTags.join(', ') + '</em>') : '';
 
@@ -5051,6 +5163,7 @@
                 ensureSellers();
                 detectActiveSeller();
                 detectSharedCatalogScope();
+                syncSortOptionsForPriceVisibility();
                 loadShareSelectionPrefs();
                 syncLabOverridesFromCloud();
                 syncCloudVisibilityForPublicClient();
@@ -5116,7 +5229,8 @@
                         applyEnforcedVisibility(
                             msg.enforcedVisibility.excludedIds || [],
                             Boolean(msg.enforcedVisibility.hideZeroPrice),
-                            Boolean(msg.enforcedVisibility.hideDisponibleCodes)
+                            Boolean(msg.enforcedVisibility.hideDisponibleCodes),
+                            Boolean(msg.enforcedVisibility.hidePrices)
                         );
                     } else if (hostAuthContext.allowAdmin && msg.shareFilterPrefs) {
                         // Para Admin/Supervisor: mantener su vista administrativa completa pero sincronizar la preferencia del enlace a compartir
@@ -5127,6 +5241,7 @@
                         );
                         shareSelection.hideZeroPrice = Boolean(msg.shareFilterPrefs.hideZeroPrice);
                         shareSelection.hideDisponibleCodes = Boolean(msg.shareFilterPrefs.hideDisponibleCodes);
+                        shareSelection.hidePrices = Boolean(msg.shareFilterPrefs.hidePrices);
                         if ($('modShare') && $('modShare').classList.contains('open')) {
                             renderShareLabsList();
                             updateShareModalLink();
@@ -5408,6 +5523,14 @@
                 if ($('shareHideDisponibleCodes')) {
                     $('shareHideDisponibleCodes').addEventListener('change', function () {
                         shareSelection.hideDisponibleCodes = !!this.checked;
+                        persistShareSelectionPrefs();
+                        updateShareModalLink();
+                    });
+                }
+
+                if ($('shareHidePrices')) {
+                    $('shareHidePrices').addEventListener('change', function () {
+                        shareSelection.hidePrices = !!this.checked;
                         persistShareSelectionPrefs();
                         updateShareModalLink();
                     });
@@ -5965,14 +6088,18 @@
                         showToast('Ingrese solo valores numéricos válidos en cantidades.', 'error');
                         return;
                     }
-                    text += '\nTotal estimado: Q' + total.toFixed(2);
-                    // Guardar silenciosamente el pedido completo en Supabase sin alterar el texto exportado
-                    saveOrderToDatabase(clientName, target, cart.itms, total, text);
+                    var textWithTotal = text + '\nTotal estimado: Q' + total.toFixed(2);
+                    // Cuando los precios están ocultos para el cliente, el mensaje que abre en WhatsApp mantiene el formato exacto de líneas (*qty -> desc :clave) pero sin revelar el monto en Q
+                    var whatsappTextToSend = isPriceHidden()
+                        ? (text + '\nSolicito cotización de este pedido.')
+                        : textWithTotal;
+                    // Guardar silenciosamente el pedido completo en Supabase (con total real e historial estándar para Admin/Supervisor)
+                    saveOrderToDatabase(clientName, target, cart.itms, total, textWithTotal);
                     saveCart({ itms: [] });
                     closeModal('modCart');
                     showToast('Pedido registrado en el historial y abriendo WhatsApp...', 'success');
                     window.open(
-                        'https://api.whatsapp.com/send?phone=' + encodeURIComponent(target.phone) + '&text=' + encodeURIComponent(text),
+                        'https://api.whatsapp.com/send?phone=' + encodeURIComponent(target.phone) + '&text=' + encodeURIComponent(whatsappTextToSend),
                         '_blank'
                     );
                 });
