@@ -652,14 +652,27 @@
             margin: 0;
         }
 
+        .card.in-cart {
+            border-color: #4ade80;
+            box-shadow: 0 4px 14px rgba(22, 163, 74, 0.14);
+        }
+
         .card-footer {
             margin-top: auto;
-            padding-top: 6px;
+            padding-top: 8px;
             border-top: 1px solid #f1f5f9;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 7px;
+        }
+
+        .card-price-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 6px;
+            min-height: 22px;
         }
 
         .card-price {
@@ -673,7 +686,7 @@
             font-weight: 700;
             color: var(--primary);
             background: var(--primary-light);
-            padding: 4px 8px;
+            padding: 3px 8px;
             border-radius: 6px;
             display: inline-flex;
             align-items: center;
@@ -681,24 +694,111 @@
             line-height: 1.2;
         }
 
-        .btn-add-cart {
-            border: none;
-            background: var(--primary-light);
-            color: var(--primary);
-            width: 34px;
+        .card-qty-stepper {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f1f5f9;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 2px;
             height: 34px;
+            transition: background 0.18s, border-color 0.18s, box-shadow 0.18s;
+        }
+
+        .card-qty-stepper.has-qty {
+            background: #ecfdf5;
+            border-color: #16a34a;
+            box-shadow: 0 2px 6px rgba(22, 163, 74, 0.16);
+        }
+
+        .card-qty-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
             border-radius: 8px;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             font-size: 16px;
-            transition: background 0.15s, color 0.15s;
+            font-weight: 800;
+            line-height: 1;
+            font-family: inherit;
+            transition: background 0.15s, color 0.15s, transform 0.1s, opacity 0.15s;
             flex-shrink: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .btn-add-cart:hover { background: var(--primary); color: #fff; }
-        .btn-add-cart.added { background: var(--success); color: #fff; }
+        .card-qty-btn:active {
+            transform: scale(0.92);
+        }
+
+        .card-qty-btn.minus {
+            background: #ffffff;
+            color: #64748b;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+
+        .card-qty-stepper:not(.has-qty) .card-qty-btn.minus {
+            opacity: 0.45;
+            cursor: default;
+        }
+
+        .card-qty-stepper.has-qty .card-qty-btn.minus {
+            background: #ffffff;
+            color: #dc2626;
+        }
+
+        .card-qty-stepper.has-qty .card-qty-btn.minus:hover {
+            background: #fee2e2;
+        }
+
+        .card-qty-btn.plus {
+            background: var(--primary);
+            color: #ffffff;
+            box-shadow: 0 1px 3px rgba(40, 53, 147, 0.28);
+        }
+
+        .card-qty-btn.plus:hover {
+            background: var(--primary-dark);
+        }
+
+        .card-qty-stepper.has-qty .card-qty-btn.plus {
+            background: #16a34a;
+            color: #ffffff;
+            box-shadow: 0 1px 3px rgba(22, 163, 74, 0.35);
+        }
+
+        .card-qty-stepper.has-qty .card-qty-btn.plus:hover {
+            background: #15803d;
+        }
+
+        .card-qty-input {
+            width: 100%;
+            min-width: 30px;
+            border: none;
+            background: transparent;
+            text-align: center;
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #64748b;
+            font-family: inherit;
+            outline: none;
+            padding: 0 2px;
+            -moz-appearance: textfield;
+        }
+
+        .card-qty-input::-webkit-outer-spin-button,
+        .card-qty-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .card-qty-stepper.has-qty .card-qty-input {
+            color: #15803d;
+        }
 
         /* INLINE ADMIN ACTIONS PER CARD */
         .card-admin-bar {
@@ -3061,9 +3161,12 @@
                 return list;
             }
 
-            function createCardElement(itm) {
+            function createCardElement(itm, qtyMap) {
                 var card = document.createElement('article');
-                card.className = 'card';
+                var curQty = (qtyMap && qtyMap[String(itm.k)] != null)
+                    ? qtyMap[String(itm.k)]
+                    : ((qtyMap && qtyMap[String(itm.i)] != null) ? qtyMap[String(itm.i)] : 0);
+                card.className = curQty > 0 ? 'card in-cart' : 'card';
                 card.dataset.key = String(itm.k);
 
                 var catName = catMap[String(itm.c)] || '';
@@ -3081,32 +3184,37 @@
                     ? '<span class="card-info-badge" title="Clic para ver información del producto"><i class="fa fa-info-circle"></i> Info</span>'
                     : '';
 
-                var cartBtnHtml = (data.crt && data.tel2)
-                    ? '<button type="button" class="btn-add-cart" data-action="add-cart" data-key="' + escapeHtml(itm.k) + '" title="Agregar al carrito"><i class="fa fa-cart-plus"></i></button>'
+                var keyEsc = escapeHtml(itm.k);
+                var stepperHtml = (data.crt && data.tel2)
+                    ? '<div class="card-qty-stepper' + (curQty > 0 ? ' has-qty' : '') + '" data-card-stepper="' + keyEsc + '">' +
+                          '<button type="button" class="card-qty-btn minus" data-action="qty-dec" data-key="' + keyEsc + '" title="Quitar 1 unidad" aria-label="Restar unidad">&minus;</button>' +
+                          '<input type="number" class="card-qty-input" min="0" step="1" inputmode="numeric" value="' + curQty + '" data-card-qty-input="' + keyEsc + '" aria-label="Cantidad de unidades">' +
+                          '<button type="button" class="card-qty-btn plus" data-action="qty-inc" data-key="' + keyEsc + '" title="Agregar 1 unidad" aria-label="Sumar unidad">+</button>' +
+                      '</div>'
                     : '';
 
                 var priceHtml = isPriceHidden()
-                    ? '<span class="card-price card-price-consult" title="Agrega al carrito y consulta el precio con tu asesor"><i class="fa fa-comments-o"></i> Consultar precio</span>'
+                    ? '<span class="card-price card-price-consult" title="Selecciona las unidades y envía tu pedido para cotizar con tu asesor"><i class="fa fa-comments-o"></i> Consultar precio</span>'
                     : '<span class="card-price">' + escapeHtml(itm.p || formatPrice(itm.v)) + '</span>';
 
                 card.innerHTML =
-                    '<div class="card-img-box" data-action="detail" data-key="' + escapeHtml(itm.k) + '" title="Clic para ver detalles del producto">' +
-                        '<span class="card-code-badge"><span class="card-code-label">Código</span><span class="card-code-num">' + escapeHtml(itm.k) + '</span></span>' +
+                    '<div class="card-img-box" data-action="detail" data-key="' + keyEsc + '" title="Clic para ver detalles del producto">' +
+                        '<span class="card-code-badge"><span class="card-code-label">Código</span><span class="card-code-num">' + keyEsc + '</span></span>' +
                         infoBadgeHtml +
                         imgHtml +
                     '</div>' +
                     '<div class="card-body">' +
                         '<div class="card-cat" title="' + escapeHtml(catName) + '">' + escapeHtml(catName) + '</div>' +
-                        '<h2 class="card-title clickable" data-action="detail" data-key="' + escapeHtml(itm.k) + '" title="' + escapeHtml(itm.d) + '">' + escapeHtml(cleanName) + '</h2>' +
+                        '<h2 class="card-title clickable" data-action="detail" data-key="' + keyEsc + '" title="' + escapeHtml(itm.d) + '">' + escapeHtml(cleanName) + '</h2>' +
                         '<div class="card-footer">' +
-                            priceHtml +
-                            cartBtnHtml +
+                            '<div class="card-price-row">' + priceHtml + '</div>' +
+                            stepperHtml +
                         '</div>' +
                     '</div>' +
                     '<div class="card-admin-bar">' +
-                        '<button type="button" class="btn-card-adm edit" data-action="edit" data-key="' + escapeHtml(itm.k) + '" title="Editar producto"><i class="fa fa-pencil"></i> Editar</button>' +
-                        '<button type="button" class="btn-card-adm img-up" data-action="quick-img" data-key="' + escapeHtml(itm.k) + '" title="Subir o cambiar imagen"><i class="fa fa-camera"></i></button>' +
-                        (imgOk ? '<button type="button" class="btn-card-adm img-del" data-action="quick-del-img" data-key="' + escapeHtml(itm.k) + '" title="Eliminar imagen"><i class="fa fa-trash"></i></button>' : '') +
+                        '<button type="button" class="btn-card-adm edit" data-action="edit" data-key="' + keyEsc + '" title="Editar producto"><i class="fa fa-pencil"></i> Editar</button>' +
+                        '<button type="button" class="btn-card-adm img-up" data-action="quick-img" data-key="' + keyEsc + '" title="Subir o cambiar imagen"><i class="fa fa-camera"></i></button>' +
+                        (imgOk ? '<button type="button" class="btn-card-adm img-del" data-action="quick-del-img" data-key="' + keyEsc + '" title="Eliminar imagen"><i class="fa fa-trash"></i></button>' : '') +
                     '</div>';
 
                 return card;
@@ -3119,6 +3227,7 @@
                     ? (data.itm || []).filter(isItemAllowedByScope).length
                     : (data.itm || []).length;
                 var token = ++state.renderToken;
+                var qtyMap = getCartQtyMap();
 
                 $('resultsInfo').textContent = items.length === total
                     ? 'Mostrando todos los productos'
@@ -3146,7 +3255,7 @@
                     var frag = document.createDocumentFragment();
                     var end = Math.min(idx + limit, items.length);
                     for (; idx < end; idx++) {
-                        frag.appendChild(createCardElement(items[idx]));
+                        frag.appendChild(createCardElement(items[idx], qtyMap));
                     }
                     grid.appendChild(frag);
                     if (idx < items.length) {
@@ -3180,9 +3289,42 @@
                 }
             }
 
+            function getCartQtyMap(cartObj) {
+                var cart = cartObj || getCart();
+                var map = {};
+                (cart.itms || []).forEach(function (it) {
+                    var qty = Number(it.q) || 0;
+                    if (qty > 0) {
+                        if (it.k != null) map[String(it.k)] = qty;
+                        if (it.i != null) map[String(it.i)] = qty;
+                    }
+                });
+                return map;
+            }
+
+            function syncAllCardSteppersFromCart(cartObj) {
+                var grid = $('productGrid');
+                if (!grid) return;
+                var qtyMap = getCartQtyMap(cartObj);
+                var steppers = grid.querySelectorAll('[data-card-stepper]');
+                steppers.forEach(function (stepper) {
+                    var key = String(stepper.dataset.cardStepper || '');
+                    var qty = qtyMap[key] || 0;
+                    var hasQty = qty > 0;
+                    stepper.classList.toggle('has-qty', hasQty);
+                    var card = stepper.closest('.card');
+                    if (card) card.classList.toggle('in-cart', hasQty);
+                    var inp = stepper.querySelector('[data-card-qty-input]');
+                    if (inp && document.activeElement !== inp) {
+                        inp.value = String(qty);
+                    }
+                });
+            }
+
             function saveCart(cart) {
                 try { localStorage.setItem(STORAGE_CART_KEY, JSON.stringify(cart)); } catch (e) {}
                 updateCartBadge();
+                syncAllCardSteppersFromCart(cart);
             }
 
             function updateCartBadge() {
@@ -3193,22 +3335,39 @@
                 badge.style.display = count > 0 ? 'flex' : 'none';
             }
 
-            function addToCart(itm, btnEl) {
+            function setCartItemQuantity(itm, newQty) {
+                var qty = Math.floor(Number(newQty) || 0);
+                if (qty < 0) qty = 0;
                 var cart = getCart();
-                var existing = null;
+                var idx = -1;
                 for (var i = 0; i < cart.itms.length; i++) {
-                    if (String(cart.itms[i].i) === String(itm.i)) {
-                        existing = cart.itms[i];
+                    if (String(cart.itms[i].k) === String(itm.k) || String(cart.itms[i].i) === String(itm.i)) {
+                        idx = i;
                         break;
                     }
                 }
-                if (existing) {
-                    existing.q = (Number(existing.q) || 0) + 1;
+                if (qty === 0) {
+                    if (idx >= 0) {
+                        cart.itms.splice(idx, 1);
+                    }
+                } else if (idx >= 0) {
+                    cart.itms[idx].q = qty;
                 } else {
-                    var copy = Object.assign({}, itm, { q: 1 });
+                    var copy = Object.assign({}, itm, { q: qty });
                     cart.itms.push(copy);
                 }
                 saveCart(cart);
+                return qty;
+            }
+
+            function adjustCartItemQuantity(itm, delta) {
+                var qtyMap = getCartQtyMap();
+                var cur = qtyMap[String(itm.k)] || qtyMap[String(itm.i)] || 0;
+                return setCartItemQuantity(itm, cur + delta);
+            }
+
+            function addToCart(itm, btnEl) {
+                adjustCartItemQuantity(itm, 1);
                 if (btnEl) {
                     btnEl.classList.add('added');
                     btnEl.innerHTML = '<i class="fa fa-check"></i>';
@@ -5410,6 +5569,40 @@
                 });
 
                 // Grid delegation
+                $('productGrid').addEventListener('focusin', function (ev) {
+                    var inp = ev.target.closest('[data-card-qty-input]');
+                    if (inp) {
+                        setTimeout(function () {
+                            try { inp.select(); } catch (e) {}
+                        }, 0);
+                    }
+                });
+
+                $('productGrid').addEventListener('input', function (ev) {
+                    var inp = ev.target.closest('[data-card-qty-input]');
+                    if (!inp) return;
+                    var key = inp.dataset.cardQtyInput;
+                    var found = findItemByKey(key);
+                    if (!found) return;
+                    var raw = String(inp.value || '').trim();
+                    if (raw === '') return;
+                    var num = parseInt(raw, 10);
+                    if (isNaN(num) || num < 0) num = 0;
+                    setCartItemQuantity(found.item, num);
+                });
+
+                $('productGrid').addEventListener('change', function (ev) {
+                    var inp = ev.target.closest('[data-card-qty-input]');
+                    if (!inp) return;
+                    var key = inp.dataset.cardQtyInput;
+                    var found = findItemByKey(key);
+                    if (!found) return;
+                    var num = parseInt(String(inp.value || '').trim(), 10);
+                    if (isNaN(num) || num < 0) num = 0;
+                    setCartItemQuantity(found.item, num);
+                    inp.value = String(num);
+                });
+
                 $('productGrid').addEventListener('click', function (ev) {
                     var actionEl = ev.target.closest('[data-action]');
                     if (!actionEl) return;
@@ -5418,8 +5611,10 @@
                     var found = findItemByKey(key);
                     if (!found) return;
 
-                    if (action === 'add-cart') {
-                        addToCart(found.item, actionEl);
+                    if (action === 'add-cart' || action === 'qty-inc') {
+                        adjustCartItemQuantity(found.item, 1);
+                    } else if (action === 'qty-dec') {
+                        adjustCartItemQuantity(found.item, -1);
                     } else if (action === 'detail') {
                         openProductDetail(key);
                     } else if (action === 'edit') {
