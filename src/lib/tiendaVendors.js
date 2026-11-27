@@ -6,9 +6,12 @@ const STORAGE_KEY_PHONES = 'olam_tienda_vendor_phones_v1';
 const STORAGE_KEY_SHARE_BASE = 'olam_tienda_share_base_v1';
 const STORAGE_KEY_SHARE_LABS_PREF = 'olam_tienda_share_labs_pref_v1';
 const STORAGE_KEY_VISIBILITY_CONFIG = 'olam_tienda_visibility_config_v1';
+const STORAGE_KEY_TELEMARKETING = 'olam_tienda_telemarketing_v1';
 const CLOUD_PHONES_DATE_KEY = '2099-12-22';
 const CLOUD_VISIBILITY_DATE_KEY = '2099-12-21';
 const CLOUD_VISIBILITY_VENDOR_KEY = 'TIENDA_VISIBILITY_CONFIG';
+const CLOUD_TELEMARKETING_DATE_KEY = '2099-12-20';
+const CLOUD_TELEMARKETING_VENDOR_KEY = 'TIENDA_TELEMARKETING_VAULT';
 
 /**
  * Regla estricta de acceso al botón "Administrar" de la Tienda Virtual:
@@ -319,10 +322,31 @@ export function getStoredVisibilityConfig() {
   }
 }
 
-export function resolveVisibilityForVendor(config, vendorName = '') {
+export function resolveVisibilityForVendor(config, vendorNameOrTarget = '') {
   const normalized = normalizeVisibilityConfig(config || {});
-  const key = getCanonicalPhoneKey(vendorName || '');
-  const vendorEntry = key ? normalized.perVendor[key] : null;
+  let lookupKeys = [];
+  if (vendorNameOrTarget && typeof vendorNameOrTarget === 'object') {
+    const idKey = vendorNameOrTarget.id ? normalizeText(String(vendorNameOrTarget.id)) : '';
+    const nameKey = vendorNameOrTarget.name ? getCanonicalPhoneKey(vendorNameOrTarget.name) : '';
+    if (idKey) lookupKeys.push(idKey);
+    if (nameKey && nameKey !== idKey) lookupKeys.push(nameKey);
+  } else {
+    const rawStr = String(vendorNameOrTarget || '').trim();
+    if (rawStr.startsWith('tm:')) {
+      lookupKeys.push(normalizeText(rawStr.slice(3)));
+    } else if (rawStr) {
+      const k = getCanonicalPhoneKey(rawStr);
+      if (k) lookupKeys.push(k);
+    }
+  }
+
+  let vendorEntry = null;
+  for (const k of lookupKeys) {
+    if (k && normalized.perVendor[k]) {
+      vendorEntry = normalized.perVendor[k];
+      break;
+    }
+  }
 
   const priceMode = vendorEntry ? normalizePriceMode(vendorEntry.priceMode) : 'inherit';
   const hidePrices = priceMode === 'hide'
@@ -417,13 +441,126 @@ export async function saveVisibilityConfigToCloud(config) {
   return clean;
 }
 
+/* ================= EQUIPO DE TELEMARKETING (INDEPENDIENTE DE VISITAS DE CAMPO) ================= */
+function normalizeTelemarketingMember(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const cleanName = String(raw.name || '').trim();
+  const id = String(raw.id || '').trim() || `tm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  if (!cleanName) return null;
+  return {
+    id,
+    name: cleanName,
+    phone: sanitizeWhatsAppPhone(raw.phone || ''),
+    roleLabel: 'Ejecutiva de Telemarketing',
+    type: 'telemarketing',
+    active: raw.active !== false,
+    createdAt: raw.createdAt || new Date().toISOString(),
+    updatedAt: raw.updatedAt || new Date().toISOString()
+  };
+}
+
+export function getStoredTelemarketingTeam() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_TELEMARKETING);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeTelemarketingMember).filter((m) => m && m.active !== false);
+  } catch (_) {
+    return [];
+  }
+}
+
+export async function syncTelemarketingTeamFromCloud() {
+  let list = getStoredTelemarketingTeam();
+  try {
+    const { data: rows, error } = await supabase
+      .from('daily_supervision_history')
+      .select('id, supervision_data')
+      .eq('date', CLOUD_TELEMARKETING_DATE_KEY)
+      .eq('vendor_name', CLOUD_TELEMARKETING_VENDOR_KEY)
+      .order('id', { ascending: false })
+      .limit(1);
+
+    if (!error && Array.isArray(rows) && rows.length > 0 && rows[0]?.supervision_data) {
+      const membersRaw = Array.isArray(rows[0].supervision_data.members)
+        ? rows[0].supervision_data.members
+        : [];
+      list = membersRaw.map(normalizeTelemarketingMember).filter((m) => m && m.active !== false);
+      try {
+        localStorage.setItem(STORAGE_KEY_TELEMARKETING, JSON.stringify(list));
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return list;
+}
+
+export async function saveTelemarketingTeamToCloud(members = []) {
+  const seenIds = new Set();
+  const cleanList = [];
+  (Array.isArray(members) ? members : []).forEach((raw) => {
+    const norm = normalizeTelemarketingMember(raw);
+    if (!norm || norm.active === false) return;
+    if (seenIds.has(norm.id)) return;
+    seenIds.add(norm.id);
+    cleanList.push(norm);
+  });
+
+  try {
+    localStorage.setItem(STORAGE_KEY_TELEMARKETING, JSON.stringify(cleanList));
+  } catch (_) {}
+
+  const payload = {
+    tipo: 'tienda_telemarketing_team',
+    members: cleanList,
+    updatedAt: new Date().toISOString()
+  };
+
+  const { data: existing, error: selErr } = await supabase
+    .from('daily_supervision_history')
+    .select('id')
+    .eq('date', CLOUD_TELEMARKETING_DATE_KEY)
+    .eq('vendor_name', CLOUD_TELEMARKETING_VENDOR_KEY)
+    .order('id', { ascending: false })
+    .limit(1);
+
+  if (selErr) {
+    throw new Error(`No se pudo consultar la lista de Telemarketing en Supabase: ${selErr.message}`);
+  }
+
+  if (Array.isArray(existing) && existing.length > 0 && existing[0]?.id) {
+    const { error: updErr } = await supabase
+      .from('daily_supervision_history')
+      .update({ supervision_data: payload })
+      .eq('id', existing[0].id);
+    if (updErr) {
+      throw new Error(`No se pudo actualizar Telemarketing en Supabase: ${updErr.message}`);
+    }
+  } else {
+    const { error: insErr } = await supabase
+      .from('daily_supervision_history')
+      .insert([{
+        date: CLOUD_TELEMARKETING_DATE_KEY,
+        vendor_name: CLOUD_TELEMARKETING_VENDOR_KEY,
+        supervision_data: payload
+      }]);
+    if (insErr) {
+      throw new Error(`No se pudo guardar Telemarketing en Supabase: ${insErr.message}`);
+    }
+  }
+
+  return cleanList;
+}
+
 /**
  * Genera el enlace público para compartir con clientes.
  * IMPORTANTE: Jamás incluye permisos de administrador.
  * Al abrir este enlace, el botón "Administrar" permanece completamente oculto.
- * Soporta filtrado opcional de laboratorios (in/ex) y ocultamiento de productos Q0 (nz=1).
+ * Soporta tanto vendedores de ruta (?vn=...&vp=...) como equipo de Telemarketing con ID inmutable (?tm=...),
+ * permitiendo reasignar nombre y teléfono en Supabase sin romper los enlaces compartidos.
  */
 export function buildPublicCatalogUrl({
+  tmId = '',
   vendorName = '',
   vendorPhone = '',
   allLabIds = [],
@@ -434,11 +571,15 @@ export function buildPublicCatalogUrl({
 } = {}) {
   const base = getCatalogBaseUrl();
   const sep = base.includes('?') ? '&' : '?';
+  const cleanTmId = String(tmId || '').trim();
   const cleanName = normalizeVendorName(vendorName || '');
   const cleanPhone = sanitizeWhatsAppPhone(vendorPhone);
   const parts = [];
 
-  if (cleanName && cleanPhone) {
+  if (cleanTmId) {
+    // ID estable de cartera de Telemarketing: permite cambiar el nombre de la Ejecutiva o su número en Supabase sin invalidar links previos
+    parts.push(`tm=${encodeURIComponent(cleanTmId)}`);
+  } else if (cleanName && cleanPhone) {
     parts.push(`vn=${encodeURIComponent(cleanName)}`);
     parts.push(`vp=${encodeURIComponent(cleanPhone)}`);
   }
@@ -477,7 +618,7 @@ export function buildPublicCatalogUrl({
   return `${base}${sep}${parts.join('&')}`;
 }
 
-export function buildAllVendorsPayload(vendorsList = []) {
+export function buildAllVendorsPayload(vendorsList = [], telemarketingList = []) {
   const stored = getStoredVendorPhones();
   const baseList = Array.isArray(vendorsList) && vendorsList.length > 0 ? vendorsList : DEFAULT_VENDORS;
   const seen = new Set();
@@ -496,13 +637,29 @@ export function buildAllVendorsPayload(vendorsList = []) {
       id: slug,
       name: canonical,
       route: v.route || '',
-      phone: phone || ''
+      phone: phone || '',
+      type: 'vendor',
+      roleLabel: 'Ejecutivo de ventas'
+    });
+  });
+
+  (Array.isArray(telemarketingList) ? telemarketingList : []).forEach((rawTm) => {
+    const tm = normalizeTelemarketingMember(rawTm);
+    if (!tm || tm.active === false) return;
+    result.push({
+      id: tm.id,
+      tmId: tm.id,
+      name: tm.name,
+      route: 'Telemarketing',
+      phone: tm.phone || '',
+      type: 'telemarketing',
+      roleLabel: 'Ejecutiva de Telemarketing'
     });
   });
 
   return result.sort((a, b) => a.name.localeCompare(b.name, 'es'));
 }
 
-export function buildVendorSellersPayload(vendorsList = []) {
-  return buildAllVendorsPayload(vendorsList).filter((v) => Boolean(v.phone));
+export function buildVendorSellersPayload(vendorsList = [], telemarketingList = []) {
+  return buildAllVendorsPayload(vendorsList, telemarketingList).filter((v) => Boolean(v.phone));
 }

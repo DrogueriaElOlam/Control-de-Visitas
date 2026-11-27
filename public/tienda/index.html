@@ -1653,8 +1653,7 @@
             font-size: 12px;
             font-weight: 600;
             color: #93c5fd;
-            letter-spacing: 0.6px;
-            text-transform: uppercase;
+            letter-spacing: 0.4px;
         }
 
         .footer-vendor-phone {
@@ -4320,14 +4319,89 @@
                 return null;
             }
 
+            function resolveTelemarketingFromCache(tmId) {
+                var cleanId = String(tmId || '').trim();
+                if (!cleanId) return null;
+                var lists = [];
+                if (Array.isArray(window.__olamCloudTelemarketing)) {
+                    lists.push(window.__olamCloudTelemarketing);
+                }
+                if (hostAuthContext && Array.isArray(hostAuthContext.allVendorsList)) {
+                    lists.push(hostAuthContext.allVendorsList);
+                }
+                try {
+                    var cachedRaw = localStorage.getItem('olam_tienda_telemarketing_v1');
+                    if (cachedRaw) {
+                        var parsed = JSON.parse(cachedRaw);
+                        if (Array.isArray(parsed)) lists.push(parsed);
+                    }
+                } catch (e) {}
+                for (var li = 0; li < lists.length; li++) {
+                    var arr = lists[li] || [];
+                    for (var j = 0; j < arr.length; j++) {
+                        var item = arr[j];
+                        if (!item) continue;
+                        var itemTmId = String(item.tmId || item.id || '').trim();
+                        if (itemTmId === cleanId && item.active !== false) {
+                            return {
+                                id: cleanId,
+                                tmId: cleanId,
+                                type: 'telemarketing',
+                                roleLabel: 'Ejecutiva de Telemarketing',
+                                name: String(item.name || '').trim() || 'Ejecutiva de Telemarketing',
+                                phone: String(item.phone || '').replace(/[^\d]/g, '')
+                            };
+                        }
+                    }
+                }
+                return null;
+            }
+
+            function resolveVendorPhoneFromPublicCache(vendorName) {
+                var raw = String(vendorName || '').trim();
+                if (!raw) return '';
+                try {
+                    var cachedRaw = localStorage.getItem('olam_tienda_vendor_phones_v1');
+                    if (!cachedRaw) return '';
+                    var map = JSON.parse(cachedRaw);
+                    if (!map || typeof map !== 'object') return '';
+                    var key = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+                    if (map[key]) return String(map[key]).replace(/[^\d]/g, '');
+                } catch (e) {}
+                return '';
+            }
+
             function detectActiveSeller() {
                 urlCustomSeller = null;
                 try {
                     var params = new URLSearchParams(window.location.search || '');
+                    var tm = (params.get('tm') || '').trim();
+                    if (tm) {
+                        var resolvedTm = resolveTelemarketingFromCache(tm);
+                        urlCustomSeller = resolvedTm || {
+                            id: tm,
+                            tmId: tm,
+                            type: 'telemarketing',
+                            roleLabel: 'Ejecutiva de Telemarketing',
+                            name: 'Ejecutiva de Telemarketing',
+                            phone: '',
+                            isPendingCloud: true
+                        };
+                        activeSellerId = '';
+                        sessionStorage.setItem(STORAGE_SELLER_OBJ_KEY, JSON.stringify(urlCustomSeller));
+                        return urlCustomSeller;
+                    }
                     var vn = (params.get('vn') || '').trim();
                     var vp = (params.get('vp') || '').replace(/[^\d]/g, '');
                     if (vn && vp) {
-                        urlCustomSeller = { id: 'url_vendor', name: vn, phone: vp };
+                        var liveCachedPhone = resolveVendorPhoneFromPublicCache(vn);
+                        urlCustomSeller = {
+                            id: 'url_vendor',
+                            type: 'vendor',
+                            roleLabel: 'Ejecutivo de ventas',
+                            name: vn,
+                            phone: liveCachedPhone || vp
+                        };
                         activeSellerId = '';
                         sessionStorage.setItem(STORAGE_SELLER_OBJ_KEY, JSON.stringify(urlCustomSeller));
                         return urlCustomSeller;
@@ -4400,8 +4474,8 @@
                 var sellers = ensureSellers();
                 var wrap = $('cartSellerField');
                 var sel = $('cartSellerSelect');
-                // Hide dropdown if client arrived via a direct seller link (?vn=&vp=) or inside a vendor's own profile
-                if ((urlCustomSeller && urlCustomSeller.phone) || (hostAuthContext.lockedVendor && hostAuthContext.lockedVendor.phone) || !sellers.length) {
+                // Hide dropdown if client arrived via a direct seller/telemarketing link (?tm= / ?vn=&vp=) or inside a vendor's own profile
+                if ((urlCustomSeller && (urlCustomSeller.phone || urlCustomSeller.tmId)) || (hostAuthContext.lockedVendor && (hostAuthContext.lockedVendor.phone || hostAuthContext.lockedVendor.tmId)) || !sellers.length) {
                     wrap.style.display = 'none';
                     sel.innerHTML = '';
                     return;
@@ -4416,7 +4490,8 @@
                 sellers.forEach(function (s) {
                     var opt = document.createElement('option');
                     opt.value = s.id;
-                    opt.textContent = s.name + ' (+' + String(s.phone).replace(/^\+/, '') + ')';
+                    var typeSuffix = (s.tmId || s.type === 'telemarketing') ? ' [Telemarketing]' : '';
+                    opt.textContent = s.name + typeSuffix + ' (+' + String(s.phone).replace(/^\+/, '') + ')';
                     sel.appendChild(opt);
                 });
                 if (activeSellerId && findSellerById(activeSellerId)) {
@@ -4498,7 +4573,18 @@
                 }
                 var sep = base.indexOf('?') >= 0 ? '&' : '?';
                 var url = '';
-                if (sellerIdOrObj && typeof sellerIdOrObj === 'object' && sellerIdOrObj.name && sellerIdOrObj.phone) {
+                var tmShareId = (sellerIdOrObj && typeof sellerIdOrObj === 'object')
+                    ? String(sellerIdOrObj.tmId || (sellerIdOrObj.type === 'telemarketing' ? sellerIdOrObj.id : '') || '').trim()
+                    : '';
+                if (!tmShareId && sellerIdOrObj && typeof sellerIdOrObj === 'string') {
+                    var foundForTm = findSellerById(sellerIdOrObj);
+                    if (foundForTm && (foundForTm.tmId || foundForTm.type === 'telemarketing')) {
+                        tmShareId = String(foundForTm.tmId || foundForTm.id || '').trim();
+                    }
+                }
+                if (tmShareId) {
+                    url = base + sep + 'tm=' + encodeURIComponent(tmShareId) + '&cliente=1';
+                } else if (sellerIdOrObj && typeof sellerIdOrObj === 'object' && sellerIdOrObj.name && sellerIdOrObj.phone) {
                     url = base + sep + 'vn=' + encodeURIComponent(sellerIdOrObj.name) + '&vp=' + encodeURIComponent(String(sellerIdOrObj.phone).replace(/[^\d]/g, '')) + '&cliente=1';
                 } else if (sellerIdOrObj) {
                     var found = findSellerById(sellerIdOrObj);
@@ -4510,7 +4596,7 @@
                 } else {
                     url = base + sep + 'cliente=1';
                 }
-                if (includeLabFilter !== false) {
+                if (includeLabFilter !== false && !tmShareId) {
                     var filterQuery = buildShareFilterParamsString();
                     if (filterQuery) {
                         url += '&' + filterQuery;
@@ -4555,6 +4641,68 @@
                 }
             }
 
+            function syncCloudTelemarketingAndPhonesForPublicClient() {
+                try {
+                    var hdrs = {
+                        'apikey': SUPA_LOG_KEY,
+                        'Authorization': 'Bearer ' + SUPA_LOG_KEY
+                    };
+                    var pTm = fetch(
+                        SUPA_LOG_URL + '/rest/v1/daily_supervision_history?select=supervision_data&date=eq.2099-12-20&vendor_name=eq.TIENDA_TELEMARKETING_VAULT&order=id.desc&limit=1',
+                        { method: 'GET', headers: hdrs, cache: 'no-store' }
+                    )
+                        .then(function (r) { return r.ok ? r.json() : []; })
+                        .then(function (rows) {
+                            var members = rows && rows[0] && rows[0].supervision_data && Array.isArray(rows[0].supervision_data.members)
+                                ? rows[0].supervision_data.members
+                                : null;
+                            if (Array.isArray(members)) {
+                                window.__olamCloudTelemarketing = members;
+                                try { localStorage.setItem('olam_tienda_telemarketing_v1', JSON.stringify(members)); } catch (e) {}
+                                if (urlCustomSeller && urlCustomSeller.tmId) {
+                                    var refreshedTm = resolveTelemarketingFromCache(urlCustomSeller.tmId);
+                                    if (refreshedTm) {
+                                        urlCustomSeller = refreshedTm;
+                                        try { sessionStorage.setItem(STORAGE_SELLER_OBJ_KEY, JSON.stringify(urlCustomSeller)); } catch (e2) {}
+                                    }
+                                }
+                                applyStoreBranding();
+                                populateCartSellerSelect();
+                            }
+                            return members;
+                        })
+                        .catch(function () { return null; });
+
+                    var pPhones = fetch(
+                        SUPA_LOG_URL + '/rest/v1/daily_supervision_history?select=supervision_data&date=eq.2099-12-22&vendor_name=eq.TIENDA_PHONES_VAULT&order=id.desc&limit=1',
+                        { method: 'GET', headers: hdrs, cache: 'no-store' }
+                    )
+                        .then(function (r) { return r.ok ? r.json() : []; })
+                        .then(function (rows) {
+                            var phonesMap = rows && rows[0] && rows[0].supervision_data && rows[0].supervision_data.phones
+                                ? rows[0].supervision_data.phones
+                                : null;
+                            if (phonesMap && typeof phonesMap === 'object') {
+                                try { localStorage.setItem('olam_tienda_vendor_phones_v1', JSON.stringify(phonesMap)); } catch (e) {}
+                                if (urlCustomSeller && !urlCustomSeller.tmId && urlCustomSeller.name) {
+                                    var livePhone = resolveVendorPhoneFromPublicCache(urlCustomSeller.name);
+                                    if (livePhone && livePhone !== urlCustomSeller.phone) {
+                                        urlCustomSeller.phone = livePhone;
+                                        try { sessionStorage.setItem(STORAGE_SELLER_OBJ_KEY, JSON.stringify(urlCustomSeller)); } catch (e2) {}
+                                        applyStoreBranding();
+                                    }
+                                }
+                            }
+                            return phonesMap;
+                        })
+                        .catch(function () { return null; });
+
+                    return Promise.all([pTm, pPhones]);
+                } catch (e) {
+                    return Promise.resolve(null);
+                }
+            }
+
             function syncCloudVisibilityForPublicClient() {
                 // Cuando un cliente abre el enlace directamente en el navegador/WhatsApp, reforzar en vivo con las reglas más recientes de Supabase
                 var isTopWindow = false;
@@ -4568,17 +4716,28 @@
                         headers: {
                             'apikey': SUPA_LOG_KEY,
                             'Authorization': 'Bearer ' + SUPA_LOG_KEY
-                        }
+                        },
+                        cache: 'no-store'
                     }).then(function (r) { return r.ok ? r.json() : null; }).then(function (rows) {
                         if (!Array.isArray(rows) || !rows.length || !rows[0] || !rows[0].supervision_data) return;
                         var cfg = rows[0].supervision_data;
                         var activeSeller = getActiveSeller();
                         var params = new URLSearchParams(window.location.search || '');
                         var rawVendorName = (activeSeller && activeSeller.name) ? activeSeller.name : (params.get('vn') || '');
+                        var rawTmId = (activeSeller && (activeSeller.tmId || (activeSeller.type === 'telemarketing' ? activeSeller.id : '')))
+                            ? String(activeSeller.tmId || activeSeller.id).trim()
+                            : (params.get('tm') || '').trim();
                         var vendorKey = normalizeText(rawVendorName).trim();
 
                         var globalRule = (cfg.global && typeof cfg.global === 'object') ? cfg.global : { excludedIds: [], hideZeroPrice: false, hideDisponibleCodes: false, hidePrices: false };
-                        var vendorEntry = (vendorKey && cfg.perVendor && cfg.perVendor[vendorKey]) ? cfg.perVendor[vendorKey] : null;
+                        var perVendorMap = (cfg.perVendor && typeof cfg.perVendor === 'object') ? cfg.perVendor : {};
+                        var vendorEntry = null;
+                        if (rawTmId) {
+                            vendorEntry = perVendorMap[rawTmId] || perVendorMap['tm:' + rawTmId] || null;
+                        }
+                        if (!vendorEntry && vendorKey) {
+                            vendorEntry = perVendorMap[vendorKey] || null;
+                        }
                         var rule = (vendorEntry && vendorEntry.useCustom) ? vendorEntry : globalRule;
 
                         var priceMode = (vendorEntry && (vendorEntry.priceMode === 'show' || vendorEntry.priceMode === 'hide'))
@@ -4767,8 +4926,9 @@
                     url = getCatalogShareUrl(seller || sellerId, true);
                 }
                 $('shareLinkInput').value = url;
+                var shareRoleLabel = (seller && (seller.tmId || seller.type === 'telemarketing')) ? 'Ejecutiva de Telemarketing' : 'Ejecutivo de ventas';
                 var shareMsg = seller
-                    ? ('Hola, te comparto nuestro catálogo virtual de ' + (data.ngc || 'la tienda') + ' (asesor: ' + seller.name + '): ' + url)
+                    ? ('Hola, te comparto nuestro catálogo virtual de ' + (data.ngc || 'la tienda') + ' (' + shareRoleLabel + ': ' + seller.name + '): ' + url)
                     : ('Consulta nuestro catálogo virtual de ' + (data.ngc || 'la tienda') + ': ' + url);
                 $('btnShareWa').href = 'https://api.whatsapp.com/send?text=' + encodeURIComponent(shareMsg);
                 updateShareLabsStatusUi();
@@ -4781,12 +4941,17 @@
                 function pushVendor(v, fromSystem) {
                     if (!v || !v.name) return;
                     var cleanName = String(v.name).trim();
-                    var key = normalizeText(cleanName);
+                    var isTm = Boolean(v.tmId || v.type === 'telemarketing');
+                    var tmIdVal = String(v.tmId || (isTm ? v.id : '') || '').trim();
+                    var key = isTm && tmIdVal ? ('tm:' + tmIdVal) : normalizeText(cleanName);
                     if (!key) return;
                     var cleanPhone = String(v.phone || '').replace(/[^\d]/g, '');
                     if (!byKey[key]) {
                         byKey[key] = {
                             id: v.id || slugifySellerId(cleanName),
+                            tmId: tmIdVal,
+                            type: v.type || (isTm ? 'telemarketing' : 'vendor'),
+                            roleLabel: v.roleLabel || (isTm ? 'Ejecutiva de Telemarketing' : 'Ejecutivo de ventas'),
                             name: cleanName,
                             route: v.route || '',
                             phone: cleanPhone,
@@ -4796,6 +4961,8 @@
                     } else {
                         if (cleanPhone) byKey[key].phone = cleanPhone;
                         if (v.route && !byKey[key].route) byKey[key].route = v.route;
+                        if (tmIdVal && !byKey[key].tmId) byKey[key].tmId = tmIdVal;
+                        if (v.roleLabel && !byKey[key].roleLabel) byKey[key].roleLabel = v.roleLabel;
                         if (fromSystem) byKey[key].fromSystem = true;
                     }
                 }
@@ -4887,9 +5054,13 @@
                 var html = '';
                 list.forEach(function (s) {
                     var hasPhone = s.phone && s.phone.length >= 8;
-                    var link = hasPhone ? getCatalogShareUrl({ name: s.name, phone: s.phone }) : '';
-                    var waShare = hasPhone
-                        ? ('https://api.whatsapp.com/send?text=' + encodeURIComponent('Hola, te comparto nuestro catálogo virtual de ' + (data.ngc || 'la tienda') + ' (asesor: ' + s.name + '): ' + link))
+                    var isTm = Boolean(s.tmId || s.type === 'telemarketing');
+                    var link = (hasPhone || isTm)
+                        ? getCatalogShareUrl({ id: s.id, tmId: s.tmId, type: s.type, name: s.name, phone: s.phone })
+                        : '';
+                    var roleText = isTm ? 'Ejecutiva de Telemarketing' : 'Ejecutivo de ventas';
+                    var waShare = (hasPhone || isTm)
+                        ? ('https://api.whatsapp.com/send?text=' + encodeURIComponent('Hola, te comparto nuestro catálogo virtual de ' + (data.ngc || 'la tienda') + ' (' + roleText + ': ' + s.name + '): ' + link))
                         : '#';
                     var rowIdAttr = escapeHtml(s.id);
                     var nameAttr = escapeHtml(s.name);
@@ -4898,16 +5069,19 @@
                             '<div class="seller-row-info" style="min-width:170px;">' +
                                 '<div class="seller-row-name">' +
                                     '<i class="fa fa-user" style="color:var(--primary);"></i> ' + nameAttr +
+                                    (isTm
+                                        ? ' <span style="font-size:10px;background:#cffafe;color:#155e75;padding:1px 6px;border-radius:999px;font-weight:700;margin-left:4px;">Ejecutiva de Telemarketing</span>'
+                                        : '') +
                                     (hasPhone
                                         ? ' <span style="font-size:10px;background:#dcfce7;color:#166534;padding:1px 6px;border-radius:999px;font-weight:700;margin-left:4px;">Activo</span>'
                                         : ' <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:999px;font-weight:700;margin-left:4px;">Sin teléfono</span>') +
                                 '</div>' +
-                                (s.route ? '<div class="seller-row-meta"><i class="fa fa-map-marker"></i> ' + escapeHtml(s.route) + '</div>' : '') +
+                                (s.route && !isTm ? '<div class="seller-row-meta"><i class="fa fa-map-marker"></i> ' + escapeHtml(s.route) + '</div>' : '') +
                             '</div>' +
                             '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
                                 '<input type="text" data-vendor-phone-input="' + rowIdAttr + '" data-vendor-id="' + rowIdAttr + '" data-vendor-name="' + nameAttr + '" value="' + escapeHtml(s.phone || '') + '" placeholder="502XXXXXXXX" style="width:142px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:7px;font-size:12px;font-weight:600;background:#fff;color:var(--text);">' +
                                 '<button type="button" class="btn btn-primary btn-sm" data-vendor-save-one="' + rowIdAttr + '" title="Guardar teléfono de ' + nameAttr + '"><i class="fa fa-save"></i></button>' +
-                                (hasPhone
+                                (hasPhone || isTm
                                     ? '<button type="button" class="btn btn-outline btn-sm" data-vendor-copy-link="' + rowIdAttr + '" title="Copiar enlace público de cliente (sin botón Administrar)"><i class="fa fa-copy"></i> Link</button>' +
                                       '<a class="btn btn-success btn-sm" href="' + escapeHtml(waShare) + '" target="_blank" rel="noopener" style="text-decoration:none;" title="Compartir enlace por WhatsApp"><i class="fa fa-whatsapp"></i></a>'
                                     : '') +
@@ -5121,9 +5295,12 @@
 
                 var contactHtml = '';
                 if (footerVendorName) {
+                    var footerVendorRole = (displayVendor && displayVendor.roleLabel)
+                        ? String(displayVendor.roleLabel).trim()
+                        : ((displayVendor && (displayVendor.tmId || displayVendor.type === 'telemarketing')) ? 'Ejecutiva de Telemarketing' : 'Ejecutivo de ventas');
                     contactHtml += '<div class="footer-vendor-card">' +
                         '<div class="footer-vendor-name">' + escapeHtml(footerVendorName) + '</div>' +
-                        '<div class="footer-vendor-role">Ejecutivo de Ventas</div>' +
+                        '<div class="footer-vendor-role">' + escapeHtml(footerVendorRole) + '</div>' +
                         (effectivePhone
                             ? '<a class="footer-vendor-phone" href="tel:+' + escapeHtml(String(effectivePhone).replace(/[^\d]/g, '')) + '"><i class="fa fa-phone"></i> ' + escapeHtml(formattedPhone) + '</a>'
                             : '<span style="font-size:12px;color:#cbd5e1;">Teléfono pendiente de asignar</span>') +
@@ -5410,8 +5587,21 @@
                 syncSortOptionsForPriceVisibility();
                 loadShareSelectionPrefs();
                 syncLabOverridesFromCloud();
-                syncCloudVisibilityForPublicClient();
-                trackStoreViewLog();
+                var initTmParam = '';
+                try { initTmParam = (new URLSearchParams(window.location.search || '').get('tm') || '').trim(); } catch (e) {}
+                var syncPublicPromise = syncCloudTelemarketingAndPhonesForPublicClient();
+                if (initTmParam) {
+                    Promise.race([
+                        syncPublicPromise,
+                        new Promise(function (resolve) { setTimeout(resolve, 1500); })
+                    ]).then(function () {
+                        syncCloudVisibilityForPublicClient();
+                        trackStoreViewLog();
+                    });
+                } else {
+                    syncCloudVisibilityForPublicClient();
+                    trackStoreViewLog();
+                }
 
                 if (!data.lg) {
                     $('hdrLogo').style.display = 'none';
@@ -5433,7 +5623,10 @@
                     hostAuthContext.allowAdmin = !!msg.allowAdmin;
                     if (msg.vendorName) {
                         hostAuthContext.displayVendor = {
-                            id: 'vendor_profile',
+                            id: msg.tmId ? String(msg.tmId) : 'vendor_profile',
+                            tmId: msg.tmId ? String(msg.tmId) : '',
+                            type: msg.tmId ? 'telemarketing' : 'vendor',
+                            roleLabel: msg.vendorRoleLabel ? String(msg.vendorRoleLabel).trim() : (msg.tmId ? 'Ejecutiva de Telemarketing' : 'Ejecutivo de ventas'),
                             name: String(msg.vendorName).trim(),
                             phone: String(msg.vendorPhone || '').replace(/[^\d]/g, '')
                         };
@@ -5442,13 +5635,19 @@
                     }
                     if (msg.vendorName && msg.vendorPhone && !msg.allowAdmin) {
                         hostAuthContext.lockedVendor = {
-                            id: 'vendor_profile',
+                            id: msg.tmId ? String(msg.tmId) : 'vendor_profile',
+                            tmId: msg.tmId ? String(msg.tmId) : '',
+                            type: msg.tmId ? 'telemarketing' : 'vendor',
+                            roleLabel: msg.vendorRoleLabel ? String(msg.vendorRoleLabel).trim() : (msg.tmId ? 'Ejecutiva de Telemarketing' : 'Ejecutivo de ventas'),
                             name: String(msg.vendorName).trim(),
                             phone: String(msg.vendorPhone).replace(/[^\d]/g, '')
                         };
                     } else if (msg.vendorName && msg.vendorPhone && msg.lockVendor) {
                         hostAuthContext.lockedVendor = {
-                            id: 'vendor_profile',
+                            id: msg.tmId ? String(msg.tmId) : 'vendor_profile',
+                            tmId: msg.tmId ? String(msg.tmId) : '',
+                            type: msg.tmId ? 'telemarketing' : 'vendor',
+                            roleLabel: msg.vendorRoleLabel ? String(msg.vendorRoleLabel).trim() : (msg.tmId ? 'Ejecutiva de Telemarketing' : 'Ejecutivo de ventas'),
                             name: String(msg.vendorName).trim(),
                             phone: String(msg.vendorPhone).replace(/[^\d]/g, '')
                         };
@@ -5459,6 +5658,9 @@
                         hostAuthContext.allVendorsList = msg.allVendorsList.map(function (v) {
                             return {
                                 id: v.id || slugifySellerId(v.name || ''),
+                                tmId: v.tmId ? String(v.tmId) : '',
+                                type: v.type || (v.tmId ? 'telemarketing' : 'vendor'),
+                                roleLabel: v.roleLabel || (v.tmId ? 'Ejecutiva de Telemarketing' : 'Ejecutivo de ventas'),
                                 name: String(v.name || '').trim(),
                                 route: String(v.route || '').trim(),
                                 phone: String(v.phone || '').replace(/[^\d]/g, '')

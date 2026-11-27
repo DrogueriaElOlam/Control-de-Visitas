@@ -27,7 +27,9 @@ import {
   MessageCircle,
   Filter,
   EyeOff,
-  DollarSign
+  DollarSign,
+  Headset,
+  Pencil
 } from 'lucide-react';
 import { DEFAULT_VENDORS, normalizeVendorName } from '../lib/db';
 import {
@@ -44,7 +46,10 @@ import {
   getStoredVisibilityConfig,
   syncVisibilityConfigFromCloud,
   saveVisibilityConfigToCloud,
-  resolveVisibilityForVendor
+  resolveVisibilityForVendor,
+  getStoredTelemarketingTeam,
+  syncTelemarketingTeamFromCloud,
+  saveTelemarketingTeamToCloud
 } from '../lib/tiendaVendors';
 import {
   fetchTiendaViewLogs,
@@ -98,8 +103,17 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [showShareFilterModal, setShowShareFilterModal] = useState(false);
   const [visibilityModalTab, setVisibilityModalTab] = useState('prices'); // 'prices' | 'labs'
-  const [visibilityEditTarget, setVisibilityEditTarget] = useState('__global__'); // '__global__' | nombre del vendedor
+  const [visibilityEditTarget, setVisibilityEditTarget] = useState('__global__'); // '__global__' | nombre del vendedor | tm:<id>
   const [labFilterSearch, setLabFilterSearch] = useState('');
+
+  // Directorio independiente de Equipo de Telemarketing (almacenado en nube con ID fijo reutilizable)
+  const [telemarketingTeam, setTelemarketingTeam] = useState(() => getStoredTelemarketingTeam());
+  const [showTelemarketingModal, setShowTelemarketingModal] = useState(false);
+  const [tmFormName, setTmFormName] = useState('');
+  const [tmFormPhone, setTmFormPhone] = useState('');
+  const [tmEditingId, setTmEditingId] = useState(null);
+  const [savingTelemarketing, setSavingTelemarketing] = useState(false);
+  const [tmModalFeedback, setTmModalFeedback] = useState('');
 
   // Panel activo (solo Admin / Supervisor pueden cambiar a 'orders' o 'logs')
   const [activePanel, setActivePanel] = useState('catalog'); // 'catalog' | 'orders' | 'logs'
@@ -180,6 +194,30 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
   }, [ordersList, orderStatusFilter, orderSourceFilter, orderSellerFilter, orderDateFilter, orderSearch]);
 
   const activeProfileName = canAdmin ? selectedVendorName : myCanonicalName;
+  const isTelemarketingProfile = typeof activeProfileName === 'string' && activeProfileName.startsWith('tm:');
+  const activeTelemarketingMember = useMemo(() => {
+    if (!isTelemarketingProfile) return null;
+    const targetId = activeProfileName.slice(3);
+    return telemarketingTeam.find((m) => String(m.id) === String(targetId)) || null;
+  }, [isTelemarketingProfile, activeProfileName, telemarketingTeam]);
+
+  const activeProfileDisplayName = activeTelemarketingMember
+    ? activeTelemarketingMember.name
+    : activeProfileName;
+  const activeProfileRoleLabel = activeTelemarketingMember
+    ? 'Ejecutiva de Telemarketing'
+    : 'Ejecutivo de ventas';
+
+  const resolveProfileWhatsAppPhone = (profileKey, vendorsList = availableVendors, tmList = telemarketingTeam) => {
+    const rawKey = String(profileKey || '').trim();
+    if (!rawKey) return '';
+    if (rawKey.startsWith('tm:')) {
+      const targetId = rawKey.slice(3);
+      const found = (Array.isArray(tmList) ? tmList : []).find((m) => String(m.id) === String(targetId));
+      return found ? sanitizeWhatsAppPhone(found.phone) : '';
+    }
+    return getVendorWhatsAppPhone(rawKey, vendorsList);
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -197,10 +235,16 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
       if (cloudVis) setVisibilityConfig(cloudVis);
     });
 
+    syncTelemarketingTeamFromCloud().then((cloudTm) => {
+      if (Array.isArray(cloudTm)) {
+        setTelemarketingTeam(cloudTm);
+      }
+    });
+
     syncVendorPhonesFromCloud(availableVendors).then(() => {
       const targetName = defaultSelectedVendor;
       if (targetName) {
-        const p = getVendorWhatsAppPhone(targetName, availableVendors);
+        const p = resolveProfileWhatsAppPhone(targetName, availableVendors);
         setPhoneInput(p);
         setSavedPhone(p);
       } else {
@@ -213,7 +257,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
   useEffect(() => {
     if (!isOpen) return;
     if (activeProfileName) {
-      const p = getVendorWhatsAppPhone(activeProfileName, availableVendors);
+      const p = resolveProfileWhatsAppPhone(activeProfileName, availableVendors, telemarketingTeam);
       setPhoneInput(p);
       setSavedPhone(p);
     } else {
@@ -222,22 +266,27 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
     }
     setStatusMsg('');
     setErrorMsg('');
-  }, [activeProfileName, isOpen, availableVendors]);
+  }, [activeProfileName, isOpen, availableVendors, telemarketingTeam]);
 
-  // Visibilidad efectiva para el perfil activo (vendedor actual o seleccionado por Admin)
+  // Visibilidad efectiva para el perfil activo (vendedor actual o seleccionado por Admin / Telemarketing)
   const activeEffectiveVisibility = useMemo(
-    () => resolveVisibilityForVendor(visibilityConfig, activeProfileName || ''),
-    [visibilityConfig, activeProfileName]
+    () => resolveVisibilityForVendor(
+      visibilityConfig,
+      activeTelemarketingMember
+        ? { id: activeTelemarketingMember.id, name: activeTelemarketingMember.name }
+        : (activeProfileName || '')
+    ),
+    [visibilityConfig, activeProfileName, activeTelemarketingMember]
   );
 
   const sendAuthContextToIframe = () => {
     const win = iframeRef.current?.contentWindow;
     if (!win) return;
 
-    const allVendorsPayload = buildAllVendorsPayload(availableVendors);
+    const allVendorsPayload = buildAllVendorsPayload(availableVendors, telemarketingTeam);
     const sellersPayload = allVendorsPayload.filter((v) => Boolean(v.phone));
     const activePhone = activeProfileName
-      ? (savedPhone || getVendorWhatsAppPhone(activeProfileName, availableVendors))
+      ? (savedPhone || resolveProfileWhatsAppPhone(activeProfileName, availableVendors, telemarketingTeam))
       : '';
 
     win.postMessage(
@@ -245,7 +294,9 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
         type: 'OLAM_CATALOG_AUTH',
         // REGLA ESTRICTA: solo Administrador y Supervisor (Antonio Celada) tienen acceso al botón Administrar y a controlar visibilidad
         allowAdmin: canAdmin,
-        vendorName: activeProfileName || '',
+        vendorName: activeProfileDisplayName || '',
+        vendorRoleLabel: activeProfileRoleLabel,
+        tmId: activeTelemarketingMember?.id || '',
         vendorPhone: activePhone || '',
         lockVendor: !canAdmin,
         sellersList: sellersPayload,
@@ -375,7 +426,20 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
 
   // Datos del objetivo actualmente seleccionado dentro del modal "Controlar qué ven" (solo Admin/Supervisor)
   const isEditingGlobalTarget = visibilityEditTarget === '__global__';
-  const editVendorKey = isEditingGlobalTarget ? '' : getCanonicalPhoneKey(visibilityEditTarget);
+  const isEditingTelemarketingTarget = !isEditingGlobalTarget && String(visibilityEditTarget).startsWith('tm:');
+  const editTelemarketingMember = isEditingTelemarketingTarget
+    ? telemarketingTeam.find((m) => `tm:${m.id}` === visibilityEditTarget || m.id === String(visibilityEditTarget).slice(3)) || null
+    : null;
+  const visibilityEditTargetLabel = isEditingGlobalTarget
+    ? 'todos los vendedores y equipo (Regla General)'
+    : (editTelemarketingMember
+      ? `${editTelemarketingMember.name} (Ejecutiva de Telemarketing)`
+      : visibilityEditTarget);
+  const editVendorKey = isEditingGlobalTarget
+    ? ''
+    : (isEditingTelemarketingTarget
+      ? String(visibilityEditTarget).slice(3)
+      : getCanonicalPhoneKey(visibilityEditTarget));
   const editVendorEntry = !isEditingGlobalTarget && editVendorKey ? visibilityConfig.perVendor?.[editVendorKey] : null;
   const editUsesCustomRule = isEditingGlobalTarget ? true : Boolean(editVendorEntry?.useCustom);
 
@@ -616,29 +680,57 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
 
   if (!isOpen) return null;
 
-  const shareUrl = buildPublicCatalogUrl({
-    vendorName: activeProfileName,
-    vendorPhone: savedPhone,
-    allLabIds,
-    excludedLabIds: activeEffectiveVisibility.excludedIds || [],
-    hideZeroPrice: Boolean(activeEffectiveVisibility.hideZeroPrice),
-    hideDisponibleCodes: Boolean(activeEffectiveVisibility.hideDisponibleCodes),
-    hidePrices: Boolean(activeEffectiveVisibility.hidePrices)
-  });
+  const shareUrl = activeTelemarketingMember
+    ? buildPublicCatalogUrl({
+        tmId: activeTelemarketingMember.id,
+        vendorName: activeTelemarketingMember.name,
+        vendorPhone: savedPhone || activeTelemarketingMember.phone
+      })
+    : buildPublicCatalogUrl({
+        vendorName: activeProfileDisplayName,
+        vendorPhone: savedPhone,
+        allLabIds,
+        excludedLabIds: activeEffectiveVisibility.excludedIds || [],
+        hideZeroPrice: Boolean(activeEffectiveVisibility.hideZeroPrice),
+        hideDisponibleCodes: Boolean(activeEffectiveVisibility.hideDisponibleCodes),
+        hidePrices: Boolean(activeEffectiveVisibility.hidePrices)
+      });
 
   const handleSavePhone = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setStatusMsg('');
     if (!canAdmin) {
-      setErrorMsg('Solo el Administrador o Supervisor puede modificar los teléfonos de vendedores.');
+      setErrorMsg('Solo el Administrador o Supervisor puede modificar los teléfonos.');
       return;
     }
     if (!activeProfileName) {
-      setErrorMsg('Selecciona un vendedor primero para guardar su número.');
+      setErrorMsg('Selecciona un vendedor o Ejecutiva de Telemarketing primero para guardar su número.');
       return;
     }
     try {
+      if (isTelemarketingProfile && activeTelemarketingMember) {
+        const cleanTmPhone = sanitizeWhatsAppPhone(phoneInput);
+        if (cleanTmPhone && cleanTmPhone.length < 8) {
+          setErrorMsg('Ingresa un número de WhatsApp válido (mínimo 8 dígitos, ej. 502XXXXXXXX).');
+          return;
+        }
+        const updatedList = telemarketingTeam.map((m) =>
+          String(m.id) === String(activeTelemarketingMember.id)
+            ? { ...m, phone: cleanTmPhone, updatedAt: new Date().toISOString() }
+            : m
+        );
+        const savedList = await saveTelemarketingTeamToCloud(updatedList);
+        setTelemarketingTeam(savedList);
+        setPhoneInput(cleanTmPhone);
+        setSavedPhone(cleanTmPhone);
+        setPhonesVersion((v) => v + 1);
+        setStatusMsg(cleanTmPhone
+          ? `WhatsApp guardado (+${cleanTmPhone}) para ${activeTelemarketingMember.name} (Ejecutiva de Telemarketing).`
+          : `WhatsApp eliminado para ${activeTelemarketingMember.name}.`);
+        setTimeout(() => setStatusMsg(''), 4000);
+        return;
+      }
       const clean = await saveVendorWhatsAppPhone(activeProfileName, phoneInput, availableVendors);
       setPhoneInput(clean);
       setSavedPhone(clean);
@@ -647,6 +739,194 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
       setTimeout(() => setStatusMsg(''), 4000);
     } catch (err) {
       setErrorMsg(err.message || 'No se pudo guardar el número.');
+    }
+  };
+
+  const getTelemarketingFixedUrl = (member) => {
+    if (!member?.id) return '';
+    return buildPublicCatalogUrl({
+      tmId: member.id,
+      vendorName: member.name,
+      vendorPhone: member.phone
+    });
+  };
+
+  const handleSaveTelemarketingMember = async (e) => {
+    e.preventDefault();
+    if (!canAdmin) return;
+    setTmModalFeedback('');
+    const cleanName = String(tmFormName || '').trim().replace(/\s+/g, ' ');
+    const cleanPhone = sanitizeWhatsAppPhone(tmFormPhone);
+    if (!cleanName || cleanName.length < 3) {
+      setTmModalFeedback('Error: Ingresa el nombre completo de la Ejecutiva de Telemarketing.');
+      return;
+    }
+    if (!cleanPhone || cleanPhone.length < 8) {
+      setTmModalFeedback('Error: Ingresa un número de WhatsApp válido (mínimo 8 dígitos, ej. 502XXXXXXXX).');
+      return;
+    }
+
+    setSavingTelemarketing(true);
+    try {
+      const nowIso = new Date().toISOString();
+      let updatedList = [];
+      let actionLabel = '';
+      if (tmEditingId) {
+        const existingMember = telemarketingTeam.find((m) => String(m.id) === String(tmEditingId));
+        updatedList = telemarketingTeam.map((m) =>
+          String(m.id) === String(tmEditingId)
+            ? {
+                ...m,
+                name: cleanName,
+                phone: cleanPhone,
+                roleLabel: 'Ejecutiva de Telemarketing',
+                type: 'telemarketing',
+                updatedAt: nowIso
+              }
+            : m
+        );
+        actionLabel = existingMember && existingMember.name !== cleanName
+          ? `¡Cartera reasignada a ${cleanName}! El link anterior sigue funcionando automáticamente.`
+          : `¡Datos de ${cleanName} actualizados en la nube!`;
+      } else {
+        const dupByName = telemarketingTeam.some(
+          (m) => getCanonicalPhoneKey(m.name) === getCanonicalPhoneKey(cleanName)
+        );
+        if (dupByName) {
+          setTmModalFeedback('Error: Ya existe una Ejecutiva con ese nombre. Si deseas cambiarle el número, usa "Editar / Reasignar".');
+          setSavingTelemarketing(false);
+          return;
+        }
+        const newId = `tm_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+        updatedList = [
+          ...telemarketingTeam,
+          {
+            id: newId,
+            name: cleanName,
+            phone: cleanPhone,
+            roleLabel: 'Ejecutiva de Telemarketing',
+            type: 'telemarketing',
+            active: true,
+            createdAt: nowIso,
+            updatedAt: nowIso
+          }
+        ];
+        actionLabel = `¡${cleanName} agregada! Ya puedes copiar su enlace fijo o enviárselo por WhatsApp.`;
+      }
+
+      const savedList = await saveTelemarketingTeamToCloud(updatedList);
+      setTelemarketingTeam(savedList);
+      setTmFormName('');
+      setTmFormPhone('');
+      setTmEditingId(null);
+      setTmModalFeedback(actionLabel);
+      setPhonesVersion((v) => v + 1);
+      setTimeout(() => {
+        try { sendAuthContextToIframe(); } catch (_) {}
+      }, 60);
+    } catch (err) {
+      setTmModalFeedback(`Error: ${err.message || 'No se pudo guardar en Supabase.'}`);
+    } finally {
+      setSavingTelemarketing(false);
+    }
+  };
+
+  const handleEditTelemarketingMember = (member) => {
+    if (!member) return;
+    setTmEditingId(member.id);
+    setTmFormName(member.name || '');
+    setTmFormPhone(member.phone || '');
+    setTmModalFeedback(`Editando / Reasignando cartera fija (${member.id}): cambia el nombre o WhatsApp sin perder el enlace ya enviado.`);
+  };
+
+  const handleDeleteTelemarketingMember = async (member) => {
+    if (!canAdmin || !member) return;
+    if (!window.confirm(`¿Eliminar a ${member.name} del equipo de Telemarketing?\n\nSi una Ejecutiva se retiró y deseas mantener sus enlaces para alguien más, mejor usa "Editar / Reasignar".`)) {
+      return;
+    }
+    setSavingTelemarketing(true);
+    setTmModalFeedback('');
+    try {
+      const updatedList = telemarketingTeam.filter((m) => String(m.id) !== String(member.id));
+      const savedList = await saveTelemarketingTeamToCloud(updatedList);
+      setTelemarketingTeam(savedList);
+      if (selectedVendorName === `tm:${member.id}`) {
+        setSelectedVendorName('');
+      }
+      if (tmEditingId === member.id) {
+        setTmEditingId(null);
+        setTmFormName('');
+        setTmFormPhone('');
+      }
+      setTmModalFeedback(`${member.name} fue removida del equipo de Telemarketing.`);
+    } catch (err) {
+      setTmModalFeedback(`Error: ${err.message || 'No se pudo eliminar en Supabase.'}`);
+    } finally {
+      setSavingTelemarketing(false);
+    }
+  };
+
+  const handleCopyTelemarketingLink = async (member) => {
+    const url = getTelemarketingFixedUrl(member);
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch (_) {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (__) {}
+      document.body.removeChild(ta);
+    }
+    setTmModalFeedback(`¡Enlace fijo copiado para ${member.name}! Toda actualización futura de precios, nombre o teléfono se reflejará sola en este link.`);
+  };
+
+  const handleWhatsAppTelemarketingLink = (member) => {
+    const url = getTelemarketingFixedUrl(member);
+    if (!url) return;
+    const msg = `Hola ${member.name}, te comparto tu enlace oficial y fijo de la Tienda Virtual de Droguería El Olam (Ejecutiva de Telemarketing). Todos los pedidos llegarán a tu WhatsApp y las actualizaciones de catálogo o precios se aplican automáticamente en este mismo link: ${url}`;
+    const targetPhone = sanitizeWhatsAppPhone(member.phone);
+    const waUrl = targetPhone
+      ? `https://wa.me/${targetPhone}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleToggleTelemarketingPriceVisibility = async (member, isCurrentlyHidden) => {
+    if (!canAdmin || !member?.id) return;
+    const existing = visibilityConfig?.perVendor?.[member.id] || {};
+    const nextConfig = {
+      ...(visibilityConfig || {}),
+      perVendor: {
+        ...(visibilityConfig?.perVendor || {}),
+        [member.id]: {
+          useCustom: Boolean(existing.useCustom),
+          excludedIds: Array.isArray(existing.excludedIds)
+            ? existing.excludedIds
+            : (visibilityConfig?.global?.excludedIds || []),
+          hideZeroPrice: existing.hideZeroPrice != null
+            ? Boolean(existing.hideZeroPrice)
+            : Boolean(visibilityConfig?.global?.hideZeroPrice),
+          hideDisponibleCodes: existing.hideDisponibleCodes != null
+            ? Boolean(existing.hideDisponibleCodes)
+            : Boolean(visibilityConfig?.global?.hideDisponibleCodes),
+          priceMode: isCurrentlyHidden ? 'show' : 'hide'
+        }
+      }
+    };
+    setSavingVisibility(true);
+    try {
+      const savedCfg = await saveVisibilityConfigToCloud(nextConfig);
+      setVisibilityConfig(savedCfg);
+      setStatusMsg(`Precios ${!isCurrentlyHidden ? 'OCULTOS' : 'VISIBLES'} para ${member.name} (Ejecutiva de Telemarketing).`);
+      setTimeout(() => setStatusMsg(''), 3500);
+    } catch (err) {
+      setErrorMsg(err.message || 'No se pudo guardar visibilidad en la nube.');
+    } finally {
+      setSavingVisibility(false);
     }
   };
 
@@ -693,14 +973,16 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
       return;
     }
     const msg = activeProfileName
-      ? `Hola, te comparto nuestro catálogo virtual de Droguería El Olam (asesor: ${activeProfileName}): ${shareUrl}`
+      ? `Hola, te comparto nuestro catálogo virtual de Droguería El Olam (${activeProfileRoleLabel}: ${activeProfileDisplayName}): ${shareUrl}`
       : `Consulta el catálogo virtual de Droguería El Olam: ${shareUrl}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
   };
 
-  const iframeSrc = activeProfileName && savedPhone
-    ? `/tienda/index.html?vn=${encodeURIComponent(activeProfileName)}&vp=${encodeURIComponent(sanitizeWhatsAppPhone(savedPhone))}&cliente=1`
-    : '/tienda/index.html?cliente=1';
+  const iframeSrc = activeTelemarketingMember
+    ? `/tienda/index.html?tm=${encodeURIComponent(activeTelemarketingMember.id)}&cliente=1`
+    : (activeProfileName && savedPhone
+      ? `/tienda/index.html?vn=${encodeURIComponent(activeProfileName)}&vp=${encodeURIComponent(sanitizeWhatsAppPhone(savedPhone))}&cliente=1`
+      : '/tienda/index.html?cliente=1');
 
   return (
     <div className="fixed inset-0 z-[9995] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-1 sm:p-3 animate-in fade-in duration-150">
@@ -820,15 +1102,26 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                   <select
                     value={selectedVendorName}
                     onChange={(e) => setSelectedVendorName(e.target.value)}
-                    className="text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
-                    title="Seleccionar vendedor para configurar su WhatsApp o copiar su enlace"
+                    className="text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 max-w-[260px]"
+                    title="Seleccionar vendedor o Ejecutiva de Telemarketing para configurar su WhatsApp o copiar su enlace"
                   >
                     <option value="">Catálogo General (WhatsApp principal)</option>
-                    {availableVendors.map((v) => (
-                      <option key={v.name} value={v.name}>
-                        {v.name} {getVendorWhatsAppPhone(v.name, availableVendors) ? `(+${getVendorWhatsAppPhone(v.name, availableVendors)})` : '(Sin WhatsApp)'}
-                      </option>
-                    ))}
+                    {telemarketingTeam.length > 0 && (
+                      <optgroup label="🎧 Equipo de Telemarketing">
+                        {telemarketingTeam.map((tm) => (
+                          <option key={`tm:${tm.id}`} value={`tm:${tm.id}`}>
+                            {tm.name} — Telemarketing {tm.phone ? `(+${tm.phone})` : '(Sin WhatsApp)'}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="🚚 Vendedores de Ruta">
+                      {availableVendors.map((v) => (
+                        <option key={v.name} value={v.name}>
+                          {v.name} {getVendorWhatsAppPhone(v.name, availableVendors) ? `(+${getVendorWhatsAppPhone(v.name, availableVendors)})` : '(Sin WhatsApp)'}
+                        </option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
               )}
@@ -837,7 +1130,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1">
                     <Phone size={13} className="text-emerald-600" />
-                    <span>WhatsApp de {activeProfileName}:</span>
+                    <span>WhatsApp de {activeProfileDisplayName}:</span>
                   </label>
                   <input
                     type="text"
@@ -872,6 +1165,27 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
 
             {/* ACCIONES DE COMPARTIR LINK PÚBLICO (SIN BOTÓN ADMIN) */}
             <div className="flex items-center gap-1.5 flex-wrap">
+              {canAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTmFormName('');
+                    setTmFormPhone('');
+                    setTmEditingId(null);
+                    setTmModalFeedback('');
+                    setShowTelemarketingModal(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border shadow-sm bg-cyan-50 hover:bg-cyan-100 text-cyan-900 border-cyan-300 dark:bg-cyan-950/60 dark:text-cyan-200 dark:border-cyan-700"
+                  title="Crear y administrar ejecutivas de Telemarketing, cambiar nombre/número si se retira alguien y compartir links fijos actualizables"
+                >
+                  <Headset size={13} />
+                  <span>Telemarketing</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-600 text-white">
+                    {telemarketingTeam.length}
+                  </span>
+                </button>
+              )}
+
               {canAdmin && (
                 <button
                   type="button"
@@ -1792,14 +2106,65 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                         })}
                       </div>
                     </div>
+
+                    {/* EQUIPO DE TELEMARKETING (PRECIOS INDIVIDUALES) */}
+                    {telemarketingTeam.length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-black text-cyan-900 dark:text-cyan-200 flex items-center gap-1.5">
+                            <Headset size={13} />
+                            <span>Equipo de Telemarketing ({telemarketingTeam.length})</span>
+                          </span>
+                          <span className="text-[11px] text-slate-500">Se aplica en tiempo real en sus enlaces</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
+                          {telemarketingTeam.map((tm) => {
+                            const resolved = resolveVisibilityForVendor(visibilityConfig, { id: tm.id, name: tm.name });
+                            const isHidden = Boolean(resolved.hidePrices);
+                            return (
+                              <div
+                                key={tm.id}
+                                className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-all ${
+                                  isHidden
+                                    ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/70'
+                                    : 'bg-cyan-50/60 dark:bg-cyan-950/25 border-cyan-200 dark:border-cyan-800/70'
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate" title={tm.name}>
+                                    {tm.name}
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                                    Ejecutiva de Telemarketing · {isHidden ? 'Solo cotización' : 'Precios visibles'}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={savingVisibility}
+                                  onClick={() => handleToggleTelemarketingPriceVisibility(tm, isHidden)}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black cursor-pointer shrink-0 transition-all shadow-sm disabled:opacity-50 ${
+                                    isHidden
+                                      ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                  }`}
+                                >
+                                  {isHidden ? <EyeOff size={12} /> : <Eye size={12} />}
+                                  <span>{isHidden ? 'Ocultos' : 'Visibles'}</span>
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>
                 <p className="text-xs text-slate-600 dark:text-slate-300">
-                  Define qué laboratorios pueden y cuáles <strong>no</strong> pueden ver tus vendedores en sus tiendas y en los enlaces que comparten a sus clientes. <strong>Ningún vendedor tiene acceso para cambiar estas reglas.</strong>
+                  Define qué laboratorios pueden y cuáles <strong>no</strong> pueden ver tus vendedores y equipo de Telemarketing en sus tiendas y enlaces compartidos. <strong>Solo tú tienes acceso para cambiar estas reglas.</strong>
                 </p>
 
-                {/* SELECTOR DE ALCANCE: REGLA GENERAL VS VENDEDOR INDIVIDUAL */}
+                {/* SELECTOR DE ALCANCE: REGLA GENERAL VS VENDEDOR / TELEMARKETING */}
                 <div className="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 space-y-2">
                   <label className="block text-xs font-black text-indigo-950 dark:text-indigo-200">
                     ¿Para quién deseas configurar la visibilidad?
@@ -1810,20 +2175,37 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                     className="w-full px-3 py-2 text-xs font-bold rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="__global__">
-                      🌐 Regla General — Todos los vendedores por defecto ({(visibilityConfig.global?.excludedIds || []).length} ocultos)
+                      🌐 Regla General — Todos por defecto ({(visibilityConfig.global?.excludedIds || []).length} ocultos)
                     </option>
-                    {availableVendors.map((v) => {
-                      const vk = getCanonicalPhoneKey(v.name);
-                      const custom = visibilityConfig.perVendor?.[vk];
-                      const tag = custom?.useCustom
-                        ? `Personalizado (${(custom.excludedIds || []).length} ocultos)`
-                        : 'Usa Regla General';
-                      return (
-                        <option key={v.name} value={v.name}>
-                          👤 {v.name} — {tag}
-                        </option>
-                      );
-                    })}
+                    {telemarketingTeam.length > 0 && (
+                      <optgroup label="🎧 Equipo de Telemarketing">
+                        {telemarketingTeam.map((tm) => {
+                          const custom = visibilityConfig.perVendor?.[tm.id] || visibilityConfig.perVendor?.[`tm:${tm.id}`];
+                          const tag = custom?.useCustom
+                            ? `Personalizado (${(custom.excludedIds || []).length} ocultos)`
+                            : 'Usa Regla General';
+                          return (
+                            <option key={`tm:${tm.id}`} value={`tm:${tm.id}`}>
+                              🎧 {tm.name} (Telemarketing) — {tag}
+                            </option>
+                          );
+                        })}
+                      </optgroup>
+                    )}
+                    <optgroup label="🚚 Vendedores de Ruta">
+                      {availableVendors.map((v) => {
+                        const vk = getCanonicalPhoneKey(v.name);
+                        const custom = visibilityConfig.perVendor?.[vk];
+                        const tag = custom?.useCustom
+                          ? `Personalizado (${(custom.excludedIds || []).length} ocultos)`
+                          : 'Usa Regla General';
+                        return (
+                          <option key={v.name} value={v.name}>
+                            👤 {v.name} — {tag}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
                   </select>
 
                   {!isEditingGlobalTarget && (
@@ -1848,7 +2230,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600'
                         }`}
                       >
-                        Personalizar solo para {visibilityEditTarget}
+                        Personalizar solo para {visibilityEditTargetLabel}
                       </button>
                     </div>
                   )}
@@ -1857,7 +2239,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                 {!isEditingGlobalTarget && !editUsesCustomRule ? (
                   <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 space-y-1">
                     <div className="font-bold text-slate-900 dark:text-white">
-                      {visibilityEditTarget} hereda automáticamente la Regla General.
+                      {visibilityEditTargetLabel} hereda automáticamente la Regla General.
                     </div>
                     <div>
                       Actualmente tiene <strong>{editIncludedCount}</strong> de <strong>{catalogLabs.length}</strong> laboratorios visibles
@@ -1866,7 +2248,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                       {editHideDisponibleCodes ? ' · sin códigos DISPONIBLE' : ''}.
                     </div>
                     <div className="text-[11px] text-slate-500">
-                      Si quieres darle un catálogo diferente solo a este vendedor, presiona <strong>&ldquo;Personalizar solo para {visibilityEditTarget}&rdquo;</strong> arriba.
+                      Si quieres darle un catálogo diferente solo a este perfil, presiona <strong>&ldquo;Personalizar solo para {visibilityEditTargetLabel}&rdquo;</strong> arriba.
                     </div>
                   </div>
                 ) : (
@@ -1968,7 +2350,7 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                     )}
 
                     <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Vista para <strong>{isEditingGlobalTarget ? 'todos los vendedores (Regla General)' : visibilityEditTarget}</strong>:{' '}
+                      Vista para <strong>{visibilityEditTargetLabel}</strong>:{' '}
                       <strong className="text-slate-800 dark:text-slate-200">{editIncludedCount}</strong> de <strong>{catalogLabs.length}</strong> laboratorios visibles
                       {editExcludedValidCount > 0 && ` (${editExcludedValidCount} ${editExcludedValidCount === 1 ? 'oculto' : 'ocultos'})`}
                       {editHideZeroPrice && ' · sin productos Q0'}
@@ -1996,6 +2378,232 @@ export default function TiendaVirtualModal({ isOpen, onClose, currentUser, vendo
                 >
                   <Save size={14} />
                   <span>{savingVisibility ? 'Guardando en la nube...' : 'Guardar Cambios en la Nube'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE EQUIPO DE TELEMARKETING (SOLO ADMIN / SUPERVISOR) */}
+        {canAdmin && showTelemarketingModal && (
+          <div
+            className="fixed inset-0 z-[101] bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowTelemarketingModal(false); }}
+          >
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-cyan-200 dark:border-cyan-800 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="bg-gradient-to-r from-cyan-800 to-blue-900 px-4 py-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-white">
+                  <Headset size={18} />
+                  <div>
+                    <h3 className="text-sm font-black">Equipo de Telemarketing — Enlaces Fijos</h3>
+                    <p className="text-[11px] text-cyan-100">
+                      Solo acceso a la Tienda Virtual · Cargo en catálogo: <strong>Ejecutiva de Telemarketing</strong>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTelemarketingModal(false)}
+                  className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="p-4 overflow-y-auto space-y-4">
+                <div className="p-3 rounded-xl bg-cyan-50/80 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800 text-xs text-cyan-950 dark:text-cyan-100 leading-relaxed">
+                  <strong>Enlace inmutable por cartera:</strong> cada Ejecutiva recibe un link único (<code className="px-1 py-0.5 rounded bg-white/70 dark:bg-slate-800 font-mono text-[11px]">?tm=...</code>). Si una Ejecutiva se retira, usa <strong>Editar / Reasignar</strong> para cambiarle el nombre o número de WhatsApp: el link ya compartido se actualizará al instante para tus clientes sin tener que reenviar uno nuevo.
+                </div>
+
+                <form onSubmit={handleSaveTelemarketingMember} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-black text-slate-800 dark:text-slate-100">
+                      {tmEditingId ? '✏️ Editando / Reasignando Ejecutiva de Telemarketing' : '➕ Registrar Nueva Ejecutiva de Telemarketing'}
+                    </span>
+                    {tmEditingId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTmEditingId(null);
+                          setTmFormName('');
+                          setTmFormPhone('');
+                          setTmModalFeedback('');
+                        }}
+                        className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white underline cursor-pointer"
+                      >
+                        Cancelar edición
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                        Nombre completo de la Ejecutiva
+                      </label>
+                      <input
+                        type="text"
+                        value={tmFormName}
+                        onChange={(e) => setTmFormName(e.target.value)}
+                        placeholder="Ej. María José López"
+                        className="w-full px-3 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                        Número de WhatsApp (cartera)
+                      </label>
+                      <input
+                        type="text"
+                        value={tmFormPhone}
+                        onChange={(e) => setTmFormPhone(e.target.value)}
+                        placeholder="502XXXXXXXX"
+                        className="w-full px-3 py-2 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="submit"
+                      disabled={savingTelemarketing}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-800 disabled:opacity-50 text-white text-xs font-black shadow-sm cursor-pointer"
+                    >
+                      <Save size={13} />
+                      <span>
+                        {savingTelemarketing
+                          ? 'Guardando en Supabase...'
+                          : (tmEditingId ? 'Guardar Cambios / Reasignar' : 'Agregar Ejecutiva')}
+                      </span>
+                    </button>
+                  </div>
+                </form>
+
+                {tmModalFeedback && (
+                  <div className={`p-2.5 rounded-xl text-xs font-bold border ${
+                    tmModalFeedback.startsWith('Error:')
+                      ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-950/40 dark:border-red-800 dark:text-red-300'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200'
+                  }`}>
+                    {tmModalFeedback}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <div className="text-xs font-black text-slate-700 dark:text-slate-200 flex items-center justify-between">
+                    <span>Ejecutivas registradas ({telemarketingTeam.length})</span>
+                    <span className="text-[11px] font-medium text-slate-500">Todos los cambios se sincronizan en vivo</span>
+                  </div>
+
+                  {telemarketingTeam.length === 0 ? (
+                    <div className="text-center py-6 px-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
+                      Aún no has agregado ejecutivas de Telemarketing. Registra la primera arriba para generar su enlace fijo de tienda.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                      {telemarketingTeam.map((tm) => {
+                        const fixedLink = getTelemarketingFixedUrl(tm);
+                        const vis = resolveVisibilityForVendor(visibilityConfig, { id: tm.id, name: tm.name });
+                        return (
+                          <div
+                            key={tm.id}
+                            className={`p-3 rounded-xl border transition-all ${
+                              tmEditingId === tm.id
+                                ? 'bg-cyan-50/90 dark:bg-cyan-950/40 border-cyan-400 dark:border-cyan-600'
+                                : 'bg-white dark:bg-slate-800/70 border-slate-200 dark:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-black text-slate-900 dark:text-white">{tm.name}</span>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-cyan-100 text-cyan-800 dark:bg-cyan-900/60 dark:text-cyan-200">
+                                    Ejecutiva de Telemarketing
+                                  </span>
+                                  {vis.hidePrices && (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800">
+                                      Precios ocultos
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-600 dark:text-slate-300 mt-1 flex items-center gap-3 flex-wrap">
+                                  <span>📱 WhatsApp: <strong className="text-emerald-700 dark:text-emerald-400">+{tm.phone || 'Sin asignar'}</strong></span>
+                                  <span className="text-[11px] font-mono text-slate-400">ID: {tm.id}</span>
+                                </div>
+                                <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-1 truncate max-w-md" title={fixedLink}>
+                                  {fixedLink}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyTelemarketingLink(tm)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white text-[11px] font-bold cursor-pointer"
+                                  title="Copiar enlace fijo para compartir"
+                                >
+                                  <Copy size={12} />
+                                  <span>Copiar Link</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleWhatsAppTelemarketingLink(tm)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer"
+                                  title="Enviar enlace por WhatsApp a la Ejecutiva"
+                                >
+                                  <span>WhatsApp</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditTelemarketingMember(tm)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cyan-100 hover:bg-cyan-200 text-cyan-900 text-[11px] font-bold cursor-pointer"
+                                  title="Cambiar nombre o número de WhatsApp manteniendo el mismo link"
+                                >
+                                  <Pencil size={12} />
+                                  <span>Reasignar</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowTelemarketingModal(false);
+                                    setVisibilityEditTarget(`tm:${tm.id}`);
+                                    setVisibilityModalTab('labs');
+                                    setShowShareFilterModal(true);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-[11px] font-bold cursor-pointer"
+                                  title="Configurar laboratorios o precios de esta Ejecutiva"
+                                >
+                                  <Filter size={12} />
+                                  <span>Reglas</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteTelemarketingMember(tm)}
+                                  className="inline-flex items-center px-2 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-bold cursor-pointer"
+                                  title="Eliminar del equipo de Telemarketing"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/90 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Las ejecutivas de Telemarketing no tienen acceso al panel de Visitas, GPS ni Viáticos.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowTelemarketingModal(false)}
+                  className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold cursor-pointer"
+                >
+                  Listo
                 </button>
               </div>
             </div>
